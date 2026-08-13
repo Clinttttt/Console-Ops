@@ -1,0 +1,16 @@
+* text=auto
+
+# Keep source and documentation consistent across agent worktrees and platforms.
+*.cs text eol=lf
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ts text eol=lf
+*.scss text eol=lf
+
+# Windows command scripts require Windows line endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf

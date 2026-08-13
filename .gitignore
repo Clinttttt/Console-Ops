@@ -1,0 +1,48 @@
+# .NET build and test output
+**/bin/
+**/obj/
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+
+# User- and IDE-specific files
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local configuration and secrets
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
+.env
+.env.*
+!.env.example
+
+# Angular / Node.js output
+**/node_modules/
+**/.angular/
+**/dist/
+**/.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+~$*
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini

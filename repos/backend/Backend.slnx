@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ConsoleOps.Api/ConsoleOps.Api.csproj" />
+  <Project Path="ConsoleOps.Tests/ConsoleOps.Tests.csproj" />
+</Solution>
