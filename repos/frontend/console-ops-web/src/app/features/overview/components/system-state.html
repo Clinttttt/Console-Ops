@@ -1,0 +1,68 @@
+<header class="section-head">
+  <div>
+    <h2 class="co-eyebrow">System State</h2>
+    <p class="co-section-note">Component health and status across environments</p>
+  </div>
+
+  <ul class="legend">
+    @for (entry of legend; track entry.level) {
+      <li>
+        <span class="co-dot" [attr.data-level]="entry.level"></span>
+        {{ entry.label }}
+      </li>
+    }
+  </ul>
+</header>
+
+@if (matrix().columns.length === 0) {
+  <p class="empty co-unavailable">No components to report for the selected environment.</p>
+} @else {
+  <table class="co-table matrix">
+    <thead>
+      <tr>
+        <th scope="col" rowspan="2">Component</th>
+        @for (column of matrix().columns; track column.projectId) {
+          <th scope="colgroup" colspan="2" class="group">
+            {{ column.projectName }} ({{ column.environmentName }})
+          </th>
+        }
+      </tr>
+      <tr>
+        @for (column of matrix().columns; track column.projectId) {
+          <th scope="col" class="group sub">Status</th>
+          <th scope="col" class="sub">Details</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of matrix().rows; track row.key) {
+        <tr>
+          <th scope="row" class="component">
+            <co-icon [name]="iconFor(row.key)" [size]="15" />
+            {{ row.label }}
+          </th>
+
+          @for (cell of row.cells; track $index) {
+            <td class="group">
+              <co-status [cell]="cell" [showDetail]="false" [reserveIndicatorSpace]="true" />
+            </td>
+            <td class="detail">
+              @if (cell === null || cell.detail === null) {
+                <span class="co-unavailable">&mdash;</span>
+              } @else {
+                {{ cell.detail }}
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <div class="co-section-footer">
+    <span class="co-inline-link is-unavailable" title="Health screen - planned for a later slice">
+      View full system status
+      <co-icon name="arrowRight" [size]="15" />
+    </span>
+  </div>
+}

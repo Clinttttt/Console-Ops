@@ -1,0 +1,26 @@
+@let pipeline = flow();
+
+@for (stage of pipeline.stages; track stage.key; let last = $last) {
+  <div class="stage">
+    <span class="glyph" [attr.data-stage]="stage.key">
+      <co-icon [name]="iconFor(stage)" [size]="22" />
+    </span>
+    <span class="labels">
+      <span class="name">{{ stage.name }}</span>
+      <span class="role">{{ stage.role }}</span>
+    </span>
+  </div>
+
+  @if (!last) {
+    <span class="connector" aria-hidden="true">
+      <span class="rule"></span>
+      <span class="node" [attr.data-verified]="stage.verified"></span>
+      <span class="rule"></span>
+      <span class="head"></span>
+    </span>
+  }
+}
+
+<span class="outcome" [attr.data-level]="pipeline.outcome.level">
+  <co-icon name="check" [size]="15" [strokeWidth]="2.2" [label]="pipeline.outcome.label" />
+</span>

@@ -1,0 +1,13 @@
+<div class="shell" [class.is-collapsed]="sidebarCollapsed()">
+  <co-sidebar
+    class="shell-sidebar"
+    [summary]="summary()"
+    [collapsed]="sidebarCollapsed()"
+    (collapsedChange)="setSidebarCollapsed($event)"
+  />
+
+  <main class="shell-main">
+    <co-top-bar [title]="header().title" [subtitle]="header().subtitle" />
+    <router-outlet />
+  </main>
+</div>

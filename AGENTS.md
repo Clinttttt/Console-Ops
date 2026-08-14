@@ -4,6 +4,7 @@ Before architecture or feature work, read:
 
 - `docs/Console_Ops_Project_Context.md` for product behavior and scope.
 - `docs/Console_Ops_Architecture.md` for implementation rules and dependency boundaries.
+- `docs/Console_Ops_V1_API_Contract.md` for approved V1 transport semantics and integration rules.
 
 Treat Console Ops as a pragmatic modular monolith using Vertical Slice Architecture, CQRS with
 MediatR, and focused DDD. Implement one end-to-end use case at a time. Do not introduce a generic
@@ -16,6 +17,12 @@ tests, and responses.
 
 The AMYL.Api project may be consulted for ideas, but `docs/Console_Ops_Architecture.md` is the
 authority for Console Ops and lists the reference patterns that must be corrected rather than copied.
+
+Code lives in `repos/backend` (ASP.NET Core) and `repos/frontend/console-ops-web` (Angular). The
+Overview screen is built ahead of the API by decision and is backed by a mock data-source adapter; see
+"Sequencing decision" in `docs/Console_Ops_Architecture.md`. Keep the frontend contract in
+`src/app/core/contracts` and the backend dashboard query in agreement, and delete the mock adapter
+when the real query slice lands instead of keeping it as a fallback.
 
 When multiple coding agents edit concurrently, give each agent/task its own Git worktree and branch
 outside the primary checkout. Keep the primary worktree for integration, avoid overlapping slice or

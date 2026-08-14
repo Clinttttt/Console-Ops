@@ -1,0 +1,81 @@
+<div class="brand">
+  <span class="mark" aria-hidden="true">CO</span>
+  @if (!collapsed()) {
+    <span class="brand-text">
+      <span class="brand-name">Console Ops</span>
+      <span class="brand-tagline">Deployment Control Center</span>
+    </span>
+  }
+</div>
+
+<nav class="nav" aria-label="Primary">
+  <ul>
+    @for (item of navigation; track item.label) {
+      <li>
+        @if (item.route !== null) {
+          <a
+            class="nav-item"
+            [routerLink]="item.route"
+            routerLinkActive="is-active"
+            [attr.title]="collapsed() ? item.label : null"
+          >
+            <co-icon [name]="item.icon" [size]="17" />
+            @if (!collapsed()) {
+              <span>{{ item.label }}</span>
+            }
+          </a>
+        } @else {
+          <span
+            class="nav-item is-planned"
+            aria-disabled="true"
+            [attr.title]="item.label + ' - planned for a later slice'"
+          >
+            <co-icon [name]="item.icon" [size]="17" />
+            @if (!collapsed()) {
+              <span>{{ item.label }}</span>
+            }
+          </span>
+        }
+      </li>
+    }
+  </ul>
+</nav>
+
+<div class="footer">
+  @let state = summary();
+  @if (state !== null) {
+    <div class="summary" [class.is-compact]="collapsed()">
+      <p class="summary-state">
+        <span class="co-dot" [attr.data-level]="state.level"></span>
+        @if (!collapsed()) {
+          <span>{{ state.label }}</span>
+        }
+      </p>
+
+      @if (!collapsed()) {
+        @let uptime = state.uptime;
+        <div class="uptime">
+          <span class="uptime-label">Uptime</span>
+          @if (uptime !== null) {
+            <span class="uptime-value">{{ uptime.label }}</span>
+            <co-sparkline
+              [samples]="uptime.samples"
+              [width]="152"
+              [height]="24"
+              label="Recent availability"
+            />
+          } @else {
+            <span class="uptime-value co-unavailable">Not recorded yet</span>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <button type="button" class="collapse" (click)="toggle()" [attr.aria-expanded]="!collapsed()">
+    <co-icon [name]="collapsed() ? 'arrowRight' : 'chevronLeft'" [size]="15" />
+    @if (!collapsed()) {
+      <span>Collapse</span>
+    }
+  </button>
+</div>

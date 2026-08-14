@@ -1,0 +1,84 @@
+:host {
+  display: block;
+  padding-bottom: var(--co-space-7);
+}
+
+.section-head {
+  padding-bottom: var(--co-space-4);
+}
+
+.empty {
+  padding: var(--co-space-5) 0;
+  font-size: 12.5px;
+}
+
+.project {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+}
+
+.project-name {
+  display: block;
+  font-size: 13px;
+  color: var(--co-ink-strong);
+}
+
+.project-kind {
+  display: block;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.commit {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+}
+
+.copy {
+  color: var(--co-ink-faint);
+}
+
+.copy:hover {
+  color: var(--co-ink);
+}
+
+.deployed-at {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.response {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+}
+
+.response-value {
+  font-size: 12.5px;
+  color: var(--co-ink);
+  white-space: nowrap;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-blue);
+}
+
+/* Read-only V1: the destination exists in the product but not yet in the app. */
+.action.is-unavailable {
+  color: var(--co-blue-muted);
+  cursor: not-allowed;
+}
+
+.co-inline-link.is-unavailable {
+  color: var(--co-ink-muted);
+  cursor: not-allowed;
+}

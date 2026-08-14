@@ -1,0 +1,101 @@
+:host {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  padding-bottom: var(--co-space-6);
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--co-line);
+  background: var(--co-surface);
+  color: var(--co-ink-strong);
+}
+
+.glyph[data-stage='ci'],
+.glyph[data-stage='runtime'] {
+  color: var(--co-blue);
+}
+
+.labels {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.name {
+  font-size: 13.5px;
+  color: var(--co-ink-strong);
+}
+
+.role {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.connector {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 48px;
+}
+
+.rule {
+  flex: 1;
+  border-top: 1px dashed var(--co-line-strong);
+}
+
+.node {
+  width: 8px;
+  height: 8px;
+  margin: 0 5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--co-status-warning);
+  background: var(--co-surface);
+}
+
+.node[data-verified='false'] {
+  border-color: var(--co-status-unknown);
+}
+
+/* Direction of flow: a small chevron head at the end of the connector. */
+.head {
+  width: 5px;
+  height: 5px;
+  margin-left: -1px;
+  border-top: 1.4px solid var(--co-line-strong);
+  border-right: 1.4px solid var(--co-line-strong);
+  transform: rotate(45deg);
+}
+
+.outcome {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: var(--co-space-3);
+  border-radius: 50%;
+  background: rgba(26, 143, 76, 0.12);
+  color: var(--co-status-healthy);
+}
+
+.outcome[data-level='unknown'],
+.outcome[data-level='notApplicable'] {
+  background: rgba(154, 161, 172, 0.18);
+  color: var(--co-status-unknown);
+}
+
+.outcome[data-level='down'] {
+  background: rgba(208, 42, 42, 0.12);
+  color: var(--co-status-down);
+}

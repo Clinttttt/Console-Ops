@@ -1,0 +1,38 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Recent Activity</h2>
+  <p class="co-section-note">Latest events across your environments</p>
+</header>
+
+@if (entries().length === 0) {
+  <p class="empty co-unavailable">No activity recorded yet.</p>
+} @else {
+  <ol class="timeline">
+    @for (entry of entries(); track entry.id; let first = $first) {
+      <li class="entry">
+        <span class="marker" [class.is-latest]="first" aria-hidden="true"></span>
+
+        <span class="glyph" [attr.data-kind]="entry.kind">
+          <co-icon [name]="iconFor(entry.kind)" [size]="17" />
+        </span>
+
+        <span class="body">
+          <span class="title">{{ entry.title }}</span>
+          @if (entry.context !== null) {
+            <span class="context">{{ entry.context }}</span>
+          }
+        </span>
+
+        <time class="time" [attr.datetime]="entry.occurredAt">
+          {{ entry.occurredAt | date: 'hh:mm a' : 'UTC' }}
+        </time>
+      </li>
+    }
+  </ol>
+
+  <div class="footer">
+    <span class="co-inline-link is-unavailable" title="Activity screen - planned for a later slice">
+      View all activity
+      <co-icon name="arrowRight" [size]="15" />
+    </span>
+  </div>
+}

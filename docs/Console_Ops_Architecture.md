@@ -296,6 +296,28 @@ The supplied dashboard image is visual direction, not literal product truth:
 - preserve the restrained, table-led, information-dense visual language;
 - prioritize V1 facts and honest unavailable/unknown states over placeholder metrics.
 
+### Sequencing decision: mock-backed Overview built before the API
+
+Decided 2026-08-14. The Angular workspace and the Overview (home) screen are built first, ahead of
+the backend slices, to settle the dashboard contract and visual language early. This is an accepted
+deviation from the recommended implementation order below and applies to the Overview screen only.
+
+Rules that keep the deviation safe:
+
+- The frontend consumes a typed contract that mirrors the intended `GET /api/dashboard/overview`
+  response. `Console_Ops_V1_API_Contract.md` freezes the transport semantics, and the TypeScript
+  contract mirrors it for the later backend query.
+- Data reaches the UI only through an injectable data-source port. V1 registers a mock adapter; the
+  HTTP adapter replaces it at the provider registration with no component changes.
+- Mock data must obey the product rules: `Unknown`, `N/A`, and `Not configured` states are present,
+  and no metric is invented for a capability the product does not yet measure.
+- The mock stays clearly identifiable as a fixture and is not promoted into a runtime fallback that
+  could mask a real API failure.
+- Backend work continues in its documented order. When the dashboard query slice lands, the mock
+  adapter is removed rather than kept in parallel.
+- Phase 0 removes presentation-only API fields and later-phase mock claims before persistence or
+  backend response types are created.
+
 ## AMYL.Api reference policy
 
 The AMYL.Api project is a pattern reference, not a template to copy wholesale.
@@ -337,3 +359,7 @@ a domain meaning, a test seam at an external boundary, or more than one implemen
 7. Build the Angular shell and V1 dashboard against real API contracts.
 
 Each step must build and test before the next capability is added.
+
+The mock-backed Overview screen described under "Angular direction" runs ahead of this order by
+decision. Step 7 then reduces to replacing the mock data-source registration with the HTTP adapter
+and reconciling any contract differences found in step 6.

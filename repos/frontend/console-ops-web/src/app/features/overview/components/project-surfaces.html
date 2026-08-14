@@ -1,0 +1,107 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Project Surfaces</h2>
+  <p class="co-section-note">Live status of your applications and services</p>
+</header>
+
+@if (projects().length === 0) {
+  <p class="empty co-unavailable">No registered projects in {{ scopeLabel() }}.</p>
+} @else {
+  <table class="co-table">
+    <thead>
+      <tr>
+        <th scope="col">Project</th>
+        <th scope="col">Environment</th>
+        <th scope="col">Health</th>
+        <th scope="col">Deployment</th>
+        <th scope="col">Response</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (project of projects(); track project.id) {
+        <tr>
+          <td>
+            <div class="project">
+              <co-project-mark [name]="project.name" [tone]="toneFor(project.id)" />
+              <span>
+                <span class="project-name">{{ project.name }}</span>
+                <span class="project-kind">{{ project.kind }}</span>
+              </span>
+            </div>
+          </td>
+
+          <td>
+            <co-environment-tag
+              [name]="project.environment.name"
+              [kind]="project.environment.kind"
+            />
+          </td>
+
+          <td><co-status [cell]="project.health" /></td>
+
+          <td>
+            @let version = project.deployedVersion;
+            @if (version === null) {
+              <span
+                class="co-unavailable"
+                title="No version endpoint is configured for this project"
+              >
+                Not configured
+              </span>
+            } @else {
+              <div class="commit">
+                <span class="co-mono">{{ version.commitShortSha }}</span>
+                <button
+                  type="button"
+                  class="copy"
+                  (click)="copyCommit(project)"
+                  [attr.aria-label]="'Copy full commit for ' + project.name"
+                >
+                  <co-icon
+                    [name]="copiedProjectId() === project.id ? 'check' : 'copy'"
+                    [size]="14"
+                  />
+                </button>
+              </div>
+              @if (version.builtAt !== null) {
+                <span class="deployed-at">
+                  Built {{ version.builtAt | date: 'MMM d, y HH:mm' : 'UTC' }}
+                </span>
+              } @else {
+                <span class="deployed-at co-unavailable">Build time unknown</span>
+              }
+            }
+          </td>
+
+          <td>
+            <div class="response">
+              @if (project.response.milliseconds === null) {
+                <span class="co-unavailable">&mdash;</span>
+              } @else {
+                <span class="response-value">{{ project.response.milliseconds }} ms</span>
+                <co-sparkline
+                  [samples]="project.response.samples"
+                  [label]="'Recent response time for ' + project.name"
+                />
+              }
+            </div>
+          </td>
+
+          <td>
+            <span class="action is-unavailable" title="Project details - planned for a later slice">
+              Details
+              <co-icon name="externalLink" [size]="13" />
+            </span>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <div class="co-section-footer">
+    <span class="co-inline-link is-unavailable" title="Projects screen - planned for a later slice">
+      View all projects
+      <co-icon name="arrowRight" [size]="15" />
+    </span>
+  </div>
+}

@@ -1,0 +1,228 @@
+/* Console Ops design system.
+ *
+ * Restrained, developer-oriented, table-led. Colour carries operational meaning only:
+ * green = positive, blue = running/local, amber = warning, orange = degraded, red = failure,
+ * grey = unknown or not applicable. Everything else is charcoal, slate, or navy.
+ */
+
+:root {
+  /* Surfaces */
+  --co-canvas: #f6f5f2;
+  --co-surface: #fffffe;
+  --co-surface-sunken: #f1efea;
+  --co-rail: #f4f2ee;
+
+  /* Ink */
+  --co-ink: #1b2330;
+  --co-ink-strong: #101823;
+  --co-ink-muted: #6a7280;
+  --co-ink-faint: #949aa4;
+
+  /* Accent */
+  --co-navy: #0e1c3d;
+  --co-navy-soft: #2c3d63;
+  --co-navy-wash: #eef1f7;
+
+  /* Icon and link accent, per the Console Ops icon system */
+  --co-blue: #1a6fe0;
+  --co-blue-muted: #8aa9d6;
+  --co-blue-wash: #eaf1fc;
+
+  /* Status */
+  --co-status-healthy: #1a8f4c;
+  --co-status-running: #2563eb;
+  --co-status-warning: #c98a08;
+  --co-status-degraded: #d97706;
+  --co-status-down: #d02a2a;
+  --co-status-unknown: #9aa1ac;
+
+  /* Lines */
+  --co-line: #e6e3dc;
+  --co-line-strong: #d8d4cb;
+
+  /* Type */
+  --co-font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --co-font-display:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --co-font-mono:
+    'Cascadia Mono', ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+
+  /* Rhythm */
+  --co-space-1: 4px;
+  --co-space-2: 8px;
+  --co-space-3: 12px;
+  --co-space-4: 16px;
+  --co-space-5: 24px;
+  --co-space-6: 32px;
+  --co-space-7: 48px;
+
+  --co-radius-sm: 4px;
+  --co-radius-md: 6px;
+  --co-radius-lg: 10px;
+
+  --co-sidebar-width: 210px;
+  --co-sidebar-width-collapsed: 64px;
+  --co-rail-width: 300px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--co-canvas);
+  color: var(--co-ink);
+  font-family: var(--co-font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--co-navy-soft);
+  outline-offset: 2px;
+  border-radius: var(--co-radius-sm);
+}
+
+svg {
+  display: block;
+  flex: none;
+}
+
+/* --- Shared primitives ------------------------------------------------------------------ */
+
+.co-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--co-ink-strong);
+}
+
+.co-section-note {
+  margin-top: var(--co-space-1);
+  font-size: 12px;
+  color: var(--co-ink-muted);
+}
+
+.co-mono {
+  font-family: var(--co-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.co-unavailable {
+  color: var(--co-ink-faint);
+}
+
+/* Status indicator dot. Level is supplied through the `data-level` attribute. */
+.co-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--co-status-unknown);
+  flex: none;
+
+  &[data-level='healthy'] {
+    background: var(--co-status-healthy);
+  }
+  &[data-level='running'] {
+    background: var(--co-status-running);
+  }
+  &[data-level='warning'] {
+    background: var(--co-status-warning);
+  }
+  &[data-level='degraded'] {
+    background: var(--co-status-degraded);
+  }
+  &[data-level='down'] {
+    background: var(--co-status-down);
+  }
+}
+
+/* Operational data table. */
+.co-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+
+  th {
+    padding: 0 var(--co-space-4) var(--co-space-3) 0;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--co-ink-muted);
+    border-bottom: 1px solid var(--co-line);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: var(--co-space-3) var(--co-space-4) var(--co-space-3) 0;
+    border-bottom: 1px solid var(--co-line);
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: 0;
+  }
+}
+
+.co-section-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--co-space-5);
+}
+
+.co-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+
+  &:hover {
+    color: var(--co-navy-soft);
+  }
+}
+
+.co-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

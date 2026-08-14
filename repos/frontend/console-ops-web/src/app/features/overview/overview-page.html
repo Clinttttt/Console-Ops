@@ -1,0 +1,32 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading current operational state...</p>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>Operational state could not be determined.</p>
+      <button type="button" class="retry" (click)="retry()">Try again</button>
+    </div>
+  }
+
+  @default {
+    @let data = overview();
+    @if (data !== null) {
+      <div class="layout">
+        <div class="primary">
+          <co-pipeline-flow [flow]="data.pipeline" />
+          <co-project-surfaces [projects]="projects()" [scopeLabel]="scopeLabel()" />
+          @let matrix = systemState();
+          @if (matrix !== null) {
+            <co-system-state [matrix]="matrix" />
+          }
+        </div>
+
+        <aside class="rail" aria-label="Recent activity">
+          <co-recent-activity [entries]="data.activity" />
+        </aside>
+      </div>
+    }
+  }
+}
