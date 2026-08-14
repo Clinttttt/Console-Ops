@@ -1,0 +1,87 @@
+@let configured = view().configured;
+@let observed = view().observed;
+
+<header class="head">
+  <co-environment-tag [name]="configured.name" [kind]="configured.kind" />
+  @if (observed === null) {
+    <span class="co-unavailable not-observed">Not observed yet</span>
+  } @else {
+    <co-status [cell]="observed.health" [showDetail]="false" />
+  }
+</header>
+
+<dl class="rows">
+  <div class="row">
+    <dt>Application</dt>
+    <dd>
+      @if (configured.applicationUrl === null) {
+        <span class="co-unavailable">Not configured</span>
+      } @else {
+        <a
+          class="link"
+          [href]="configured.applicationUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ configured.applicationUrl }}
+          <co-icon name="externalLink" [size]="12" />
+        </a>
+      }
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Health</dt>
+    <dd>
+      @if (configured.healthUrl === null) {
+        <span class="co-unavailable">No health endpoint</span>
+      } @else if (observed === null) {
+        <span class="co-unavailable">Not probed yet</span>
+      } @else {
+        <co-status [cell]="observed.health" [showDetail]="false" />
+        @if (observed.response.milliseconds !== null) {
+          <span class="detail">{{ observed.response.milliseconds }} ms</span>
+        }
+      }
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Version</dt>
+    <dd>
+      @if (configured.versionUrl === null) {
+        <span class="co-unavailable">No version endpoint</span>
+      } @else if (observed === null || observed.deployedVersion === null) {
+        <span class="co-unavailable">Not observed yet</span>
+      } @else {
+        @if (observed.deployedVersion.version !== null) {
+          <span>{{ observed.deployedVersion.version }}</span>
+        }
+        <span class="co-mono detail">{{ observed.deployedVersion.commitShortSha }}</span>
+      }
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Version sync</dt>
+    <dd>
+      @let sync = versionSync();
+      @if (sync === null) {
+        <span class="co-unavailable">Not observed yet</span>
+      } @else {
+        <co-status [cell]="sync" />
+      }
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Last check</dt>
+    <dd>
+      @if (observed === null || observed.healthObservedAt === null) {
+        <span class="co-unavailable">Never</span>
+      } @else {
+        {{ observed.healthObservedAt | date: 'MMM d, HH:mm' : 'UTC' }} UTC
+      }
+    </dd>
+  </div>
+</dl>

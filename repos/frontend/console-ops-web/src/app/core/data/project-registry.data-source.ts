@@ -8,6 +8,7 @@ import { ProjectListItem, ProjectRegistry } from '../contracts/project-registry'
  */
 export abstract class ProjectRegistryDataSource {
   abstract load(): Observable<ProjectRegistry>;
+  abstract getProject(projectId: string): Observable<ProjectListItem>;
   abstract register(request: ProjectRegistrationRequest): Observable<ProjectListItem>;
   abstract refreshProject(projectId: string): Observable<unknown>;
 }

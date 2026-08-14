@@ -71,13 +71,7 @@
 
           <td>
             <div class="actions">
-              <span
-                class="action"
-                aria-disabled="true"
-                title="Project detail arrives in a later slice"
-              >
-                Open
-              </span>
+              <a class="action is-available" [routerLink]="['/projects', project.id]">Open</a>
               <span class="action" aria-disabled="true" title="Editing arrives with project detail">
                 Edit
               </span>

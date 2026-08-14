@@ -15,6 +15,10 @@ export class HttpProjectRegistryDataSource extends ProjectRegistryDataSource {
     return this.http.get<ProjectRegistry>('/api/projects');
   }
 
+  override getProject(projectId: string): Observable<ProjectListItem> {
+    return this.http.get<ProjectListItem>(`/api/projects/${encodeURIComponent(projectId)}`);
+  }
+
   override register(request: ProjectRegistrationRequest): Observable<ProjectListItem> {
     return this.http.post<ProjectListItem>('/api/projects', request);
   }

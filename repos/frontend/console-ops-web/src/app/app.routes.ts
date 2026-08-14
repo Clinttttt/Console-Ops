@@ -27,6 +27,16 @@ export const routes: Routes = [
       import('./features/projects/add-project-page').then((m) => m.AddProjectPage),
   },
   {
+    path: 'projects/:projectId',
+    title: 'Project - Console Ops',
+    data: {
+      title: 'Project',
+      subtitle: 'Configuration and the latest observations for one project.',
+    },
+    loadComponent: () =>
+      import('./features/projects/project-detail-page').then((m) => m.ProjectDetailPage),
+  },
+  {
     path: 'deployments',
     title: 'Deployments - Console Ops',
     data: {

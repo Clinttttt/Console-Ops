@@ -113,10 +113,15 @@ describe('ProjectsPage', () => {
     expect(recent).toEqual(['Console Ops', 'StockPilot', 'AMYL']);
   });
 
-  it('links to registration and keeps per-project actions unavailable', () => {
+  it('links to registration and to each project, keeping the rest unavailable', () => {
     expect(host.querySelector<HTMLAnchorElement>('.add')?.getAttribute('href')).toBe(
       '/projects/new',
     );
-    expect(host.querySelectorAll('.action[aria-disabled="true"]').length).toBe(10);
+
+    // Open reaches the project detail screen; Edit has no destination yet.
+    const open = Array.from(host.querySelectorAll<HTMLAnchorElement>('.action.is-available'));
+    expect(open.length).toBe(5);
+    expect(open[0].getAttribute('href')).toBe(`/projects/${PROJECT_REGISTRY_FIXTURE[0].id}`);
+    expect(host.querySelectorAll('.action[aria-disabled="true"]').length).toBe(5);
   });
 });

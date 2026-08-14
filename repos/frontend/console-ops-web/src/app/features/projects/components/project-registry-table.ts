@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import { ProjectListItem } from '../../../core/contracts/project-registry';
 import { EnvironmentTag } from '../../../core/ui/environment-tag';
@@ -11,7 +12,7 @@ import { toneForProject } from '../../../core/ui/project-tone';
 @Component({
   selector: 'co-project-registry-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, EnvironmentTag, Icon, ProjectMark],
+  imports: [DatePipe, EnvironmentTag, Icon, ProjectMark, RouterLink],
   templateUrl: './project-registry-table.html',
   styleUrl: './project-registry-table.scss',
 })
