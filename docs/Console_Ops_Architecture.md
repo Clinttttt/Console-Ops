@@ -340,34 +340,24 @@ Rules that keep the deviation safe:
 - Phase 0 removes presentation-only API fields and later-phase mock claims before persistence or
   backend response types are created.
 
-### Sequencing decision: mock-backed Projects screen and the list read model it needs
+### Projects screen contract reconciliation
 
-Decided 2026-08-14, after the Overview screen moved onto the real API. The Projects screen is built
-design-first under the same rules as the Overview: typed contract, injectable port, fixture-backed
-adapter registered at one provider, removed when the real query lands.
+Decided 2026-08-14. The design-first Projects and Add Project screens are now connected to the
+implemented V1 project APIs. Their runtime mock adapter was removed, and their TypeScript contracts
+mirror `GET /api/projects` and `POST /api/projects` exactly.
 
-It is mock-backed for a specific reason rather than convenience. The frozen V1 project resource is
-id, name, description, `configurationVersion`, timestamps, repository, and environments. The screen
-additionally shows:
+The design proposal to add application `kind`, runtime/framework, deployment history, lifecycle, and
+separate monitoring-intent flags was rejected for V1. Those fields and columns were removed rather
+than populated with guesses or added to the backend without a product requirement. Normal project
+queries continue to exclude archived projects. The Projects screen shows persisted project,
+repository, environment, workflow, endpoint-presence, timestamp, and configuration-version facts.
 
-- `kind` (`api` | `webApp` | `worker`) - application shape, not currently registered;
-- `runtime` (framework and hosting target) - configuration, not currently registered;
-- `lastDeployment` (time and trigger source) - deployment history, which is a later phase;
-- `lifecycle` (`active` | `archived`) - already implied by soft archive, needs exposing in the list.
-
-`repos/frontend/console-ops-web/src/app/core/contracts/project-registry.ts` is the proposal for
-`GET /api/projects` as a list read model and marks every field that exceeds the frozen contract.
-Before that list query is implemented, the backend owner either accepts these fields into the
-contract document or rejects them, in which case the screen drops the corresponding columns rather
-than the API inventing values. Deployment fields stay `null` until the deployment-history phase.
-
-The Add Project screen follows the same rule. `project-registration.ts` mirrors the frozen
-`POST /api/projects` body and marks `kind`, `runtime`, and the monitoring intent flags as the same
-proposal. The form validates the frozen registration rules client-side - repository as `owner/name`,
-a required default branch, and absolute HTTP(S) URLs with no embedded credentials - and composes a
-typed request, but the submit control stays disabled until the register-project slice is wired, so no
-screen pretends to have created a project. Azure is shown as a later phase rather than as a connected
-provider, because Azure runtime awareness is V2.
+Add Project supports the optional explicit GitHub Actions workflow file already present in the V1
+contract. Relative health/version paths are a form convenience only: the frontend resolves them
+against the configured application base URL and sends only absolute HTTP(S) URLs to the API. After a
+successful registration, the frontend requests one best-effort project refresh so the dashboard can
+show stored observations. A refresh failure does not reinterpret a successful registration as a
+failure. Azure remains labelled as a later phase because Azure runtime awareness is V2.
 
 ## AMYL.Api reference policy
 

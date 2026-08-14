@@ -1,14 +1,13 @@
 import { Observable } from 'rxjs';
 
-import { ProjectRegistry } from '../contracts/project-registry';
+import { ProjectRegistrationRequest } from '../contracts/project-registration';
+import { ProjectListItem, ProjectRegistry } from '../contracts/project-registry';
 
 /**
- * Port for reading the project registry.
- *
- * The UI depends only on this abstraction. A design-stage mock adapter backs it today; the HTTP
- * adapter for the real list query replaces it at the provider registration in `app.config.ts`
- * without touching a component.
+ * Narrow port for the V1 project resource and its explicit observation refresh operation.
  */
 export abstract class ProjectRegistryDataSource {
   abstract load(): Observable<ProjectRegistry>;
+  abstract register(request: ProjectRegistrationRequest): Observable<ProjectListItem>;
+  abstract refreshProject(projectId: string): Observable<unknown>;
 }

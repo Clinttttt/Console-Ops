@@ -42,14 +42,10 @@
   color: var(--co-ink-muted);
 }
 
-.type {
-  display: inline-block;
-  padding: 3px 9px;
-  border: 1px solid var(--co-line-strong);
-  border-radius: var(--co-radius-md);
-  font-size: 11.5px;
-  color: var(--co-ink);
-  white-space: nowrap;
+.environments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--co-space-2);
 }
 
 .source {
@@ -66,16 +62,16 @@
 }
 
 .branch,
-.runtime-target,
-.deployed-by {
+.workflow,
+.configuration-version {
   display: block;
   margin-top: 2px;
   font-size: 11.5px;
   color: var(--co-ink-muted);
 }
 
-.runtime-framework,
-.deployed-at {
+.monitoring,
+.updated-at {
   display: block;
   font-size: 12.5px;
   color: var(--co-ink);
