@@ -359,6 +359,60 @@ successful registration, the frontend requests one best-effort project refresh s
 show stored observations. A refresh failure does not reinterpret a successful registration as a
 failure. Azure remains labelled as a later phase because Azure runtime awareness is V2.
 
+### Environments screen: design mock ahead of later-phase data
+
+Decided 2026-08-14, after the Projects reconciliation above. The Environments screen exists as a
+fixture-backed design mock at `/environments`. It is not connected to the API and must not be, because
+its central columns depend on facts that V1 does not hold: runtime provider and target, Azure runtime
+revision (V2), configuration-presence counts (later phase), and last-deployment time (later phase).
+
+This is not a renewed request for the fields rejected above. The screen records the intended layout for
+when those phases arrive. When the environment query is implemented against V1 truth, the columns
+without a V1 source are removed rather than populated with guesses, exactly as the Projects screen did.
+
+Rules the mock still obeys:
+
+- Configuration is reported as counts of expected keys found, never values, so no secret can leak.
+- Relative times are measured against the payload's `observedAt`, not the browser clock, so "18 min
+  ago" always means 18 minutes before the observation and stays deterministic under test.
+- Version sync wording is derived in the UI from the machine-readable `VersionSyncState`. A local
+  environment with no version endpoint reads `Not configured` rather than borrowing a healthy label.
+- Environment creation and editing are disabled, because V1 edits environments through the project
+  configuration replacement rather than an environment resource.
+
+### Deployments screen: design mock ahead of the deployment phase
+
+Decided 2026-08-14. The Deployments screen exists as a fixture-backed design mock at `/deployments`. It
+is not connected to the API and must not be: deployment history is a later product phase and deployment
+triggering is later still, so no column on this screen has a V1 source.
+
+It follows the same rules as the Environments mock, plus two of its own:
+
+- The verification verdict is derived, not stored. `core/ui/deployment-verdict.ts` computes it from the
+  three facts a provider and the probes actually report - result, post-deployment health, version sync -
+  in severity order. A missing version endpoint yields `notConfigured` and never downgrades an otherwise
+  passing deployment; an unknown fact yields `Unverified` rather than a guess. This is the deterministic
+  correlation rule applied to one deployment.
+- Every figure in the verification summary is counted from the records in view, never estimated. When a
+  figure has no basis - no durations reported, no records in the window - it reads as unavailable rather
+  than zero, and it recounts when the view narrows.
+
+Triggering, redeploying, rolling back, and log access are disabled controls that name the phase they
+belong to. A recorded workflow run is a real outbound link; a missing one is explicitly unavailable.
+
+### Add Project: import-first direction
+
+Decided 2026-08-14. Registration should discover whatever a provider already knows and ask the operator
+only for what no provider can know. The phased plan lives in `Console_Ops_Add_Project_Import_Plan.md`:
+Phase 0 is the information architecture and is implemented; Phase 1 adds repository discovery, Phase 2
+workflow discovery, Phase 3 pre-registration endpoint verification, and Phase 4 a confirmation step and
+Azure runtime import.
+
+Two rules from that plan bind any agent touching this screen. Discovery may prefill but never silently
+decide, so a suggested workflow is still confirmed by the operator. And no probe result may appear on
+this screen until an endpoint actually returns one - pre-registration verification is server side,
+through the existing probe safeguards, never from the browser.
+
 ## AMYL.Api reference policy
 
 The AMYL.Api project is a pattern reference, not a template to copy wholesale.

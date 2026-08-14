@@ -16,10 +16,10 @@ interface NavigationItem {
 const NAVIGATION: readonly NavigationItem[] = [
   { label: 'Overview', icon: 'home', route: '/overview' },
   { label: 'Projects', icon: 'stacks', route: '/projects' },
-  { label: 'Deployments', icon: 'rocket', route: null },
+  { label: 'Deployments', icon: 'rocket', route: '/deployments' },
   { label: 'Health', icon: 'heartPulse', route: null },
   { label: 'Logs', icon: 'fileText', route: null },
-  { label: 'Environments', icon: 'server', route: null },
+  { label: 'Environments', icon: 'server', route: '/environments' },
   { label: 'Settings', icon: 'gear', route: null },
 ];
 

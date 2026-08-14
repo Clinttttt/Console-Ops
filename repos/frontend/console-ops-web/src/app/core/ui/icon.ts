@@ -20,6 +20,8 @@ export type IconName =
   | 'gear'
   // Pipeline and providers
   | 'github'
+  | 'azure'
+  | 'docker'
   | 'ciCd'
   | 'cube'
   // Components
@@ -37,6 +39,8 @@ export type IconName =
   | 'bell'
   | 'sliders'
   | 'plus'
+  | 'pencil'
+  | 'calendar'
   | 'ellipsis'
   | 'archive'
   | 'chevronDown'
@@ -105,6 +109,18 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
       'M12 2.2A9.8 9.8 0 0 0 8.9 21.3c.5.1.7-.2.7-.5v-1.9c-2.7.6-3.3-1.2-3.3-1.2-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.5-1.1-4.5-4.9 0-1.1.4-2 1-2.6-.1-.3-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.3 9.3 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.3.1 2.6.6.6 1 1.5 1 2.6 0 3.8-2.3 4.6-4.5 4.9.4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A9.8 9.8 0 0 0 12 2.2Z',
     ],
   },
+  azure: {
+    filled: true,
+    paths: ['M12 3.4 4.2 20.6h5.1L12 13.9l2.7 6.7h5.1L12 3.4Z'],
+  },
+  docker: {
+    filled: true,
+    paths: [
+      'M4.2 12.9h13.1c.1 3-2.1 5.5-5.7 5.5-3.9 0-6.5-1.9-7.4-5.5Z',
+      'M6.1 9.1h2.6v3.1H6.1ZM9.4 9.1H12v3.1H9.4ZM12.7 9.1h2.6v3.1h-2.6ZM9.4 5.6H12v2.8H9.4Z',
+      'M17.9 11.5c.9-.7 2.2-.6 3 .2l-.7 1.1c-.6-.5-1.5-.5-2.1-.1Z',
+    ],
+  },
   ciCd: {
     paths: [
       CIRCLE(7, 6.6, 2.4),
@@ -170,6 +186,15 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
   },
   plus: {
     paths: ['M12 5.6v12.8M5.6 12h12.8'],
+  },
+  pencil: {
+    paths: [
+      'M4.6 19.4h3.3l9.2-9.2-3.3-3.3-9.2 9.2Z',
+      'M15.2 5.6 17 3.8a1.5 1.5 0 0 1 2.1 0l1.1 1.1a1.5 1.5 0 0 1 0 2.1l-1.8 1.8Z',
+    ],
+  },
+  calendar: {
+    paths: ['M4.4 5.8h15.2v13.8H4.4Z', 'M4.4 9.8h15.2', 'M8.4 3.6v3.4M15.6 3.6v3.4'],
   },
   ellipsis: {
     paths: [CIRCLE(6, 12, 1.1), CIRCLE(12, 12, 1.1), CIRCLE(18, 12, 1.1)],

@@ -1,0 +1,42 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading deployment history...</p>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>Deployment history could not be read.</p>
+      <button type="button" class="retry" (click)="retry()">Try again</button>
+    </div>
+  }
+
+  @default {
+    <co-deployment-filters
+      [query]="query()"
+      [projects]="projectOptions()"
+      [projectId]="projectId()"
+      [activeView]="activeView()"
+      (queryChange)="setQuery($event)"
+      (projectChange)="setProject($event)"
+      (viewChange)="selectView($event)"
+    />
+
+    <div class="layout">
+      <div class="primary">
+        <co-deployment-timeline
+          [deployments]="deployments()"
+          [totalCount]="totalCount()"
+          [selectedId]="selected()?.id ?? null"
+          [observedAt]="observedAt()"
+          (selectDeployment)="select($event)"
+          (clearFilters)="clearFilters()"
+        />
+      </div>
+
+      <aside class="rail" aria-label="Deployment detail">
+        <co-selected-deployment [deployment]="selected()" [observedAt]="observedAt()" />
+        <co-deployment-verification [deployments]="deployments()" [observedAt]="observedAt()" />
+      </aside>
+    </div>
+  }
+}

@@ -140,6 +140,33 @@ control style is needed twice, move it into `.co-form` rather than duplicating i
 Avoid card grids, gradients, glassmorphism, heavy shadows, oversized icons, decorative charts, and
 rainbow status colours. Prefer tables, thin rules, and generous spacing.
 
+## Density
+
+A table is right when every row answers the same few questions. Past roughly six columns it stops being
+scannable, and the Deployments screen proved it: nine columns of commit, branch, revision, verdict,
+timing, duration, and actions were unreadable at normal window widths.
+
+When a record carries more facts than a row can hold, switch to a card per record:
+
+- one scannable line for identity, verdict, and timing, aligned across cards with a grid so the eye can
+  run down a column;
+- a quieter second line, separated by a hairline rule, for source detail such as branch, commit, and
+  revision;
+- actions grouped at the end of the scannable line, labelled rather than icon-only when there is room;
+- group cards under a date or category heading on a timeline rail instead of repeating a header row.
+
+Do not solve density by shrinking type or removing honest unavailable states.
+
+When a group heading can carry a count, it replaces a separate distribution panel rather than repeating
+the same figures in two places.
+
+## Selection
+
+A list that drives a detail panel starts with nothing selected. Never preselect a row: a highlight the
+operator did not choose reads as state they set, and on an operations screen that is misleading. Show the
+panel's empty state until they pick something, keep exactly one row highlighted after they do, and clear
+the selection when a filter removes the chosen row.
+
 ## Testing
 
 - Vitest through `ng test`. The app is zoneless: always `await fixture.whenStable()` before asserting.

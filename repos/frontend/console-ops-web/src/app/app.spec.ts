@@ -39,8 +39,8 @@ describe('App shell', () => {
       item.textContent?.trim(),
     );
 
-    expect(navigable).toEqual(['Overview', 'Projects']);
-    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(5);
+    expect(navigable).toEqual(['Overview', 'Projects', 'Deployments', 'Environments']);
+    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(3);
   });
 
   it('shows partial visibility without inventing uptime history', async () => {

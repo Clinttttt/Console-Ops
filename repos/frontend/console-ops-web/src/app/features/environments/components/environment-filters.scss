@@ -1,0 +1,111 @@
+:host {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-4);
+  padding-bottom: var(--co-space-6);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  width: 268px;
+  padding: 8px var(--co-space-3);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  color: var(--co-ink-muted);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  color: var(--co-ink);
+}
+
+.search input::placeholder {
+  color: var(--co-ink-faint);
+}
+
+.views {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.view {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 5px var(--co-space-3);
+  border-radius: var(--co-radius-sm);
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+  white-space: nowrap;
+}
+
+.view:hover {
+  color: var(--co-ink);
+}
+
+.view.is-active {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-strong);
+  font-weight: 600;
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin-left: auto;
+}
+
+.select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select select {
+  appearance: none;
+  padding: 8px 34px 8px var(--co-space-3);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--co-ink);
+}
+
+.select co-icon {
+  position: absolute;
+  right: var(--co-space-3);
+  color: var(--co-ink-muted);
+  pointer-events: none;
+}
+
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 9px var(--co-space-4);
+  border-radius: var(--co-radius-md);
+  background: var(--co-navy);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

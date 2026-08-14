@@ -1,0 +1,173 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Selected Deployment</h2>
+</header>
+
+@let selected = deployment();
+@if (selected === null) {
+  <p class="co-unavailable empty">Select a deployment to inspect its record.</p>
+} @else {
+  <div class="identity">
+    <co-project-mark [name]="selected.projectName" [tone]="tone()" [size]="30" />
+    <span class="title">{{ selected.projectName }} / {{ selected.environment.name }}</span>
+    <span class="verdict"><co-status [cell]="verdict()" [showDetail]="false" /></span>
+  </div>
+
+  <dl class="rows">
+    <div class="row">
+      <dt>Project</dt>
+      <dd>{{ selected.projectName }}</dd>
+    </div>
+
+    <div class="row">
+      <dt>Environment</dt>
+      <dd>
+        <co-environment-tag [name]="selected.environment.name" [kind]="selected.environment.kind" />
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Commit</dt>
+      <dd>
+        <span class="co-mono">{{ selected.commitShortSha }}</span>
+        <button
+          type="button"
+          class="copy"
+          (click)="copy('commit', selected.commitSha)"
+          [attr.aria-label]="'Copy full commit for ' + selected.projectName"
+        >
+          <co-icon [name]="copiedField() === 'commit' ? 'check' : 'copy'" [size]="14" />
+        </button>
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Branch</dt>
+      <dd>
+        <span class="co-mono">{{ selected.branch }}</span>
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Workflow</dt>
+      <dd>
+        @if (selected.workflowFile === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else if (selected.workflowUrl === null) {
+          <span class="co-mono">{{ selected.workflowFile }}</span>
+        } @else {
+          <a class="link" [href]="selected.workflowUrl" target="_blank" rel="noopener noreferrer">
+            <span class="co-mono">{{ selected.workflowFile }}</span>
+            <co-icon name="externalLink" [size]="13" />
+          </a>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Runtime</dt>
+      <dd>
+        @if (selected.runtimeTarget === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else {
+          {{ selected.runtimeTarget }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Revision</dt>
+      <dd>
+        @if (selected.revision === null) {
+          <span class="co-unavailable">&mdash;</span>
+        } @else {
+          <span class="co-mono">{{ selected.revision }}</span>
+          <button
+            type="button"
+            class="copy"
+            (click)="copy('revision', selected.revision)"
+            [attr.aria-label]="'Copy revision for ' + selected.projectName"
+          >
+            <co-icon [name]="copiedField() === 'revision' ? 'check' : 'copy'" [size]="14" />
+          </button>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Result</dt>
+      <dd><co-status [cell]="result()" [showDetail]="false" /></dd>
+    </div>
+
+    <div class="row">
+      <dt>Health check</dt>
+      <dd><co-status [cell]="healthCheck()" [showDetail]="false" /></dd>
+    </div>
+
+    <div class="row">
+      <dt>Version check</dt>
+      <dd><co-status [cell]="versionCheck()" [showDetail]="false" /></dd>
+    </div>
+
+    <div class="row">
+      <dt>Duration</dt>
+      <dd>
+        @let duration = selected.durationSeconds | coDuration;
+        @if (duration === null) {
+          <span class="co-unavailable">Not reported</span>
+        } @else {
+          {{ duration }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Triggered by</dt>
+      <dd>
+        @if (selected.triggeredBy === null) {
+          <span class="co-unavailable">Unknown</span>
+        } @else {
+          {{ selected.triggeredBy }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Deployed</dt>
+      <dd>
+        {{ selected.deployedAt | date: 'MMM d, HH:mm' : 'UTC' }}
+        <span class="relative"> ({{ selected.deployedAt | coRelativeTime: observedAt() }}) </span>
+      </dd>
+    </div>
+  </dl>
+
+  <div class="actions">
+    @if (selected.workflowUrl === null) {
+      <span
+        class="button is-primary is-unavailable"
+        title="No workflow run is recorded for this deployment"
+      >
+        <co-icon name="ciCd" [size]="14" />
+        View Workflow
+      </span>
+    } @else {
+      <a
+        class="button is-primary"
+        [href]="selected.workflowUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <co-icon name="ciCd" [size]="14" />
+        View Workflow
+      </a>
+    }
+
+    <span
+      class="button is-unavailable"
+      aria-disabled="true"
+      title="Log access arrives in a later phase"
+    >
+      <co-icon name="fileText" [size]="14" />
+      View Logs
+    </span>
+  </div>
+}

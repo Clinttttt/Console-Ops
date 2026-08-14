@@ -1,0 +1,150 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Selected Environment</h2>
+</header>
+
+@let selected = environment();
+@if (selected === null) {
+  <p class="co-unavailable empty">Select an environment to inspect its configuration.</p>
+} @else {
+  <div class="identity">
+    <co-project-mark [name]="selected.projectName" [tone]="tone()" [size]="30" />
+    <span class="title">{{ selected.projectName }} / {{ selected.name }}</span>
+    <span class="health"><co-status [cell]="selected.health" [showDetail]="false" /></span>
+  </div>
+
+  <dl class="rows">
+    <div class="row">
+      <dt>Project</dt>
+      <dd>{{ selected.projectName }}</dd>
+    </div>
+
+    <div class="row">
+      <dt>Environment</dt>
+      <dd><co-environment-tag [name]="selected.name" [kind]="selected.kind" /></dd>
+    </div>
+
+    <div class="row">
+      <dt>Runtime</dt>
+      <dd>
+        @if (selected.runtime === null || selected.runtime.target === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else {
+          {{ selected.runtime.target }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Base URL</dt>
+      <dd>
+        @if (selected.applicationUrl === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else {
+          <a
+            class="link"
+            [href]="selected.applicationUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ selected.applicationUrl }}
+            <co-icon name="externalLink" [size]="13" />
+          </a>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Health endpoint</dt>
+      <dd>
+        @if (selected.healthEndpoint === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else {
+          <span class="co-mono">{{ selected.healthEndpoint }}</span>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Version endpoint</dt>
+      <dd>
+        @if (selected.versionEndpoint === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else {
+          <span class="co-mono">{{ selected.versionEndpoint }}</span>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Current revision</dt>
+      <dd>
+        @if (selected.currentRevision === null) {
+          <span class="co-unavailable">Unknown</span>
+        } @else {
+          <span class="co-mono">{{ selected.currentRevision }}</span>
+          <button
+            type="button"
+            class="copy"
+            (click)="copyRevision()"
+            [attr.aria-label]="'Copy revision for ' + selected.projectName"
+          >
+            <co-icon [name]="copied() ? 'check' : 'copy'" [size]="14" />
+          </button>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Version sync</dt>
+      <dd><co-status [cell]="versionSync()" [showDetail]="false" /></dd>
+    </div>
+
+    <div class="row">
+      <dt>Configuration</dt>
+      <dd>
+        @let configuration = configurationLabel();
+        @if (configuration === null) {
+          <span class="co-unavailable">Not checked</span>
+        } @else {
+          <span class="co-dot" [attr.data-level]="configurationLevel()"></span>
+          {{ configuration }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Last check</dt>
+      <dd>
+        @let checked = selected.healthCheckedAt | coRelativeTime: observedAt();
+        @if (checked === null) {
+          <span class="co-unavailable">Never checked</span>
+        } @else {
+          <span [attr.title]="selected.healthCheckedAt">{{ checked }}</span>
+        }
+      </dd>
+    </div>
+  </dl>
+
+  <div class="actions">
+    @if (selected.applicationUrl === null) {
+      <span class="button is-unavailable" title="No application URL is configured">
+        Open App
+        <co-icon name="externalLink" [size]="14" />
+      </span>
+    } @else {
+      <a class="button" [href]="selected.applicationUrl" target="_blank" rel="noopener noreferrer">
+        Open App
+        <co-icon name="externalLink" [size]="14" />
+      </a>
+    }
+
+    <span
+      class="button is-unavailable"
+      aria-disabled="true"
+      title="Environment configuration is edited from the project, which arrives with the project detail slice"
+    >
+      <co-icon name="pencil" [size]="14" />
+      Edit Environment
+    </span>
+  </div>
+}

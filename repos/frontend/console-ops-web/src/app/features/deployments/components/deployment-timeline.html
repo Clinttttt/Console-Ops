@@ -1,0 +1,175 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Deployment Timeline</h2>
+</header>
+
+@if (deployments().length === 0) {
+  <div class="empty">
+    <p class="co-unavailable">No deployments match this view.</p>
+    <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else {
+  <div class="timeline">
+    @for (day of days(); track day.key) {
+      <section class="day">
+        <h3 class="day-head">
+          <span class="day-marker" aria-hidden="true">
+            <co-icon name="calendar" [size]="15" />
+          </span>
+          @if (day.isToday) {
+            <span class="day-label"
+              >Today &mdash; {{ day.instant | date: 'MMM d, y' : 'UTC' }}</span
+            >
+          } @else {
+            <span class="day-label">{{ day.instant | date: 'MMM d, y' : 'UTC' }}</span>
+          }
+        </h3>
+
+        <ul class="cards">
+          @for (deployment of day.deployments; track deployment.id) {
+            <li class="card-item">
+              <span class="node" aria-hidden="true"></span>
+
+              <article
+                class="card"
+                tabindex="0"
+                [class.is-selected]="deployment.id === selectedId()"
+                [attr.aria-selected]="deployment.id === selectedId()"
+                (click)="selectDeployment.emit(deployment.id)"
+                (keydown.enter)="selectDeployment.emit(deployment.id)"
+                (keydown.space)="selectDeployment.emit(deployment.id); $event.preventDefault()"
+              >
+                <div class="card-head">
+                  <div class="identity">
+                    <co-project-mark
+                      [name]="deployment.projectName"
+                      [tone]="toneFor(deployment.projectId)"
+                      [size]="30"
+                    />
+                    <span class="identity-text">
+                      <span class="project-name">{{ deployment.projectName }}</span>
+                      <span class="identity-tags">
+                        <co-environment-tag
+                          [name]="deployment.environment.name"
+                          [kind]="deployment.environment.kind"
+                        />
+                        @if (deployment.isCurrent) {
+                          <span class="current" title="Currently active in this environment">
+                            Current
+                          </span>
+                        }
+                      </span>
+                    </span>
+                  </div>
+
+                  <div class="verdict">
+                    <co-status [cell]="verdict(deployment)" [showDetail]="false" />
+                  </div>
+
+                  <div class="timing">
+                    <span class="timing-value">
+                      {{ deployment.deployedAt | coRelativeTime: observedAt() }}
+                    </span>
+                    <span class="timing-detail">
+                      {{ deployment.deployedAt | date: 'MMM d, HH:mm' : 'UTC' }}
+                    </span>
+                  </div>
+
+                  <div class="timing">
+                    <span class="timing-label">Duration</span>
+                    @let duration = deployment.durationSeconds | coDuration;
+                    @if (duration === null) {
+                      <span class="timing-value co-unavailable">Not reported</span>
+                    } @else {
+                      <span class="timing-value">{{ duration }}</span>
+                    }
+                  </div>
+
+                  <div class="card-actions">
+                    @if (deployment.workflowUrl === null) {
+                      <span
+                        class="action is-unavailable"
+                        title="No workflow run is recorded for this deployment"
+                      >
+                        <co-icon name="ciCd" [size]="16" />
+                        Workflow
+                      </span>
+                    } @else {
+                      <a
+                        class="action"
+                        [href]="deployment.workflowUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        [attr.aria-label]="'Open workflow run for ' + deployment.projectName"
+                      >
+                        <co-icon name="ciCd" [size]="16" />
+                        Workflow
+                      </a>
+                    }
+
+                    <span
+                      class="action is-unavailable"
+                      aria-disabled="true"
+                      title="Log access arrives in a later phase"
+                    >
+                      <co-icon name="fileText" [size]="16" />
+                      Logs
+                    </span>
+
+                    <span
+                      class="action is-unavailable"
+                      aria-disabled="true"
+                      title="Redeploy and rollback arrive with the deployment controls phase"
+                    >
+                      <co-icon name="ellipsis" [size]="16" />
+                      More
+                    </span>
+                  </div>
+                </div>
+
+                <div class="card-meta">
+                  <span class="meta-item co-mono">{{ deployment.branch }}</span>
+                  <span class="meta-divider" aria-hidden="true"></span>
+                  <span class="meta-item">
+                    <span class="co-mono">{{ deployment.commitShortSha }}</span>
+                    <button
+                      type="button"
+                      class="copy"
+                      (click)="copyCommit(deployment); $event.stopPropagation()"
+                      [attr.aria-label]="'Copy full commit for ' + deployment.projectName"
+                    >
+                      <co-icon
+                        [name]="copiedId() === deployment.id ? 'check' : 'copy'"
+                        [size]="13"
+                      />
+                    </button>
+                  </span>
+                  <span class="meta-divider" aria-hidden="true"></span>
+                  @if (deployment.revision === null) {
+                    <span class="meta-item co-unavailable">No runtime revision</span>
+                  } @else {
+                    <span class="meta-item co-mono">{{ deployment.revision }}</span>
+                  }
+                </div>
+              </article>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+
+  <footer class="timeline-footer">
+    <span
+      class="co-inline-link is-unavailable"
+      title="Older history arrives with the deployment-history phase"
+    >
+      <co-icon name="archive" [size]="15" />
+      View older deployments
+    </span>
+
+    <p class="count">
+      Showing {{ deployments().length }} of {{ totalCount() }}
+      {{ totalCount() === 1 ? 'deployment' : 'deployments' }}
+    </p>
+  </footer>
+}

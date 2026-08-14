@@ -1,0 +1,20 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Deployment Verification</h2>
+  <p class="co-section-note">Counted from the deployments in view.</p>
+</header>
+
+<dl class="stats">
+  @for (stat of stats(); track stat.label) {
+    <div class="stat" [class.is-wide]="stat.wide === true">
+      <dt>{{ stat.label }}</dt>
+      <dd>
+        <span class="value" [class.co-unavailable]="stat.unavailable === true">{{
+          stat.value
+        }}</span>
+        @if (stat.level !== null && stat.unavailable !== true) {
+          <span class="co-dot" [attr.data-level]="stat.level"></span>
+        }
+      </dd>
+    </div>
+  }
+</dl>
