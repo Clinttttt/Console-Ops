@@ -45,7 +45,10 @@ export class ProjectsPage {
     const query = this.query().trim().toLowerCase();
 
     return this.store.projects().filter((project) => {
-      if (scope !== null && !project.environments.some((environment) => environment.kind === scope)) {
+      if (
+        scope !== null &&
+        !project.environments.some((environment) => environment.kind === scope)
+      ) {
         return false;
       }
 

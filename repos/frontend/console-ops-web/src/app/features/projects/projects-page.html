@@ -20,10 +20,7 @@
 
     <div class="layout">
       <div class="primary">
-        <co-project-registry-table
-          [projects]="projects()"
-          (clearFilters)="clearFilters()"
-        />
+        <co-project-registry-table [projects]="projects()" (clearFilters)="clearFilters()" />
       </div>
 
       <aside class="rail" aria-label="Project intake">

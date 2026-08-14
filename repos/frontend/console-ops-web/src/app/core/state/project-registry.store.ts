@@ -54,7 +54,10 @@ export class ProjectRegistryStore {
   register(request: ProjectRegistrationRequest): Observable<ProjectListItem> {
     return this.dataSource.register(request).pipe(
       tap((project) => {
-        this.current.update((projects) => [project, ...projects.filter(({ id }) => id !== project.id)]);
+        this.current.update((projects) => [
+          project,
+          ...projects.filter(({ id }) => id !== project.id),
+        ]);
         this.state.set('loaded');
       }),
     );

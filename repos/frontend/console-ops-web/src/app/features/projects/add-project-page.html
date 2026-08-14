@@ -60,7 +60,6 @@
             (input)="description.set($any($event.target).value)"
           />
         </div>
-
       </div>
     </section>
 
@@ -262,9 +261,7 @@
         class="primary"
         [disabled]="request() === null || submissionState() === 'submitting'"
         [attr.title]="
-          request() === null
-            ? 'Complete the required fields to compose a valid registration'
-            : null
+          request() === null ? 'Complete the required fields to compose a valid registration' : null
         "
       >
         <co-icon name="plus" [size]="15" [strokeWidth]="2" />

@@ -61,24 +61,31 @@
           </td>
 
           <td>
-            <time
-              class="updated-at"
-              [attr.datetime]="project.updatedAtUtc ?? project.createdAtUtc"
-            >
+            <time class="updated-at" [attr.datetime]="project.updatedAtUtc ?? project.createdAtUtc">
               {{ project.updatedAtUtc ?? project.createdAtUtc | date: 'MMM d, y' : 'UTC' }}
             </time>
-            <span class="configuration-version">Configuration v{{ project.configurationVersion }}</span>
+            <span class="configuration-version"
+              >Configuration v{{ project.configurationVersion }}</span
+            >
           </td>
 
           <td>
             <div class="actions">
-              <span class="action" aria-disabled="true" title="Project detail arrives in a later slice">
+              <span
+                class="action"
+                aria-disabled="true"
+                title="Project detail arrives in a later slice"
+              >
                 Open
               </span>
               <span class="action" aria-disabled="true" title="Editing arrives with project detail">
                 Edit
               </span>
-              <span class="more" aria-disabled="true" title="Project actions arrive in a later slice">
+              <span
+                class="more"
+                aria-disabled="true"
+                title="Project actions arrive in a later slice"
+              >
                 <co-icon name="ellipsis" [size]="16" />
               </span>
             </div>

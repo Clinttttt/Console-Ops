@@ -181,6 +181,8 @@ describe('AddProjectPage', () => {
   });
 
   it('offers a working way back to the registry', () => {
-    expect(host.querySelector<HTMLAnchorElement>('.cancel')?.getAttribute('href')).toBe('/projects');
+    expect(host.querySelector<HTMLAnchorElement>('.cancel')?.getAttribute('href')).toBe(
+      '/projects',
+    );
   });
 });

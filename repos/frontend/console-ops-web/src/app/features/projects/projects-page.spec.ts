@@ -114,7 +114,9 @@ describe('ProjectsPage', () => {
   });
 
   it('links to registration and keeps per-project actions unavailable', () => {
-    expect(host.querySelector<HTMLAnchorElement>('.add')?.getAttribute('href')).toBe('/projects/new');
+    expect(host.querySelector<HTMLAnchorElement>('.add')?.getAttribute('href')).toBe(
+      '/projects/new',
+    );
     expect(host.querySelectorAll('.action[aria-disabled="true"]').length).toBe(10);
   });
 });

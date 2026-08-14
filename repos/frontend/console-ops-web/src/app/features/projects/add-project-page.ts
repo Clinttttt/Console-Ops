@@ -1,5 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
@@ -219,6 +226,7 @@ function registrationErrorMessage(error: unknown): string {
 
   if (error.status === 0) return 'The Console Ops API is unavailable. Start the API and try again.';
   if (error.status === 409) return 'A project with that name or repository is already registered.';
-  if (error.status === 400) return 'The API rejected this configuration. Review the fields and try again.';
+  if (error.status === 400)
+    return 'The API rejected this configuration. Review the fields and try again.';
   return 'The project could not be added. Please try again.';
 }
