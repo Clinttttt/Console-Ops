@@ -4,6 +4,13 @@ namespace ConsoleOps.Api.Extensions;
 
 public static class ResultExtensions
 {
+  
+    public static IResult ToHttpResult<TValue>(this Result<TValue> result) =>
+        result.IsSuccess ? Results.Ok(result.Value) : result.ToProblemDetails();
+
+    public static IResult ToHttpResult(this Result result) =>
+        result.IsSuccess ? Results.NoContent() : result.ToProblemDetails();
+
     public static IResult ToProblemDetails(this Result result)
     {
         if (result.IsSuccess)

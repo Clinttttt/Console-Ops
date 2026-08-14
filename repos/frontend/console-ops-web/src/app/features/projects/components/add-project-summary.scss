@@ -21,13 +21,19 @@
   color: var(--co-ink-strong);
 }
 
+.empty {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--co-ink-muted);
+}
+
 .rows {
   margin: 0;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 130px minmax(0, 1fr);
+  grid-template-columns: 142px minmax(0, 1fr);
   align-items: baseline;
   gap: var(--co-space-3);
   padding: var(--co-space-2) 0;

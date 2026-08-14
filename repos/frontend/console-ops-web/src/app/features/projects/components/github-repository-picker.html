@@ -1,0 +1,107 @@
+<div class="panel" role="dialog" aria-label="Choose a repository">
+  <header class="head">
+    <div>
+      <h3 class="title">Choose a repository</h3>
+      <p class="co-section-note">
+        Repositories the configured GitHub credential can see, including private ones.
+      </p>
+    </div>
+    <button type="button" class="close" (click)="dismiss.emit()">Cancel</button>
+  </header>
+
+  <div class="search co-form">
+    <co-icon name="search" [size]="15" />
+    <label class="co-sr-only" for="co-repository-search">Search repositories</label>
+    <input
+      id="co-repository-search"
+      type="search"
+      placeholder="Search repositories..."
+      [value]="query()"
+      (input)="setQuery($any($event.target).value)"
+    />
+  </div>
+
+  @if (isLoading()) {
+    <p class="state co-reading" aria-live="polite" aria-busy="true">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading repositories from GitHub...
+    </p>
+  } @else if (failed()) {
+    <div class="state">
+      @switch (failureReason()) {
+        @case ('credential') {
+          <p class="unavailable-title">Console Ops has no working GitHub credential.</p>
+          <p class="unavailable-detail">
+            GitHub rejected the configured token, so it cannot list your repositories. Set
+            <span class="co-mono">GitHub:Token</span> in the API's user secrets, then try again. You
+            can enter the repository manually in the meantime.
+          </p>
+        }
+        @case ('rateLimited') {
+          <p class="unavailable-title">GitHub rate limited the request.</p>
+          <p class="unavailable-detail">
+            Wait a moment and try again, or enter the repository manually.
+          </p>
+        }
+        @case ('notImplemented') {
+          <p class="unavailable-title">Repository discovery is unavailable.</p>
+          <p class="unavailable-detail">
+            This Console Ops API does not provide
+            <span class="co-mono">/api/github/repositories</span>. Enter the repository manually.
+          </p>
+        }
+        @case ('apiUnavailable') {
+          <p class="unavailable-title">The Console Ops API is unavailable.</p>
+          <p class="unavailable-detail">
+            Start the API and try again, or enter the repository manually.
+          </p>
+        }
+        @default {
+          <p class="unavailable-title">Repositories could not be read.</p>
+          <p class="unavailable-detail">Try again, or enter the repository manually.</p>
+        }
+      }
+
+      <div class="state-actions">
+        <button type="button" class="retry" (click)="retry()">Try again</button>
+        <button type="button" class="manual" (click)="dismiss.emit()">Enter manually</button>
+      </div>
+    </div>
+  } @else {
+    @let result = page();
+    @if (result === null || result.repositories.length === 0) {
+      <p class="state co-unavailable">No repositories match that search.</p>
+    } @else {
+      <ul class="results">
+        @for (repository of result.repositories; track repository.owner + '/' + repository.name) {
+          <li>
+            <button type="button" class="result" (click)="choose.emit(repository)">
+              <span class="result-main">
+                <span class="result-name">{{ repository.owner }}/{{ repository.name }}</span>
+                <span class="result-meta">
+                  @if (repository.language !== null) {
+                    <span>{{ repository.language }}</span>
+                    <span class="co-meta-dot" aria-hidden="true"></span>
+                  }
+                  <span class="co-mono">{{ repository.defaultBranch }}</span>
+                  @if (repository.pushedAt !== null) {
+                    <span class="co-meta-dot" aria-hidden="true"></span>
+                    <span>Updated {{ repository.pushedAt | coRelativeTime: now }}</span>
+                  }
+                </span>
+              </span>
+
+              @if (repository.isPrivate) {
+                <span class="private">Private</span>
+              }
+            </button>
+          </li>
+        }
+      </ul>
+
+      @if (result.hasMore) {
+        <p class="more">Refine your search to see repositories beyond the first page.</p>
+      }
+    }
+  }
+</div>

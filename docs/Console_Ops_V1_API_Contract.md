@@ -31,6 +31,34 @@ V1 does not claim Azure revision state, deployment history, restart/migration/co
 configuration completeness, logs, rollback, uptime percentages, or Docker state. Those facts must
 be omitted or reported as unavailable until their product phase is implemented.
 
+## GitHub discovery API
+
+Added 2026-08-14 for the Add Project import flow. Provider reads, not stored entities; see
+`Console_Ops_Add_Project_Import_Plan.md` for the phases and the trust rules.
+
+```text
+GET /api/github/repositories?query=
+GET /api/github/repositories/{owner}/{repository}/workflows
+```
+
+`GET /api/github/repositories` returns `{ repositories: [...], hasMore }`, where a repository carries
+`owner`, `name`, `defaultBranch`, `isPrivate`, `language`, `pushedAt`, and `htmlUrl`. Results are the
+repositories the configured credential can see, sorted by push time, filtered on owner and name, and
+capped; `hasMore` is true when GitHub reported further pages or the cap truncated the list.
+
+`GET .../workflows` returns `{ workflows: [...] }`, where a workflow carries `name`, `path`, `fileName`,
+`active`, `latestRunConclusion`, and `latestRunCompletedAt`. `fileName` is separate from `path` because
+the project resource stores the file name while the operator needs the path to recognise the workflow.
+`latestRunConclusion` is `success`, `failure`, `cancelled`, `inProgress`, `unknown`, or `never`.
+
+Failures use stable codes: `GitHub.Unauthorized`, `GitHub.RateLimited`, `GitHub.NotFound`,
+`GitHub.InvalidResponse`, `GitHub.Unavailable`. A rejected or missing credential is a server
+configuration fault, so it is a failure rather than invalid input. No description includes the
+credential, the target URL, or a raw provider payload.
+
+Discovery never selects on the operator's behalf. The API returns what exists; the operator confirms
+which workflow deploys the environment, as the workflow rules below require.
+
 ## Transport rules
 
 - Use JSON with camel-case property names.

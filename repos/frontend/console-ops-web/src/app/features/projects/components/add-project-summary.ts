@@ -4,10 +4,10 @@ import { EnvironmentKind } from '../../../core/contracts/dashboard-overview';
 import { ProjectRegistrationRequest } from '../../../core/contracts/project-registration';
 import { Icon, IconName } from '../../../core/ui/icon';
 
-interface SummaryRow {
+interface PreviewRow {
   readonly icon: IconName;
   readonly label: string;
-  /** `null` renders as "Not set" so an incomplete form never looks complete. */
+  /** `null` renders as an explicit unavailable state so an incomplete form never looks complete. */
   readonly value: string | null;
   readonly environmentKind?: EnvironmentKind;
 }
@@ -25,7 +25,12 @@ const NEXT_STEPS: readonly NextStep[] = [
   { icon: 'refresh', text: 'Version sync reports Unknown until a deployed commit is observed.' },
 ];
 
-/** Live review of the registration the form would send. */
+/**
+ * Preview of the project Console Ops would create.
+ *
+ * It shows configuration only. No health, version, or sync result appears here, because none has been
+ * observed yet - those arrive after registration, or from the pre-registration verification phase.
+ */
 @Component({
   selector: 'co-add-project-summary',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -39,34 +44,39 @@ export class AddProjectSummary {
 
   protected readonly nextSteps = NEXT_STEPS;
 
-  protected readonly rows = computed<readonly SummaryRow[]>(() => {
+  /** The preview stays empty until the required configuration composes a valid registration. */
+  protected readonly hasPreview = computed(() => this.request() !== null);
+
+  protected readonly rows = computed<readonly PreviewRow[]>(() => {
     const request = this.request();
-    const environment = request?.environments[0] ?? null;
+    if (request === null) {
+      return [];
+    }
+
+    const environment = request.environments[0];
 
     return [
-      { icon: 'stacks', label: 'Project', value: request?.name ?? null },
+      { icon: 'stacks', label: 'Project', value: request.name },
       {
         icon: 'github',
         label: 'Repository',
-        value:
-          request === null
-            ? null
-            : `${request.repository.owner}/${request.repository.name} (${request.repository.defaultBranch})`,
+        value: `${request.repository.owner}/${request.repository.name}`,
+      },
+      { icon: 'ciCd', label: 'Source branch', value: request.repository.defaultBranch },
+      {
+        icon: 'ciCd',
+        label: 'Deployment workflow',
+        value: request.repository.workflowFile,
       },
       {
         icon: 'cloud',
         label: 'Environment',
-        value: environment?.name ?? null,
+        value: environment.name,
         environmentKind: this.environmentKind(),
       },
-      {
-        icon: 'ciCd',
-        label: 'Workflow',
-        value: request?.repository.workflowFile ?? null,
-      },
-      { icon: 'codeWindow', label: 'Base URL', value: environment?.applicationUrl ?? null },
-      { icon: 'heartPulse', label: 'Health Endpoint', value: environment?.healthUrl ?? null },
-      { icon: 'refresh', label: 'Version Endpoint', value: environment?.versionUrl ?? null },
+      { icon: 'codeWindow', label: 'Application', value: environment.applicationUrl },
+      { icon: 'heartPulse', label: 'Health', value: environment.healthUrl },
+      { icon: 'refresh', label: 'Version', value: environment.versionUrl },
     ];
   });
 }

@@ -1,35 +1,38 @@
 <section class="card">
   <header class="section-head">
-    <h2 class="section-title">Setup Summary</h2>
-    <p class="co-section-note">Review the configuration before adding.</p>
+    <h2 class="section-title">Project Preview</h2>
+    <p class="co-section-note">What Console Ops will register.</p>
   </header>
 
-  <dl class="rows">
-    @for (row of rows(); track row.label) {
-      <div class="row">
-        <dt>
-          <co-icon [name]="row.icon" [size]="15" />
-          {{ row.label }}
-        </dt>
-        <dd>
-          @if (row.value === null) {
-            <span class="co-unavailable">Not set</span>
-          } @else {
-            @if (row.environmentKind !== undefined) {
-              <span
-                class="co-dot"
-                [attr.data-level]="row.environmentKind === 'production' ? 'healthy' : 'running'"
-              ></span>
+  @if (!hasPreview()) {
+    <p class="empty">
+      Enter a repository and project name to begin. Console Ops will observe the source branch,
+      workflow and endpoints you configure here.
+    </p>
+  } @else {
+    <dl class="rows">
+      @for (row of rows(); track row.label) {
+        <div class="row">
+          <dt>
+            <co-icon [name]="row.icon" [size]="15" />
+            {{ row.label }}
+          </dt>
+          <dd>
+            @if (row.value === null) {
+              <span class="co-unavailable">Not configured</span>
+            } @else {
+              @if (row.environmentKind !== undefined) {
+                <span
+                  class="co-dot"
+                  [attr.data-level]="row.environmentKind === 'production' ? 'healthy' : 'running'"
+                ></span>
+              }
+              {{ row.value }}
             }
-            {{ row.value }}
-          }
-        </dd>
-      </div>
-    }
-  </dl>
-
-  @if (request() === null) {
-    <p class="pending">Complete the required fields to compose a valid registration.</p>
+          </dd>
+        </div>
+      }
+    </dl>
   }
 </section>
 

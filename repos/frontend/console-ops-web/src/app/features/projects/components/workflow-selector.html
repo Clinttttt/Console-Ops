@@ -1,0 +1,106 @@
+@let option = chosen();
+
+@if (!showList()) {
+  <span class="label">Deployment workflow</span>
+
+  <div class="chosen">
+    <span class="body">
+      @if (option === null) {
+        <span class="head"><span class="name">No deployment workflow</span></span>
+        <span class="meta">
+          CI stays <span class="co-mono">notConfigured</span> for this project.
+        </span>
+      } @else {
+        <span class="head"
+          ><span class="name">{{ option.workflow.name }}</span></span
+        >
+        <span class="meta">
+          <span class="path co-mono">{{ option.workflow.fileName }}</span>
+          <span class="co-meta-dot" aria-hidden="true"></span>
+          <span class="run">
+            <span class="co-dot" [attr.data-level]="option.level"></span>
+            {{ option.runLabel }}
+            @if (option.workflow.latestRunCompletedAt !== null) {
+              {{ option.workflow.latestRunCompletedAt | coRelativeTime: now }}
+            }
+          </span>
+        </span>
+      }
+    </span>
+
+    <button
+      type="button"
+      class="change"
+      (click)="reopen()"
+      aria-label="Change the deployment workflow"
+      aria-expanded="false"
+    >
+      Change
+    </button>
+  </div>
+} @else {
+  <fieldset class="group">
+    <legend class="legend">
+      <span class="legend-title">Which workflow deploys this environment?</span>
+      <span class="legend-note">
+        {{ options().length }} found.
+        @if (hasSuggestion()) {
+          One is suggested &mdash; confirm or choose another.
+        } @else {
+          Choose one, or none.
+        }
+      </span>
+    </legend>
+
+    <div class="options">
+      @for (option of options(); track option.workflow.fileName) {
+        <label class="option" [class.is-selected]="option.workflow.fileName === selected()">
+          <input
+            type="radio"
+            name="deployment-workflow"
+            [value]="option.workflow.fileName"
+            [checked]="option.workflow.fileName === selected()"
+            (change)="choose(option.workflow.fileName)"
+          />
+
+          <span class="body">
+            <span class="head">
+              <span class="name">{{ option.workflow.name }}</span>
+              @if (option.suggested) {
+                <span class="suggested">Suggested</span>
+              }
+            </span>
+            <span class="meta">
+              <span class="path co-mono">{{ option.workflow.fileName }}</span>
+              <span class="co-meta-dot" aria-hidden="true"></span>
+              <span class="run">
+                <span class="co-dot" [attr.data-level]="option.level"></span>
+                {{ option.runLabel }}
+                @if (option.workflow.latestRunCompletedAt !== null) {
+                  {{ option.workflow.latestRunCompletedAt | coRelativeTime: now }}
+                }
+              </span>
+            </span>
+          </span>
+        </label>
+      }
+
+      <label class="option" [class.is-selected]="chosenNone()">
+        <input
+          type="radio"
+          name="deployment-workflow"
+          [checked]="chosenNone()"
+          (change)="choose(null)"
+        />
+        <span class="body">
+          <span class="head">
+            <span class="name">No deployment workflow</span>
+          </span>
+          <span class="meta">
+            CI stays <span class="co-mono">notConfigured</span> for this project.
+          </span>
+        </span>
+      </label>
+    </div>
+  </fieldset>
+}

@@ -3,15 +3,50 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
+import {
+  GitHubRepository,
+  GitHubRepositoryPage,
+  GitHubWorkflow,
+  GitHubWorkflowList,
+} from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
 import { ProjectListItem } from '../../core/contracts/project-registry';
 import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
+import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { DASHBOARD_OVERVIEW_FIXTURE } from '../../core/data/mock/dashboard-overview.fixture';
 import { PROJECT_REGISTRY_FIXTURE } from '../../core/data/mock/project-registry.fixture';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { AddProjectPage } from './add-project-page';
+
+const SPINNER_REPOSITORY: GitHubRepository = {
+  owner: 'clint',
+  name: 'spinner',
+  defaultBranch: 'main',
+  isPrivate: true,
+  language: 'C#',
+  pushedAt: '2026-08-14T09:00:00Z',
+  htmlUrl: 'https://github.com/clint/spinner',
+};
+
+const DEPLOY_WORKFLOW: GitHubWorkflow = {
+  name: 'Deploy Production',
+  path: '.github/workflows/deploy-production.yml',
+  fileName: 'deploy-production.yml',
+  active: true,
+  latestRunConclusion: 'success',
+  latestRunCompletedAt: '2026-08-14T08:00:00Z',
+};
+
+const CI_WORKFLOW: GitHubWorkflow = {
+  name: 'CI',
+  path: '.github/workflows/ci.yml',
+  fileName: 'ci.yml',
+  active: true,
+  latestRunConclusion: 'success',
+  latestRunCompletedAt: '2026-08-14T08:50:00Z',
+};
 
 @Component({ template: '' })
 class ProjectsDestination {}
@@ -22,11 +57,15 @@ describe('AddProjectPage', () => {
   let registeredRequest: ProjectRegistrationRequest | null;
   let refreshedProjectId: string | null;
   let registrationResult: Observable<ProjectListItem>;
+  let repositoryResult: Observable<GitHubRepositoryPage>;
+  let workflowResult: Observable<GitHubWorkflowList>;
 
   beforeEach(async () => {
     registeredRequest = null;
     refreshedProjectId = null;
     registrationResult = of(PROJECT_REGISTRY_FIXTURE[0]);
+    repositoryResult = of({ repositories: [SPINNER_REPOSITORY], hasMore: false });
+    workflowResult = of({ workflows: [DEPLOY_WORKFLOW, CI_WORKFLOW] });
 
     TestBed.configureTestingModule({
       providers: [
@@ -52,6 +91,13 @@ describe('AddProjectPage', () => {
           provide: DashboardOverviewDataSource,
           useValue: { load: () => of(DASHBOARD_OVERVIEW_FIXTURE) },
         },
+        {
+          provide: GitHubDiscoveryDataSource,
+          useValue: {
+            listRepositories: () => repositoryResult,
+            listWorkflows: () => workflowResult,
+          },
+        },
       ],
     });
 
@@ -76,12 +122,12 @@ describe('AddProjectPage', () => {
     await type('#project-repository', 'clint/spinner');
   }
 
-  it('starts with nothing set instead of implying a configured project', () => {
-    expect(summary()).toContain('Not set');
-    expect(summary()).toContain('Complete the required fields to compose a valid registration.');
+  it('previews nothing until the configuration is valid', () => {
+    expect(summary()).toContain('Enter a repository and project name to begin.');
+    expect(summary()).not.toContain('Spinner API');
   });
 
-  it('mirrors the persisted V1 configuration in the setup summary', async () => {
+  it('mirrors the persisted V1 configuration in the project preview', async () => {
     await completeRequiredFields();
     await type('#workflow-file', 'deploy.yml');
     await type('#base-url', 'https://api.spinnerapp.com');
@@ -89,19 +135,20 @@ describe('AddProjectPage', () => {
     await type('#version-endpoint', '/version');
 
     expect(summary()).toContain('Spinner API');
-    expect(summary()).toContain('clint/spinner (main)');
+    expect(summary()).toContain('clint/spinner');
+    expect(summary()).toContain('main');
     expect(summary()).toContain('Production');
     expect(summary()).toContain('deploy.yml');
     expect(summary()).toContain('https://api.spinnerapp.com/health');
     expect(summary()).toContain('https://api.spinnerapp.com/version');
-    expect(summary()).not.toContain('Complete the required fields');
+    expect(summary()).not.toContain('Enter a repository');
   });
 
   it('rejects a repository that is not owner/name', async () => {
     await type('#project-repository', 'spinner');
 
     expect(host.textContent).toContain('Use the form owner/name');
-    expect(summary()).toContain('Complete the required fields');
+    expect(summary()).toContain('Enter a repository and project name to begin.');
   });
 
   it('rejects a relative base URL and embedded credentials', async () => {
@@ -122,14 +169,34 @@ describe('AddProjectPage', () => {
     expect(host.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(true);
   });
 
-  it('keeps the environment name in step with the selected kind', async () => {
+  it('derives the environment name from the kind without asking for it', async () => {
     const local = Array.from(host.querySelectorAll<HTMLButtonElement>('.segment')).find(
       (segment) => segment.textContent?.trim() === 'Local',
     );
     local!.click();
     harness.detectChanges();
 
-    expect(host.querySelector<HTMLInputElement>('#environment-name')?.value).toBe('Local');
+    // No name input is shown at all: the kind already answered the question.
+    expect(host.querySelector('#environment-name')).toBeNull();
+    expect(host.querySelector('.derived-value')?.textContent?.trim()).toBe('Local');
+  });
+
+  it('lets the operator take over the environment name', async () => {
+    host.querySelector<HTMLButtonElement>('.derived-action')!.click();
+    harness.detectChanges();
+
+    const field = host.querySelector<HTMLInputElement>('#environment-name');
+    expect(field?.value).toBe('Production');
+
+    await type('#environment-name', 'Production EU');
+    const staging = Array.from(host.querySelectorAll<HTMLButtonElement>('.segment')).find(
+      (segment) => segment.textContent?.trim() === 'Staging',
+    );
+    staging!.click();
+    harness.detectChanges();
+
+    // Once customized, changing the kind must not overwrite the operator's name.
+    expect(host.querySelector<HTMLInputElement>('#environment-name')?.value).toBe('Production EU');
   });
 
   it('submits the exact API contract, refreshes observations, and returns to Projects', async () => {
@@ -184,5 +251,150 @@ describe('AddProjectPage', () => {
     expect(host.querySelector<HTMLAnchorElement>('.cancel')?.getAttribute('href')).toBe(
       '/projects',
     );
+  });
+
+  async function importSpinner(): Promise<void> {
+    host.querySelector<HTMLButtonElement>('.import-action')!.click();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+
+    host.querySelector<HTMLButtonElement>('.result')!.click();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+  }
+
+  it('takes repository, branch and name from the imported repository', async () => {
+    await importSpinner();
+
+    // The manual repository and branch inputs are replaced by the discovered facts.
+    expect(host.querySelector('#project-repository')).toBeNull();
+    expect(host.querySelector('#default-branch')).toBeNull();
+    expect(host.querySelector('.discovered-name')?.textContent?.trim()).toBe('clint/spinner');
+    expect(host.querySelector('.discovered-meta')?.textContent).toContain('main');
+    expect(host.querySelector<HTMLInputElement>('#project-name')?.value).toBe('spinner');
+  });
+
+  it('keeps a project name the operator already typed', async () => {
+    await type('#project-name', 'Spinner API');
+    await importSpinner();
+
+    expect(host.querySelector<HTMLInputElement>('#project-name')?.value).toBe('Spinner API');
+  });
+
+  it('suggests a deployment workflow without selecting it', async () => {
+    await importSpinner();
+
+    const options = Array.from(host.querySelectorAll('co-workflow-selector .option'));
+    // Suggested first, then CI, then the explicit opt-out.
+    expect(options.length).toBe(3);
+    expect(options[0].textContent).toContain('Deploy Production');
+    expect(options[0].textContent).toContain('Suggested');
+    expect(options[0].textContent).toContain('Passed');
+
+    // Nothing is chosen for the operator, not even "no deployment workflow".
+    expect(host.querySelectorAll('.option.is-selected').length).toBe(0);
+  });
+
+  it('collapses to the chosen workflow and can be reopened', async () => {
+    await importSpinner();
+
+    host.querySelector<HTMLInputElement>('co-workflow-selector .option input')!.click();
+    harness.detectChanges();
+
+    // The list gives way to the confirmed choice.
+    expect(host.querySelectorAll('co-workflow-selector .option').length).toBe(0);
+    const chosen = host.querySelector('co-workflow-selector .chosen');
+    expect(chosen?.textContent).toContain('Deploy Production');
+    expect(chosen?.textContent).toContain('deploy-production.yml');
+
+    host.querySelector<HTMLButtonElement>('.change')!.click();
+    harness.detectChanges();
+
+    expect(host.querySelectorAll('co-workflow-selector .option').length).toBe(3);
+    expect(host.querySelector('.option.is-selected')?.textContent).toContain('Deploy Production');
+  });
+
+  it('collapses on an explicit choice of no workflow', async () => {
+    await importSpinner();
+
+    const inputs = host.querySelectorAll<HTMLInputElement>('co-workflow-selector .option input');
+    inputs[inputs.length - 1].click();
+    harness.detectChanges();
+
+    const chosen = host.querySelector('co-workflow-selector .chosen');
+    expect(chosen?.textContent).toContain('No deployment workflow');
+    expect(chosen?.textContent).toContain('notConfigured');
+  });
+
+  it('submits the workflow file the operator confirmed', async () => {
+    await type('#project-name', 'Spinner API');
+    await importSpinner();
+
+    host.querySelector<HTMLInputElement>('co-workflow-selector .option input')!.click();
+    harness.detectChanges();
+
+    host.querySelector<HTMLButtonElement>('.primary')!.click();
+    await harness.fixture.whenStable();
+
+    expect(registeredRequest?.repository).toEqual({
+      owner: 'clint',
+      name: 'spinner',
+      defaultBranch: 'main',
+      workflowFile: 'deploy-production.yml',
+    });
+  });
+
+  it('reports that it is reading workflows instead of looking frozen', async () => {
+    const workflows = new Subject<GitHubWorkflowList>();
+    workflowResult = workflows;
+
+    await importSpinner();
+
+    expect(host.querySelector('.reading')?.textContent).toContain('Reading workflows from GitHub');
+    expect(host.querySelector('.reading')?.getAttribute('aria-busy')).toBe('true');
+    // The manual field is not offered yet: discovery has not failed, it is still running.
+    expect(host.querySelector('#workflow-file')).toBeNull();
+
+    workflows.next({ workflows: [DEPLOY_WORKFLOW] });
+    workflows.complete();
+    harness.detectChanges();
+
+    expect(host.querySelector('.reading')).toBeNull();
+    expect(host.querySelector('co-workflow-selector')).not.toBeNull();
+  });
+
+  it('falls back to manual entry when repository discovery is unavailable', async () => {
+    repositoryResult = throwError(
+      () => new HttpErrorResponse({ status: 500, error: { code: 'GitHub.Unauthorized' } }),
+    );
+
+    host.querySelector<HTMLButtonElement>('.import-action')!.click();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+
+    expect(host.textContent).toContain('Console Ops has no working GitHub credential.');
+    expect(host.textContent).toContain('GitHub:Token');
+    // The manual field is still there, so registration is never blocked by discovery.
+    expect(host.querySelector('#project-repository')).not.toBeNull();
+  });
+
+  it('names a missing discovery endpoint rather than blaming the credential', async () => {
+    repositoryResult = throwError(() => new HttpErrorResponse({ status: 404 }));
+
+    host.querySelector<HTMLButtonElement>('.import-action')!.click();
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+
+    expect(host.textContent).toContain('Repository discovery is unavailable.');
+    expect(host.textContent).toContain('/api/github/repositories');
+  });
+
+  it('asks for the workflow file when workflow discovery is unavailable', async () => {
+    workflowResult = throwError(() => new HttpErrorResponse({ status: 404 }));
+    await importSpinner();
+
+    expect(host.querySelector('co-workflow-selector')).toBeNull();
+    expect(host.querySelector('#workflow-file')).not.toBeNull();
+    expect(host.textContent).toContain('Workflow discovery is unavailable');
   });
 });

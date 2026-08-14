@@ -12,11 +12,15 @@ import { Router, RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 import { EnvironmentKind } from '../../core/contracts/dashboard-overview';
+import { GitHubRepository, GitHubWorkflow } from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
+import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { Icon } from '../../core/ui/icon';
 import { AddProjectSummary } from './components/add-project-summary';
+import { GitHubRepositoryPicker } from './components/github-repository-picker';
+import { WorkflowSelector } from './components/workflow-selector';
 
 interface Option<T> {
   readonly value: T;
@@ -36,13 +40,14 @@ const ENVIRONMENT_KINDS: readonly Option<EnvironmentKind>[] = [
 @Component({
   selector: 'co-add-project-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AddProjectSummary, Icon, RouterLink],
+  imports: [AddProjectSummary, GitHubRepositoryPicker, Icon, RouterLink, WorkflowSelector],
   templateUrl: './add-project-page.html',
   styleUrl: './add-project-page.scss',
 })
 export class AddProjectPage {
   private readonly projects = inject(ProjectRegistryStore);
   private readonly dashboard = inject(DashboardOverviewStore);
+  private readonly discovery = inject(GitHubDiscoveryDataSource);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -55,6 +60,25 @@ export class AddProjectPage {
   protected readonly workflowFile = signal('');
   protected readonly environmentKind = signal<EnvironmentKind>('production');
   protected readonly environmentName = signal('Production');
+  protected readonly environmentNameCustomized = signal(false);
+
+  /** Repository chosen through discovery, or `null` while the operator types it manually. */
+  protected readonly importedRepository = signal<GitHubRepository | null>(null);
+  protected readonly pickerOpen = signal(false);
+  protected readonly workflows = signal<readonly GitHubWorkflow[]>([]);
+  protected readonly workflowsLoading = signal(false);
+  protected readonly workflowsUnavailable = signal(false);
+
+  /**
+   * `false` until the operator picks a workflow or explicitly picks none, so the selector starts with
+   * nothing selected rather than defaulting them into "no deployment workflow".
+   */
+  protected readonly workflowChosen = signal(false);
+
+  /** `null` is the explicit "no deployment workflow" choice. */
+  protected readonly chosenWorkflowFile = computed(() =>
+    this.workflowFile().trim() === '' ? null : this.workflowFile().trim(),
+  );
   protected readonly baseUrl = signal('');
   protected readonly healthEndpoint = signal('');
   protected readonly versionEndpoint = signal('');
@@ -126,12 +150,81 @@ export class AddProjectPage {
   });
 
   protected selectEnvironmentKind(kind: EnvironmentKind): void {
-    const previousLabel = labelFor(this.environmentKind());
     this.environmentKind.set(kind);
 
-    if (this.environmentName().trim() === previousLabel) {
+    // The name follows the kind until the operator takes it over, so choosing Production does not
+    // also require typing "Production".
+    if (!this.environmentNameCustomized()) {
       this.environmentName.set(labelFor(kind));
     }
+  }
+
+  /** Reveals the name field, after which the kind no longer overwrites it. */
+  protected customizeEnvironmentName(): void {
+    this.environmentNameCustomized.set(true);
+  }
+
+  protected openPicker(): void {
+    this.pickerOpen.set(true);
+  }
+
+  protected closePicker(): void {
+    this.pickerOpen.set(false);
+  }
+
+  /**
+   * Takes what GitHub reported and stops asking for it.
+   *
+   * The project name is prefilled only while the operator has not typed one, because presentation
+   * naming and repository naming legitimately differ.
+   */
+  protected importRepository(repository: GitHubRepository): void {
+    this.importedRepository.set(repository);
+    this.pickerOpen.set(false);
+    this.repository.set(`${repository.owner}/${repository.name}`);
+    this.defaultBranch.set(repository.defaultBranch);
+
+    if (this.name().trim() === '') {
+      this.name.set(repository.name);
+    }
+
+    this.loadWorkflows(repository);
+  }
+
+  /** Returns to manual entry and discards discovered facts, so nothing stale is submitted. */
+  protected clearImportedRepository(): void {
+    this.importedRepository.set(null);
+    this.workflows.set([]);
+    this.workflowsLoading.set(false);
+    this.workflowsUnavailable.set(false);
+    this.workflowFile.set('');
+  }
+
+  protected selectWorkflow(fileName: string | null): void {
+    this.workflowFile.set(fileName ?? '');
+    this.workflowChosen.set(true);
+  }
+
+  private loadWorkflows(repository: GitHubRepository): void {
+    this.workflows.set([]);
+    this.workflowChosen.set(false);
+    this.workflowsUnavailable.set(false);
+    this.workflowsLoading.set(true);
+
+    this.discovery
+      .listWorkflows(repository.owner, repository.name)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.workflows.set(result.workflows);
+          this.workflowsLoading.set(false);
+        },
+        // Discovery is optional: fall back to naming the workflow file by hand.
+        error: () => {
+          this.workflowsUnavailable.set(true);
+          this.workflowsLoading.set(false);
+        },
+      });
   }
 
   protected submit(): void {

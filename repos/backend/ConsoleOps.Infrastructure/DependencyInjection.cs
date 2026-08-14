@@ -31,17 +31,9 @@ public static class DependencyInjection
         services.AddScoped<IProjectRefreshStore, ProjectRefreshStore>();
         services.AddScoped<IDashboardOverviewReadStore, DashboardOverviewReadStore>();
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
-        {
-            client.BaseAddress = new Uri("https://api.github.com/");
-            client.Timeout = TimeSpan.FromSeconds(GetGitHubTimeoutSeconds(configuration));
-
-            string? token = configuration["GitHub:Token"];
-            if (!string.IsNullOrWhiteSpace(token))
-            {
-                client.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", token.Trim());
-            }
-        });
+            ConfigureGitHubClient(client, configuration));
+        services.AddHttpClient<IGitHubRepositoryCatalog, GitHubRepositoryCatalog>(client =>
+            ConfigureGitHubClient(client, configuration));
         IReadOnlySet<string> allowedPrivateHosts = GetAllowedPrivateProbeHosts(configuration);
         services.AddHttpClient<IApplicationProbe, HttpApplicationProbe>(client =>
             client.Timeout = Timeout.InfiniteTimeSpan)
@@ -49,6 +41,23 @@ public static class DependencyInjection
                 ProbeHttpMessageHandlerFactory.Create(allowedPrivateHosts));
 
         return services;
+    }
+
+    /// <summary>
+    /// One place that decides how Console Ops talks to GitHub, so a second adapter cannot drift from
+    /// the first on base address, timeout, or credential handling.
+    /// </summary>
+    private static void ConfigureGitHubClient(HttpClient client, IConfiguration configuration)
+    {
+        client.BaseAddress = new Uri("https://api.github.com/");
+        client.Timeout = TimeSpan.FromSeconds(GetGitHubTimeoutSeconds(configuration));
+
+        string? token = configuration["GitHub:Token"];
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token.Trim());
+        }
     }
 
     private static int GetGitHubTimeoutSeconds(IConfiguration configuration)

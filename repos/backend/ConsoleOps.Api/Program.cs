@@ -1,4 +1,5 @@
 using ConsoleOps.Api.Features.Dashboard;
+using ConsoleOps.Api.Features.GitHub;
 using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Api.Middleware;
 using ConsoleOps.Application;
@@ -26,6 +27,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.MapDashboardEndpoints();
+app.MapGitHubEndpoints();
 app.MapProjectEndpoints();
 
 app.Run();
