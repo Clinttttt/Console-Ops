@@ -26,7 +26,8 @@ internal sealed class ProjectRefreshStore(ConsoleOpsDbContext dbContext) : IProj
 
         List<HealthObservationEntity> latestHealth = await dbContext.HealthObservations
             .AsNoTracking()
-            .Where(observation => observation.ProjectId == projectId)
+            .Where(observation => observation.ProjectId == projectId
+                && (project.UpdatedAtUtc == null || observation.ObservedAtUtc >= project.UpdatedAtUtc))
             .GroupBy(observation => observation.EnvironmentId)
             .Select(group => group
                 .OrderByDescending(observation => observation.ObservedAtUtc)
@@ -35,7 +36,8 @@ internal sealed class ProjectRefreshStore(ConsoleOpsDbContext dbContext) : IProj
             .ToListAsync(cancellationToken);
         List<VersionSyncObservationEntity> latestSync = await dbContext.VersionSyncObservations
             .AsNoTracking()
-            .Where(observation => observation.ProjectId == projectId)
+            .Where(observation => observation.ProjectId == projectId
+                && (project.UpdatedAtUtc == null || observation.ObservedAtUtc >= project.UpdatedAtUtc))
             .GroupBy(observation => observation.EnvironmentId)
             .Select(group => group
                 .OrderByDescending(observation => observation.ObservedAtUtc)

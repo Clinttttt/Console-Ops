@@ -21,14 +21,14 @@
     <thead>
       <tr>
         <th scope="col" rowspan="2">Component</th>
-        @for (column of matrix().columns; track column.projectId) {
+        @for (column of matrix().columns; track column.environmentId) {
           <th scope="colgroup" colspan="2" class="group">
             {{ column.projectName }} ({{ column.environmentName }})
           </th>
         }
       </tr>
       <tr>
-        @for (column of matrix().columns; track column.projectId) {
+        @for (column of matrix().columns; track column.environmentId) {
           <th scope="col" class="group sub">Status</th>
           <th scope="col" class="sub">Details</th>
         }

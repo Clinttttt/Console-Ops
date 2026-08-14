@@ -20,8 +20,8 @@ export class ProjectSurfacesSection {
   readonly projects = input.required<readonly ProjectSurface[]>();
   readonly scopeLabel = input.required<string>();
 
-  /** Id of the project whose commit was just copied, used for transient feedback. */
-  protected readonly copiedProjectId = signal<string | null>(null);
+  /** Environment id of the surface whose commit was copied, used for transient feedback. */
+  protected readonly copiedSurfaceId = signal<string | null>(null);
 
   protected async copyCommit(project: ProjectSurface): Promise<void> {
     const sha = project.deployedVersion?.commitSha;
@@ -30,7 +30,7 @@ export class ProjectSurfacesSection {
     }
 
     await navigator.clipboard.writeText(sha);
-    this.copiedProjectId.set(project.id);
+    this.copiedSurfaceId.set(project.environment.id);
   }
 
   /** Stable presentation-only tone derived locally; operational status never affects it. */

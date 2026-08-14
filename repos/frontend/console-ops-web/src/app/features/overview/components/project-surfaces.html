@@ -18,14 +18,14 @@
       </tr>
     </thead>
     <tbody>
-      @for (project of projects(); track project.id) {
+      @for (project of projects(); track project.environment.id) {
         <tr>
           <td>
             <div class="project">
               <co-project-mark [name]="project.name" [tone]="toneFor(project.id)" />
               <span>
                 <span class="project-name">{{ project.name }}</span>
-                <span class="project-kind">{{ project.kind }}</span>
+                <span class="project-kind">{{ project.source.repository }}</span>
               </span>
             </div>
           </td>
@@ -58,7 +58,7 @@
                   [attr.aria-label]="'Copy full commit for ' + project.name"
                 >
                   <co-icon
-                    [name]="copiedProjectId() === project.id ? 'check' : 'copy'"
+                    [name]="copiedSurfaceId() === project.environment.id ? 'check' : 'copy'"
                     [size]="14"
                   />
                 </button>

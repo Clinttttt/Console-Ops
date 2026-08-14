@@ -72,11 +72,11 @@ export interface WorkflowState {
 }
 
 export interface DeployedVersion {
-  readonly application: string;
-  readonly version: string;
+  readonly application: string | null;
+  readonly version: string | null;
   readonly commitSha: string;
   readonly commitShortSha: string;
-  readonly environment: string;
+  readonly environment: string | null;
   readonly builtAt: string | null;
   readonly observedAt: string;
 }
@@ -100,10 +100,9 @@ export interface ResponseMeasurement {
 }
 
 export interface ProjectSurface {
+  /** Project id. A project can appear once per configured environment. */
   readonly id: string;
   readonly name: string;
-  /** Technology descriptor, for example `ASP.NET Core Web API`. */
-  readonly kind: string;
   readonly environment: ProjectEnvironmentRef;
   readonly source: SourceRevision;
   readonly workflow: WorkflowState;
@@ -117,10 +116,11 @@ export interface ProjectSurface {
 export interface SystemStateColumn {
   readonly projectId: string;
   readonly projectName: string;
+  readonly environmentId: string;
   readonly environmentName: string;
 }
 
-export type SystemComponentKey = 'api' | 'database' | 'cache' | 'ci' | 'versionSync';
+export type SystemComponentKey = 'api' | 'ci' | 'versionSync' | `dependency:${string}`;
 
 export interface SystemStateRow {
   readonly key: SystemComponentKey;

@@ -215,6 +215,16 @@ establishes a baseline and does not claim a transition.
 - deterministic version-sync state and its observation time;
 - latest response measurement and real historical samples, if recorded.
 
+The endpoint returns one surface for every active project/environment pair. `project.id` identifies
+the project and `environment.id` uniquely identifies the surface within the response and system-state
+matrix. Project technology/type is not returned because V1 registration does not capture that fact;
+the frontend uses the repository as the secondary project descriptor instead of inventing a type.
+
+Response history is bounded to the eight most recent recorded measurements per environment and is
+returned oldest first. Activity is bounded to the twenty newest deterministic transition records.
+When project configuration changes, observations recorded before the new configuration timestamp are
+treated as unavailable until that configuration is refreshed; they remain stored as history.
+
 Presentation-only choices such as project-mark tone, component icons, and navigation labels are not
 API fields. The frontend derives them.
 

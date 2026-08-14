@@ -24,14 +24,6 @@ const LEGEND: readonly LegendEntry[] = [
   { level: 'notApplicable', label: 'N/A' },
 ];
 
-const COMPONENT_ICONS: Readonly<Record<SystemComponentKey, IconName>> = {
-  api: 'api',
-  database: 'database',
-  cache: 'redis',
-  ci: 'ciCd',
-  versionSync: 'refresh',
-};
-
 /** Component health and status across the projects and environments currently in scope. */
 @Component({
   selector: 'co-system-state',
@@ -46,6 +38,18 @@ export class SystemStateSection {
   protected readonly legend = LEGEND;
 
   protected iconFor(component: SystemComponentKey): IconName {
-    return COMPONENT_ICONS[component];
+    if (component === 'api') {
+      return 'api';
+    }
+
+    if (component === 'ci') {
+      return 'ciCd';
+    }
+
+    if (component === 'versionSync') {
+      return 'refresh';
+    }
+
+    return component.includes('redis') || component.includes('cache') ? 'redis' : 'database';
   }
 }

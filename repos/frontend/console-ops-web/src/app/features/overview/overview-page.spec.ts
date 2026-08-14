@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
 
 import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
 import { DASHBOARD_OVERVIEW_FIXTURE } from '../../core/data/mock/dashboard-overview.fixture';
-import { MockDashboardOverviewDataSource } from '../../core/data/mock/mock-dashboard-overview.data-source';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
 import { OverviewPage } from './overview-page';
 
@@ -14,7 +14,10 @@ describe('OverviewPage', () => {
     await TestBed.configureTestingModule({
       imports: [OverviewPage],
       providers: [
-        { provide: DashboardOverviewDataSource, useClass: MockDashboardOverviewDataSource },
+        {
+          provide: DashboardOverviewDataSource,
+          useValue: { load: () => of(DASHBOARD_OVERVIEW_FIXTURE) },
+        },
       ],
     }).compileComponents();
 
@@ -95,7 +98,13 @@ describe('OverviewPage', () => {
     expect(amyl.workflow.state).toBe('notConfigured');
     expect(amyl.deployedVersion).toBeNull();
     expect(amyl.versionSync.state).toBe('notConfigured');
-    expect(rowKeys).toEqual(['api', 'database', 'cache', 'ci', 'versionSync']);
+    expect(rowKeys).toEqual([
+      'api',
+      'dependency:database',
+      'dependency:redis',
+      'ci',
+      'versionSync',
+    ]);
     expect(DASHBOARD_OVERVIEW_FIXTURE.summary.uptime).toBeNull();
   });
 

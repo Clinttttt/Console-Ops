@@ -1,7 +1,7 @@
 import { DashboardOverview } from '../../contracts/dashboard-overview';
 
 /**
- * Phase 0 fixture for the V1 Overview contract.
+ * Test fixture for the V1 Overview contract. It is never registered as a runtime fallback.
  *
  * It demonstrates real V1 capabilities plus honest gaps. It deliberately does not claim Azure
  * revisions, deployments, restarts, migrations, Docker state, configuration completeness, logs, or
@@ -30,7 +30,6 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
     {
       id: 'spinner-api',
       name: 'Spinner API',
-      kind: 'ASP.NET Core Web API',
       environment: {
         id: 'spinner-api-production',
         name: 'Production',
@@ -69,7 +68,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
         state: 'inSync',
         sourceCommitSha: '8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2',
         deployedCommitSha: '8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2',
-        commitsBehind: 0,
+        commitsBehind: null,
         observedAt: '2026-08-13T18:24:00Z',
       },
       response: {
@@ -81,7 +80,6 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
     {
       id: 'stalltrack',
       name: 'StallTrack',
-      kind: 'ASP.NET Core Web App',
       environment: {
         id: 'stalltrack-production',
         name: 'Production',
@@ -120,7 +118,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
         state: 'inSync',
         sourceCommitSha: '4f91b9a2c8e5d3b7a1f6c4e9d2b8a5c3f7e1d9b4',
         deployedCommitSha: '4f91b9a2c8e5d3b7a1f6c4e9d2b8a5c3f7e1d9b4',
-        commitsBehind: 0,
+        commitsBehind: null,
         observedAt: '2026-08-13T18:24:00Z',
       },
       response: {
@@ -132,7 +130,6 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
     {
       id: 'amyl',
       name: 'AMYL',
-      kind: 'Worker Service',
       environment: { id: 'amyl-local', name: 'Local', kind: 'local' },
       source: {
         provider: 'github',
@@ -167,9 +164,24 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
   ],
   systemState: {
     columns: [
-      { projectId: 'spinner-api', projectName: 'Spinner API', environmentName: 'Production' },
-      { projectId: 'stalltrack', projectName: 'StallTrack', environmentName: 'Production' },
-      { projectId: 'amyl', projectName: 'AMYL', environmentName: 'Local' },
+      {
+        projectId: 'spinner-api',
+        projectName: 'Spinner API',
+        environmentId: 'spinner-api-production',
+        environmentName: 'Production',
+      },
+      {
+        projectId: 'stalltrack',
+        projectName: 'StallTrack',
+        environmentId: 'stalltrack-production',
+        environmentName: 'Production',
+      },
+      {
+        projectId: 'amyl',
+        projectName: 'AMYL',
+        environmentId: 'amyl-local',
+        environmentName: 'Local',
+      },
     ],
     rows: [
       {
@@ -182,7 +194,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
         ],
       },
       {
-        key: 'database',
+        key: 'dependency:database',
         label: 'Database',
         cells: [
           { level: 'healthy', label: 'Healthy', detail: 'Reported by application' },
@@ -191,7 +203,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
         ],
       },
       {
-        key: 'cache',
+        key: 'dependency:redis',
         label: 'Redis',
         cells: [
           { level: 'healthy', label: 'Healthy', detail: 'Reported by application' },

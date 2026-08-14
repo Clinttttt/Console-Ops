@@ -46,10 +46,10 @@ export class OverviewPage {
       return null;
     }
 
-    const visible = new Set(this.projects().map((project) => project.id));
+    const visible = new Set(this.projects().map((project) => project.environment.id));
     const keptIndexes = matrix.columns
       .map((column, index) => ({ column, index }))
-      .filter(({ column }) => visible.has(column.projectId));
+      .filter(({ column }) => visible.has(column.environmentId));
 
     return {
       columns: keptIndexes.map(({ column }) => column),

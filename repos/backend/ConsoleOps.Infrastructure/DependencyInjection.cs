@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using ConsoleOps.Application.Abstractions.Persistence;
+using ConsoleOps.Application.Features.Dashboard.GetOverview;
 using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IProjectReadStore, ProjectReadStore>();
         services.AddScoped<IProjectRefreshStore, ProjectRefreshStore>();
+        services.AddScoped<IDashboardOverviewReadStore, DashboardOverviewReadStore>();
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
         {
             client.BaseAddress = new Uri("https://api.github.com/");

@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 
 import { App } from './app';
 import { DashboardOverviewDataSource } from './core/data/dashboard-overview.data-source';
-import { MockDashboardOverviewDataSource } from './core/data/mock/mock-dashboard-overview.data-source';
+import { DASHBOARD_OVERVIEW_FIXTURE } from './core/data/mock/dashboard-overview.fixture';
 
 describe('App shell', () => {
   beforeEach(async () => {
@@ -11,7 +12,10 @@ describe('App shell', () => {
       imports: [App],
       providers: [
         provideRouter([]),
-        { provide: DashboardOverviewDataSource, useClass: MockDashboardOverviewDataSource },
+        {
+          provide: DashboardOverviewDataSource,
+          useValue: { load: () => of(DASHBOARD_OVERVIEW_FIXTURE) },
+        },
       ],
     }).compileComponents();
   });

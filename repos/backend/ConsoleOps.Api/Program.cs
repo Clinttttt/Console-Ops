@@ -1,3 +1,4 @@
+using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Api.Middleware;
 using ConsoleOps.Application;
@@ -24,6 +25,7 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseStatusCodePages();
 app.UseHttpsRedirection();
+app.MapDashboardEndpoints();
 app.MapProjectEndpoints();
 
 app.Run();

@@ -73,4 +73,30 @@ public sealed class MonitoringTests
     {
         Assert.Equal(expected, MonitoringTransitions.DetectVersionSync(previous, current));
     }
+
+    [Fact]
+    public void OperationalSummary_WhenNoReliableFactsExist_IsUnknown()
+    {
+        OperationalSummaryLevel result = OperationalSummary.Calculate(
+            [new OperationalSurfaceAssessment(false, false, false, true)]);
+
+        Assert.Equal(OperationalSummaryLevel.Unknown, result);
+    }
+
+    [Theory]
+    [InlineData(true, true, true, OperationalSummaryLevel.Down)]
+    [InlineData(false, true, true, OperationalSummaryLevel.Degraded)]
+    [InlineData(false, false, true, OperationalSummaryLevel.Warning)]
+    [InlineData(false, false, false, OperationalSummaryLevel.Healthy)]
+    public void OperationalSummary_AppliesDeterministicPriority(
+        bool applicationIsDown,
+        bool isDegraded,
+        bool requiresAttention,
+        OperationalSummaryLevel expected)
+    {
+        OperationalSummaryLevel result = OperationalSummary.Calculate(
+            [new OperationalSurfaceAssessment(true, applicationIsDown, isDegraded, requiresAttention)]);
+
+        Assert.Equal(expected, result);
+    }
 }
