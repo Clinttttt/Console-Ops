@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using ConsoleOps.Api.Features.Projects;
+using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RegisterProject;
 using ConsoleOps.Infrastructure.Persistence;
 using ConsoleOps.Tests.Integration.Infrastructure;
@@ -14,7 +15,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ConsoleOps.Tests.Integration.Projects;
 
-public sealed class RegisterProjectTests(ConsoleOpsApiFactory factory) : IClassFixture<ConsoleOpsApiFactory>
+[Collection(ConsoleOpsApiCollection.Name)]
+public sealed class RegisterProjectTests(ConsoleOpsApiFactory factory)
 {
     [Fact]
     public async Task Post_WithValidProject_PersistsAggregateAndReturnsCreated()
@@ -25,8 +27,8 @@ public sealed class RegisterProjectTests(ConsoleOpsApiFactory factory) : IClassF
         HttpResponseMessage response = await client.PostAsJsonAsync("/api/projects", request);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        RegisterProjectResponse body = Assert.IsType<RegisterProjectResponse>(
-            await response.Content.ReadFromJsonAsync<RegisterProjectResponse>());
+        ProjectResponse body = Assert.IsType<ProjectResponse>(
+            await response.Content.ReadFromJsonAsync<ProjectResponse>());
         Assert.Equal($"/api/projects/{body.Id}", response.Headers.Location?.OriginalString);
         Assert.Equal("production", Assert.Single(body.Environments).Kind);
 
@@ -109,7 +111,7 @@ public sealed class RegisterProjectTests(ConsoleOpsApiFactory factory) : IClassF
     private static RegisterProjectRequest CreateRequest(string name, string repositoryName) => new(
         name,
         "Deployment control center",
-        new RegisterProjectRepositoryRequest("Clinttttt", repositoryName, "main", "ci.yml"),
+        new ProjectRepositoryRequest("Clinttttt", repositoryName, "main", "ci.yml"),
         [
             new RegisterProjectEnvironmentRequest(
                 "Production",

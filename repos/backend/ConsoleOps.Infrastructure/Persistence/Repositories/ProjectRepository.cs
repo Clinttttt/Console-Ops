@@ -15,14 +15,16 @@ internal sealed class ProjectRepository(ConsoleOpsDbContext dbContext) : IProjec
         CancellationToken cancellationToken)
     {
         if (await dbContext.Projects.AnyAsync(
-                candidate => candidate.NormalizedName == project.NormalizedName,
+                candidate => !candidate.IsArchived
+                    && candidate.NormalizedName == project.NormalizedName,
                 cancellationToken))
         {
             return ProjectRegistrationOutcome.DuplicateName;
         }
 
         if (await dbContext.Projects.AnyAsync(
-                candidate => candidate.NormalizedRepositoryOwner == project.NormalizedRepositoryOwner
+                candidate => !candidate.IsArchived
+                    && candidate.NormalizedRepositoryOwner == project.NormalizedRepositoryOwner
                     && candidate.NormalizedRepositoryName == project.NormalizedRepositoryName,
                 cancellationToken))
         {
@@ -36,32 +38,68 @@ internal sealed class ProjectRepository(ConsoleOpsDbContext dbContext) : IProjec
             await dbContext.SaveChangesAsync(cancellationToken);
             return ProjectRegistrationOutcome.Added;
         }
-        catch (DbUpdateException exception) when (TryGetRegistrationOutcome(exception, out ProjectRegistrationOutcome outcome))
+        catch (DbUpdateException exception) when (TryGetUniqueConstraint(exception, out string? constraintName))
         {
             dbContext.ChangeTracker.Clear();
-            return outcome;
+            return constraintName switch
+            {
+                NameConstraint => ProjectRegistrationOutcome.DuplicateName,
+                RepositoryConstraint => ProjectRegistrationOutcome.DuplicateRepository,
+                _ => throw new InvalidOperationException($"Unsupported unique constraint: {constraintName}.")
+            };
         }
     }
 
-    private static bool TryGetRegistrationOutcome(
+    public Task<Project?> GetActiveByIdAsync(Guid projectId, CancellationToken cancellationToken) =>
+        dbContext.Projects
+            .Include(project => project.Environments)
+            .SingleOrDefaultAsync(
+                project => project.Id == projectId && !project.IsArchived,
+                cancellationToken);
+
+    public async Task<ProjectSaveOutcome> SaveChangesAsync(
+        Project project,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return ProjectSaveOutcome.Saved;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            dbContext.ChangeTracker.Clear();
+            return ProjectSaveOutcome.ConfigurationConflict;
+        }
+        catch (DbUpdateException exception) when (TryGetUniqueConstraint(exception, out string? constraintName))
+        {
+            dbContext.ChangeTracker.Clear();
+            return constraintName switch
+            {
+                NameConstraint => ProjectSaveOutcome.DuplicateName,
+                RepositoryConstraint => ProjectSaveOutcome.DuplicateRepository,
+                _ => throw new InvalidOperationException($"Unsupported unique constraint: {constraintName}.")
+            };
+        }
+    }
+
+    private static bool TryGetUniqueConstraint(
         DbUpdateException exception,
-        out ProjectRegistrationOutcome outcome)
+        out string? constraintName)
     {
         if (exception.InnerException is PostgresException postgresException
             && postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
         {
-            switch (postgresException.ConstraintName)
+            if (postgresException.ConstraintName is NameConstraint or RepositoryConstraint)
             {
-                case NameConstraint:
-                    outcome = ProjectRegistrationOutcome.DuplicateName;
-                    return true;
-                case RepositoryConstraint:
-                    outcome = ProjectRegistrationOutcome.DuplicateRepository;
-                    return true;
+                constraintName = postgresException.ConstraintName;
+                return true;
             }
         }
 
-        outcome = default;
+        constraintName = null;
         return false;
     }
 }

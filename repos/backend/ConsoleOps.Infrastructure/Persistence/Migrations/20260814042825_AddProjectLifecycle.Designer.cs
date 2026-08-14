@@ -3,6 +3,7 @@ using System;
 using ConsoleOps.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ConsoleOps.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ConsoleOpsDbContext))]
-    partial class ConsoleOpsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814042825_AddProjectLifecycle")]
+    partial class AddProjectLifecycle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

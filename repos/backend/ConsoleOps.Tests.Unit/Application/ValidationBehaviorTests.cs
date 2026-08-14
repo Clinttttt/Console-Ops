@@ -1,5 +1,6 @@
 using ConsoleOps.Application.Behaviors;
 using ConsoleOps.Application.Abstractions.Messaging;
+using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RegisterProject;
 using FluentValidation;
 
@@ -11,16 +12,16 @@ public sealed class ValidationBehaviorTests
     public async Task Handle_WithValidRequest_InvokesNextExactlyOnce()
     {
         RegisterProjectCommand command = CreateValidCommand();
-        ValidationBehavior<RegisterProjectCommand, Result<RegisterProjectResponse>> behavior =
+        ValidationBehavior<RegisterProjectCommand, Result<ProjectResponse>> behavior =
             new([new RegisterProjectCommandValidator()]);
         int invocations = 0;
 
-        Result<RegisterProjectResponse> result = await behavior.Handle(
+        Result<ProjectResponse> result = await behavior.Handle(
             command,
             _ =>
             {
                 invocations++;
-                return Task.FromResult(Result<RegisterProjectResponse>.Failure(RegisterProjectErrors.DuplicateName));
+                return Task.FromResult(Result<ProjectResponse>.Failure(ProjectErrors.DuplicateName));
             },
             CancellationToken.None);
 
@@ -32,7 +33,7 @@ public sealed class ValidationBehaviorTests
     public async Task Handle_WithInvalidRequest_DoesNotInvokeNext()
     {
         RegisterProjectCommand command = CreateValidCommand() with { Name = string.Empty };
-        ValidationBehavior<RegisterProjectCommand, Result<RegisterProjectResponse>> behavior =
+        ValidationBehavior<RegisterProjectCommand, Result<ProjectResponse>> behavior =
             new([new RegisterProjectCommandValidator()]);
         int invocations = 0;
 

@@ -63,8 +63,26 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .HasColumnName("created_at_utc")
             .IsRequired();
 
+        builder.Property(project => project.UpdatedAtUtc)
+            .HasColumnName("updated_at_utc");
+
+        builder.Property(project => project.IsArchived)
+            .HasColumnName("is_archived")
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(project => project.ArchivedAtUtc)
+            .HasColumnName("archived_at_utc");
+
+        builder.Property(project => project.ConfigurationVersion)
+            .HasColumnName("configuration_version")
+            .HasDefaultValue(1L)
+            .IsConcurrencyToken()
+            .IsRequired();
+
         builder.HasIndex(project => project.NormalizedName)
             .IsUnique()
+            .HasFilter("NOT is_archived")
             .HasDatabaseName("ux_projects_normalized_name");
 
         builder.HasIndex(project => new
@@ -73,6 +91,7 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
             project.NormalizedRepositoryName
         })
             .IsUnique()
+            .HasFilter("NOT is_archived")
             .HasDatabaseName("ux_projects_repository");
 
         builder.HasMany(project => project.Environments)

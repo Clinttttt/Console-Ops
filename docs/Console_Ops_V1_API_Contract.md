@@ -63,6 +63,9 @@ Project
 |-- id
 |-- name
 |-- description (optional)
+|-- configurationVersion
+|-- createdAtUtc
+|-- updatedAtUtc (optional)
 |-- repository
 |   |-- owner
 |   |-- name
@@ -86,7 +89,14 @@ URLs must be absolute HTTP(S) URLs without embedded credentials. The probe imple
 explicit scheme, redirect, timeout, response-size, and outbound-address safeguards before making a
 request.
 
-`DELETE` archives a project in V1. Normal list/dashboard queries exclude archived projects.
+`PUT` replaces the editable project configuration. It must send the `configurationVersion` returned
+by the latest register/get/list/update response. Existing environments send their current `id`; a
+new environment omits `id`. Unknown environment IDs and stale configuration versions return a
+conflict rather than silently overwriting newer state.
+
+`DELETE` archives a project in V1. Normal get/list/dashboard queries exclude archived projects.
+Archiving preserves history but releases the active name and repository uniqueness constraints so
+the same project can be registered again intentionally.
 
 ## GitHub source and workflow facts
 

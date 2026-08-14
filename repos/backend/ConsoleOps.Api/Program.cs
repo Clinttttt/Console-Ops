@@ -1,5 +1,5 @@
 using ConsoleOps.Api.Features.Projects;
-using ConsoleOps.Api.Infrastructure;
+using ConsoleOps.Api.Middleware;
 using ConsoleOps.Application;
 using ConsoleOps.Infrastructure;
 
@@ -10,9 +10,6 @@ builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
         context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
 });
-builder.Services.AddExceptionHandler<BadRequestExceptionHandler>();
-builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -24,7 +21,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseExceptionHandler();
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.MapProjectEndpoints();

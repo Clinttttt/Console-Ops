@@ -1,6 +1,6 @@
 using ConsoleOps.Application.Abstractions.Messaging;
 
-namespace ConsoleOps.Api.Infrastructure;
+namespace ConsoleOps.Api.Extensions;
 
 public static class ResultExtensions
 {

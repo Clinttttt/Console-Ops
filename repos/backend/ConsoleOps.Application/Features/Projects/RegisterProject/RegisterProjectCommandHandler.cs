@@ -8,9 +8,9 @@ namespace ConsoleOps.Application.Features.Projects.RegisterProject;
 public sealed class RegisterProjectCommandHandler(
     IProjectRepository projectRepository,
     TimeProvider timeProvider)
-    : IRequestHandler<RegisterProjectCommand, Result<RegisterProjectResponse>>
+    : IRequestHandler<RegisterProjectCommand, Result<ProjectResponse>>
 {
-    public async Task<Result<RegisterProjectResponse>> Handle(
+    public async Task<Result<ProjectResponse>> Handle(
         RegisterProjectCommand request,
         CancellationToken cancellationToken)
     {
@@ -39,28 +39,10 @@ public sealed class RegisterProjectCommandHandler(
 
         return outcome switch
         {
-            ProjectRegistrationOutcome.Added => Result<RegisterProjectResponse>.Success(ToResponse(project)),
-            ProjectRegistrationOutcome.DuplicateName => Result<RegisterProjectResponse>.Failure(RegisterProjectErrors.DuplicateName),
-            ProjectRegistrationOutcome.DuplicateRepository => Result<RegisterProjectResponse>.Failure(RegisterProjectErrors.DuplicateRepository),
+            ProjectRegistrationOutcome.Added => Result<ProjectResponse>.Success(ProjectResponseMapper.FromDomain(project)),
+            ProjectRegistrationOutcome.DuplicateName => Result<ProjectResponse>.Failure(ProjectErrors.DuplicateName),
+            ProjectRegistrationOutcome.DuplicateRepository => Result<ProjectResponse>.Failure(ProjectErrors.DuplicateRepository),
             _ => throw new InvalidOperationException($"Unsupported registration outcome: {outcome}.")
         };
     }
-
-    private static RegisterProjectResponse ToResponse(Project project) => new(
-        project.Id,
-        project.Name,
-        project.Description,
-        new RegisterProjectRepository(
-            project.RepositoryOwner,
-            project.RepositoryName,
-            project.DefaultBranch,
-            project.WorkflowFile),
-        project.Environments.Select(environment => new RegisteredEnvironmentResponse(
-            environment.Id,
-            environment.Name,
-            environment.Kind.ToString().ToLowerInvariant(),
-            environment.ApplicationUrl,
-            environment.HealthUrl,
-            environment.VersionUrl)).ToArray(),
-        project.CreatedAtUtc);
 }

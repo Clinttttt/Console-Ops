@@ -1,4 +1,5 @@
 using ConsoleOps.Application.Abstractions.Persistence;
+using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RegisterProject;
 using ConsoleOps.Domain.Projects;
 
@@ -32,7 +33,7 @@ public sealed class RegisterProjectCommandHandlerTests
         var result = await handler.Handle(CreateCommand(), CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(RegisterProjectErrors.DuplicateName, result.Error);
+        Assert.Equal(ProjectErrors.DuplicateName, result.Error);
     }
 
     private static RegisterProjectCommand CreateCommand() => new(
@@ -55,6 +56,12 @@ public sealed class RegisterProjectCommandHandlerTests
             Project = project;
             return Task.FromResult(outcome);
         }
+
+        public Task<Project?> GetActiveByIdAsync(Guid projectId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<ProjectSaveOutcome> SaveChangesAsync(Project project, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider

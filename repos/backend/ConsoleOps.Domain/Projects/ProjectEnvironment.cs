@@ -49,6 +49,11 @@ public sealed class ProjectEnvironment
     {
         ArgumentOutOfRangeException.ThrowIfEqual(id, Guid.Empty);
 
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Environment kind is not supported.");
+        }
+
         string trimmedName = Require(name, nameof(name), ProjectRules.EnvironmentNameMaxLength);
         string? trimmedApplicationUrl = ValidateUrl(applicationUrl, nameof(applicationUrl));
         string? trimmedHealthUrl = ValidateUrl(healthUrl, nameof(healthUrl));
@@ -61,6 +66,23 @@ public sealed class ProjectEnvironment
             trimmedApplicationUrl,
             trimmedHealthUrl,
             trimmedVersionUrl);
+    }
+
+    internal void Apply(ProjectEnvironment replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+
+        if (Id != replacement.Id)
+        {
+            throw new ArgumentException("The replacement environment must have the same identifier.", nameof(replacement));
+        }
+
+        Name = replacement.Name;
+        NormalizedName = replacement.NormalizedName;
+        Kind = replacement.Kind;
+        ApplicationUrl = replacement.ApplicationUrl;
+        HealthUrl = replacement.HealthUrl;
+        VersionUrl = replacement.VersionUrl;
     }
 
     private static string? ValidateUrl(string? value, string parameterName)

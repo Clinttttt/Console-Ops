@@ -125,11 +125,13 @@ ConsoleOps.Application/
         `-- ListProjects/
 
 ConsoleOps.Api/
-`-- Features/
-    `-- Projects/
-        |-- RegisterProjectEndpoint.cs
-        |-- GetProjectEndpoint.cs
-        `-- ProjectEndpoints.cs
+|-- Extensions/                 focused API-boundary helpers
+|-- Features/
+|   `-- Projects/
+|       |-- RegisterProjectEndpoint.cs
+|       |-- GetProjectEndpoint.cs
+|       `-- ProjectEndpoints.cs
+`-- Middleware/                 cross-cutting HTTP pipeline behavior
 ```
 
 Each endpoint maps transport input to one command or query, sends it through `ISender`, and maps the
@@ -217,10 +219,17 @@ Register one MediatR validation behavior. It must call `next()` exactly once. If
 validators, return `await next()` immediately. Run validators asynchronously with the supplied
 cancellation token and combine their failures.
 
-Use ASP.NET Core `IExceptionHandler` plus `AddProblemDetails` for centralized unexpected-error
-responses. Map validation exceptions if the pipeline throws them. Log the full exception once while
-returning a safe problem response with a trace identifier. Do not return stack traces, provider
-payloads, URLs containing credentials, tokens, or connection details.
+While the API is small, use one `Middleware/ExceptionMiddleware.cs` plus `AddProblemDetails` for
+centralized validation and unexpected-error responses. Log the full unexpected exception once while
+returning a safe problem response with a trace identifier. Split into multiple ASP.NET Core
+`IExceptionHandler` implementations only when distinct handling policies make the single middleware
+materially difficult to maintain. Do not return stack traces, provider payloads, URLs containing
+credentials, tokens, or connection details.
+
+Use descriptive API folders such as `Features`, `Middleware`, and `Extensions`. Do not create an
+`Infrastructure` folder inside `ConsoleOps.Api`; the separate `ConsoleOps.Infrastructure` project
+already owns persistence and provider infrastructure. Add `Common` or `Abstractions` inside the API
+only after a concrete shared API-boundary concern requires them.
 
 Middleware order must be deliberate and contain no duplicate authentication/authorization calls.
 
