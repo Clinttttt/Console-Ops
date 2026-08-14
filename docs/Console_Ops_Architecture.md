@@ -251,6 +251,14 @@ The V1 GitHub adapter reads an optional token from `GitHub:Token` (environment-v
 in user-secrets, environment configuration, or a production secret store; do not add it to an
 appsettings file. Public repositories can be read without a token, subject to GitHub's limits.
 
+Application health/version probes reject redirects and non-HTTP(S) URLs, cap response bodies, and
+pin each connection to DNS addresses that were checked as public. Loopback, link-local, private,
+multicast, documentation, and other special-purpose address ranges are blocked by default. A trusted
+local installation may explicitly allow exact private host names or IP addresses with
+`ApplicationProbes:AllowedPrivateHosts` (environment-variable form
+`ApplicationProbes__AllowedPrivateHosts`, comma/semicolon separated). Do not enable a private host
+for an Internet-exposed installation; network egress controls remain a required defense in depth.
+
 The runtime/provider remains the source of truth. A database row is a cached observation with a
 timestamp, not proof of current health.
 
