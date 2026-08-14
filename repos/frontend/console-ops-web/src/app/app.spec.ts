@@ -28,9 +28,12 @@ describe('App shell', () => {
 
   it('uses Console Ops branding', async () => {
     const host = await render();
+    const logo = host.querySelector<HTMLImageElement>('.mark-image');
 
     expect(host.textContent).toContain('Console Ops');
     expect(host.textContent).not.toContain('DevDeck');
+    expect(logo?.getAttribute('src')).toBe('/console-ops-logo.png');
+    expect(logo?.getAttribute('alt')).toBe('');
   });
 
   it('exposes the shipped destinations as navigable and the rest as planned', async () => {

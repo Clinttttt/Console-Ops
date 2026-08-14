@@ -17,14 +17,18 @@
 .mark {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--co-navy);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+}
+
+.mark-image {
+  display: block;
+  width: 62px;
+  max-width: none;
+  height: 62px;
+  object-fit: contain;
 }
 
 .brand-text {
