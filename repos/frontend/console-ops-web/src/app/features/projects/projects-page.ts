@@ -29,14 +29,9 @@ export class ProjectsPage {
   protected readonly recentlyAdded = this.store.recentlyAdded;
 
   protected readonly query = signal('');
-  protected readonly showArchived = signal(false);
 
   /** `null` when the scope is one the quick views do not cover, such as Staging. */
   protected readonly activeView = computed<RegistryView | null>(() => {
-    if (this.showArchived()) {
-      return 'archived';
-    }
-
     const scope = this.environmentScope.scope();
     if (scope === 'production' || scope === 'local') {
       return scope;
@@ -46,16 +41,14 @@ export class ProjectsPage {
   });
 
   protected readonly projects = computed<readonly ProjectListItem[]>(() => {
-    const lifecycle = this.showArchived() ? 'archived' : 'active';
     const scope = this.environmentScope.scope();
     const query = this.query().trim().toLowerCase();
 
     return this.store.projects().filter((project) => {
-      if (project.lifecycle !== lifecycle) {
-        return false;
-      }
-
-      if (scope !== null && project.environment.kind !== scope) {
+      if (
+        scope !== null &&
+        !project.environments.some((environment) => environment.kind === scope)
+      ) {
         return false;
       }
 
@@ -68,8 +61,6 @@ export class ProjectsPage {
   }
 
   protected selectView(view: RegistryView): void {
-    this.showArchived.set(view === 'archived');
-
     if (view === 'production' || view === 'local') {
       this.environmentScope.select(view);
     } else if (view === 'all') {
@@ -79,7 +70,6 @@ export class ProjectsPage {
 
   protected clearFilters(): void {
     this.query.set('');
-    this.showArchived.set(false);
     this.environmentScope.select(null);
   }
 
@@ -91,7 +81,7 @@ export class ProjectsPage {
 function matchesQuery(project: ProjectListItem, query: string): boolean {
   return (
     project.name.toLowerCase().includes(query) ||
-    project.repository.repository.toLowerCase().includes(query) ||
+    `${project.repository.owner}/${project.repository.name}`.toLowerCase().includes(query) ||
     (project.description?.toLowerCase().includes(query) ?? false)
   );
 }

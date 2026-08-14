@@ -9,7 +9,7 @@ import {
 import { Icon } from '../../../core/ui/icon';
 
 /** Quick views over the registry. `null` means the current filters match no single quick view. */
-export type RegistryView = 'all' | 'production' | 'local' | 'archived';
+export type RegistryView = 'all' | 'production' | 'local';
 
 interface ViewOption {
   readonly value: RegistryView;
@@ -20,7 +20,6 @@ const VIEWS: readonly ViewOption[] = [
   { value: 'all', label: 'All' },
   { value: 'production', label: 'Production' },
   { value: 'local', label: 'Local' },
-  { value: 'archived', label: 'Archived' },
 ];
 
 /**

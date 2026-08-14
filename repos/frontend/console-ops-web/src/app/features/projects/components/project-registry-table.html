@@ -1,6 +1,6 @@
 <header class="section-head">
   <h2 class="co-eyebrow">Project Registry</h2>
-  <p class="co-section-note">Manage and monitor all registered projects.</p>
+  <p class="co-section-note">Manage the projects and environments Console Ops monitors.</p>
 </header>
 
 @if (projects().length === 0) {
@@ -13,12 +13,10 @@
     <thead>
       <tr>
         <th scope="col">Project</th>
-        <th scope="col">Type</th>
-        <th scope="col">Environment</th>
-        <th scope="col">Health</th>
+        <th scope="col">Environments</th>
         <th scope="col">Source / Branch</th>
-        <th scope="col">Runtime</th>
-        <th scope="col">Last Deployed</th>
+        <th scope="col">Monitoring</th>
+        <th scope="col">Last Updated</th>
         <th scope="col">Actions</th>
       </tr>
     </thead>
@@ -38,59 +36,37 @@
           </td>
 
           <td>
-            @let kind = kindLabel(project.kind);
-            @if (kind === null) {
-              <span class="co-unavailable">&mdash;</span>
-            } @else {
-              <span class="type">{{ kind }}</span>
-            }
+            <div class="environments">
+              @for (environment of project.environments; track environment.id) {
+                <co-environment-tag [name]="environment.name" [kind]="environment.kind" />
+              }
+            </div>
           </td>
-
-          <td>
-            <co-environment-tag
-              [name]="project.environment.name"
-              [kind]="project.environment.kind"
-            />
-          </td>
-
-          <td><co-status [cell]="project.health" [showDetail]="false" /></td>
 
           <td>
             <div class="source">
               <co-icon name="github" [size]="15" />
               <span>
-                <span class="repository">{{ project.repository.repository }}</span>
+                <span class="repository">{{ repository(project) }}</span>
                 <span class="branch">{{ project.repository.defaultBranch }}</span>
               </span>
             </div>
           </td>
 
           <td>
-            @let runtime = project.runtime;
-            @if (runtime === null) {
-              <span class="co-unavailable">Not configured</span>
-            } @else {
-              <span class="runtime-framework">{{ runtime.framework ?? 'Unknown' }}</span>
-              <span class="runtime-target">{{ runtime.target ?? 'Target unknown' }}</span>
+            <span class="monitoring">{{ monitoringLabel(project) }}</span>
+            @if (project.repository.workflowFile !== null) {
+              <span class="workflow">{{ project.repository.workflowFile }}</span>
             }
           </td>
 
           <td>
-            @let deployment = project.lastDeployment;
-            @if (deployment === null) {
-              <span class="co-unavailable">Never deployed</span>
-            } @else {
-              <span class="deployed-at">
-                {{ deployment.deployedAt | date: 'MMM d, y' : 'UTC' }}
-              </span>
-              <span class="deployed-by">
-                @if (deployment.triggeredBy === null) {
-                  Trigger unknown
-                } @else {
-                  by {{ deployment.triggeredBy }}
-                }
-              </span>
-            }
+            <time class="updated-at" [attr.datetime]="project.updatedAtUtc ?? project.createdAtUtc">
+              {{ project.updatedAtUtc ?? project.createdAtUtc | date: 'MMM d, y' : 'UTC' }}
+            </time>
+            <span class="configuration-version"
+              >Configuration v{{ project.configurationVersion }}</span
+            >
           </td>
 
           <td>
@@ -102,13 +78,13 @@
               >
                 Open
               </span>
-              <span class="action" aria-disabled="true" title="Logs arrive in a later phase">
-                Logs
+              <span class="action" aria-disabled="true" title="Editing arrives with project detail">
+                Edit
               </span>
               <span
                 class="more"
                 aria-disabled="true"
-                title="Edit and archive arrive with the project detail slice"
+                title="Project actions arrive in a later slice"
               >
                 <co-icon name="ellipsis" [size]="16" />
               </span>
@@ -118,13 +94,4 @@
       }
     </tbody>
   </table>
-
-  @if (!showingArchived()) {
-    <div class="co-section-footer">
-      <button type="button" class="co-inline-link" (click)="viewArchived.emit()">
-        View archived projects
-        <co-icon name="archive" [size]="15" />
-      </button>
-    </div>
-  }
 }

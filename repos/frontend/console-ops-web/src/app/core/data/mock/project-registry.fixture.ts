@@ -1,132 +1,133 @@
 import { ProjectRegistry } from '../../contracts/project-registry';
 
-/**
- * Design-stage fixture for the Projects screen.
- *
- * This is a fixture, not a fallback: only the mock adapter reaches it, so a real API failure can
- * never be masked by it. It is removed when the project list query slice lands.
- *
- * It keeps the honest gaps the product must handle:
- * - AMYL runs locally, so it has no CI-triggered deployment record;
- * - StockPilot is reachable but warning, not healthy;
- * - the archived project is no longer monitored, so its health is unknown and it has no runtime.
- */
-export const PROJECT_REGISTRY_FIXTURE: ProjectRegistry = {
-  observedAt: '2025-05-14T09:24:00Z',
-  projects: [
-    {
-      id: 'spinner-api',
-      name: 'Spinner API',
-      description: 'ASP.NET Core Web API',
-      kind: 'api',
-      lifecycle: 'active',
-      environment: { id: 'spinner-api-prod', name: 'Production', kind: 'production' },
-      repository: {
-        provider: 'github',
-        repository: 'spinner/api',
-        defaultBranch: 'main',
-        url: 'https://github.com/spinner/api',
-      },
-      runtime: { framework: '.NET 8', target: 'Azure App Service' },
-      health: { level: 'healthy', label: 'Healthy', detail: null },
-      healthObservedAt: '2025-05-14T09:22:00Z',
-      lastDeployment: { deployedAt: '2025-05-14T09:23:00Z', triggeredBy: 'ci-bot' },
-      registeredAt: '2025-04-02T10:15:00Z',
+/** Representative V1 project resources used only by component and HTTP adapter tests. */
+export const PROJECT_REGISTRY_FIXTURE: ProjectRegistry = [
+  {
+    id: 'spinner-api',
+    name: 'Spinner API',
+    description: 'ASP.NET Core Web API',
+    repository: {
+      owner: 'spinner',
+      name: 'api',
+      defaultBranch: 'main',
+      workflowFile: 'deploy.yml',
     },
-    {
-      id: 'stalltrack',
-      name: 'StallTrack',
-      description: 'ASP.NET Core Web App',
-      kind: 'webApp',
-      lifecycle: 'active',
-      environment: { id: 'stalltrack-prod', name: 'Production', kind: 'production' },
-      repository: {
-        provider: 'github',
-        repository: 'stalltrack/web',
-        defaultBranch: 'main',
-        url: 'https://github.com/stalltrack/web',
+    environments: [
+      {
+        id: 'spinner-api-prod',
+        name: 'Production',
+        kind: 'production',
+        applicationUrl: 'https://api.spinner.example',
+        healthUrl: 'https://api.spinner.example/health',
+        versionUrl: 'https://api.spinner.example/version',
       },
-      runtime: { framework: '.NET 8', target: 'Azure App Service' },
-      health: { level: 'healthy', label: 'Healthy', detail: null },
-      healthObservedAt: '2025-05-14T08:44:00Z',
-      lastDeployment: { deployedAt: '2025-05-14T08:41:00Z', triggeredBy: 'ci-bot' },
-      registeredAt: '2025-04-08T09:05:00Z',
+    ],
+    createdAtUtc: '2025-04-02T10:15:00Z',
+    updatedAtUtc: '2025-05-14T09:23:00Z',
+    configurationVersion: 2,
+  },
+  {
+    id: 'stalltrack',
+    name: 'StallTrack',
+    description: 'ASP.NET Core Web App',
+    repository: {
+      owner: 'stalltrack',
+      name: 'web',
+      defaultBranch: 'main',
+      workflowFile: null,
     },
-    {
-      id: 'amyl',
-      name: 'AMYL',
-      description: 'Worker Service',
-      kind: 'worker',
-      lifecycle: 'active',
-      environment: { id: 'amyl-local', name: 'Local', kind: 'local' },
-      repository: {
-        provider: 'github',
-        repository: 'amyl/worker',
-        defaultBranch: 'develop',
-        url: 'https://github.com/amyl/worker',
+    environments: [
+      {
+        id: 'stalltrack-prod',
+        name: 'Production',
+        kind: 'production',
+        applicationUrl: 'https://stalltrack.example',
+        healthUrl: 'https://stalltrack.example/health',
+        versionUrl: null,
       },
-      runtime: { framework: '.NET 8', target: 'Docker Desktop' },
-      health: { level: 'running', label: 'Running', detail: 'Docker active' },
-      healthObservedAt: '2025-05-14T09:20:00Z',
-      lastDeployment: { deployedAt: '2025-05-14T07:48:00Z', triggeredBy: 'developer' },
-      registeredAt: '2025-05-12T14:40:00Z',
+    ],
+    createdAtUtc: '2025-04-08T09:05:00Z',
+    updatedAtUtc: null,
+    configurationVersion: 1,
+  },
+  {
+    id: 'amyl',
+    name: 'AMYL',
+    description: 'Worker Service',
+    repository: {
+      owner: 'amyl',
+      name: 'worker',
+      defaultBranch: 'develop',
+      workflowFile: null,
     },
-    {
-      id: 'console-ops',
-      name: 'Console Ops',
-      description: 'Internal Dashboard',
-      kind: 'webApp',
-      lifecycle: 'active',
-      environment: { id: 'console-ops-prod', name: 'Production', kind: 'production' },
-      repository: {
-        provider: 'github',
-        repository: 'console/ops',
-        defaultBranch: 'release/1.2',
-        url: 'https://github.com/console/ops',
+    environments: [
+      {
+        id: 'amyl-local',
+        name: 'Local',
+        kind: 'local',
+        applicationUrl: null,
+        healthUrl: null,
+        versionUrl: null,
       },
-      runtime: { framework: '.NET 8', target: 'Azure App Service' },
-      health: { level: 'healthy', label: 'Healthy', detail: null },
-      healthObservedAt: '2025-05-14T09:21:00Z',
-      lastDeployment: { deployedAt: '2025-05-13T17:32:00Z', triggeredBy: 'ci-bot' },
-      registeredAt: '2025-05-13T16:20:00Z',
+    ],
+    createdAtUtc: '2025-05-12T14:40:00Z',
+    updatedAtUtc: null,
+    configurationVersion: 1,
+  },
+  {
+    id: 'console-ops',
+    name: 'Console Ops',
+    description: 'Developer operations control center',
+    repository: {
+      owner: 'console',
+      name: 'ops',
+      defaultBranch: 'main',
+      workflowFile: null,
     },
-    {
-      id: 'stockpilot',
-      name: 'StockPilot',
-      description: 'Background Service',
-      kind: 'worker',
-      lifecycle: 'active',
-      environment: { id: 'stockpilot-prod', name: 'Production', kind: 'production' },
-      repository: {
-        provider: 'github',
-        repository: 'stockpilot/worker',
-        defaultBranch: 'main',
-        url: 'https://github.com/stockpilot/worker',
+    environments: [
+      {
+        id: 'console-ops-dev',
+        name: 'Development',
+        kind: 'development',
+        applicationUrl: 'http://localhost:5096',
+        healthUrl: null,
+        versionUrl: null,
       },
-      runtime: { framework: '.NET 8', target: 'Azure Container Apps' },
-      health: { level: 'warning', label: 'Warning', detail: 'Elevated queue depth' },
-      healthObservedAt: '2025-05-14T09:18:00Z',
-      lastDeployment: { deployedAt: '2025-05-13T11:09:00Z', triggeredBy: 'ci-bot' },
-      registeredAt: '2025-05-13T10:55:00Z',
+    ],
+    createdAtUtc: '2025-05-13T16:20:00Z',
+    updatedAtUtc: null,
+    configurationVersion: 1,
+  },
+  {
+    id: 'stockpilot',
+    name: 'StockPilot',
+    description: 'Background Service',
+    repository: {
+      owner: 'stockpilot',
+      name: 'worker',
+      defaultBranch: 'main',
+      workflowFile: 'ci.yml',
     },
-    {
-      id: 'legacy-billing',
-      name: 'Legacy Billing',
-      description: 'ASP.NET Core Web API',
-      kind: 'api',
-      lifecycle: 'archived',
-      environment: { id: 'legacy-billing-prod', name: 'Production', kind: 'production' },
-      repository: {
-        provider: 'github',
-        repository: 'legacy/billing',
-        defaultBranch: 'main',
-        url: 'https://github.com/legacy/billing',
+    environments: [
+      {
+        id: 'stockpilot-prod',
+        name: 'Production',
+        kind: 'production',
+        applicationUrl: null,
+        healthUrl: null,
+        versionUrl: null,
       },
-      runtime: null,
-      health: { level: 'unknown', label: 'Unknown', detail: 'Not monitored while archived' },
-      healthObservedAt: null,
-      lastDeployment: null,
-      registeredAt: '2024-11-18T08:30:00Z',
-    },
-  ],
-};
+      {
+        id: 'stockpilot-local',
+        name: 'Local',
+        kind: 'local',
+        applicationUrl: null,
+        healthUrl: null,
+        versionUrl: null,
+      },
+    ],
+    createdAtUtc: '2025-05-13T10:55:00Z',
+    updatedAtUtc: null,
+    configurationVersion: 1,
+  },
+];

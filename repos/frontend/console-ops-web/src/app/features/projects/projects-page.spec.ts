@@ -18,7 +18,11 @@ describe('ProjectsPage', () => {
         provideRouter([]),
         {
           provide: ProjectRegistryDataSource,
-          useValue: { load: () => of(PROJECT_REGISTRY_FIXTURE) },
+          useValue: {
+            load: () => of(PROJECT_REGISTRY_FIXTURE),
+            register: () => of(PROJECT_REGISTRY_FIXTURE[0]),
+            refreshProject: () => of(null),
+          },
         },
       ],
     }).compileComponents();
@@ -43,44 +47,31 @@ describe('ProjectsPage', () => {
     view?.click();
   }
 
-  it('lists active projects and excludes archived ones by default', () => {
+  it('lists the active project resources returned by the API', () => {
     expect(rowNames()).toEqual(['Spinner API', 'StallTrack', 'AMYL', 'Console Ops', 'StockPilot']);
-    expect(host.textContent).not.toContain('Legacy Billing');
   });
 
-  it('shows configuration and state for each project', () => {
+  it('shows only persisted V1 configuration', () => {
     const spinner = rows()[0];
 
     expect(spinner.textContent).toContain('ASP.NET Core Web API');
-    expect(spinner.textContent).toContain('API');
     expect(spinner.textContent).toContain('Production');
-    expect(spinner.textContent).toContain('Healthy');
     expect(spinner.textContent).toContain('spinner/api');
     expect(spinner.textContent).toContain('main');
-    expect(spinner.textContent).toContain('.NET 8');
-    expect(spinner.textContent).toContain('Azure App Service');
+    expect(spinner.textContent).toContain('Health + version');
+    expect(spinner.textContent).toContain('deploy.yml');
     expect(spinner.textContent).toContain('May 14, 2025');
-    expect(spinner.textContent).not.toContain('09:23');
-    expect(spinner.textContent).toContain('by ci-bot');
+    expect(spinner.textContent).toContain('Configuration v2');
+    expect(spinner.textContent).not.toContain('Azure App Service');
+    expect(spinner.textContent).not.toContain('Last Deployed');
   });
 
-  it('narrows the registry to a quick view', () => {
+  it('narrows the registry to projects with a matching environment', () => {
     clickView('Local');
     fixture.detectChanges();
 
-    expect(rowNames()).toEqual(['AMYL']);
+    expect(rowNames()).toEqual(['AMYL', 'StockPilot']);
     expect(TestBed.inject(EnvironmentScopeStore).scope()).toBe('local');
-  });
-
-  it('shows archived projects with honest unmonitored state', () => {
-    clickView('Archived');
-    fixture.detectChanges();
-
-    expect(rowNames()).toEqual(['Legacy Billing']);
-    const archived = rows()[0];
-    expect(archived.textContent).toContain('Unknown');
-    expect(archived.textContent).toContain('Not configured');
-    expect(archived.textContent).toContain('Never deployed');
   });
 
   it('filters by name, repository, or descriptor', async () => {
@@ -123,9 +114,9 @@ describe('ProjectsPage', () => {
   });
 
   it('links to registration and keeps per-project actions unavailable', () => {
-    const add = host.querySelector<HTMLAnchorElement>('.add');
-
-    expect(add?.getAttribute('href')).toBe('/projects/new');
+    expect(host.querySelector<HTMLAnchorElement>('.add')?.getAttribute('href')).toBe(
+      '/projects/new',
+    );
     expect(host.querySelectorAll('.action[aria-disabled="true"]').length).toBe(10);
   });
 });

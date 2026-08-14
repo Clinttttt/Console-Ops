@@ -18,8 +18,8 @@ const INTAKE_STEPS: readonly IntakeStep[] = [
     description: 'Connect your source repository and select a branch.',
   },
   {
-    title: 'Runtime',
-    description: 'Choose the runtime, framework, and hosting target.',
+    title: 'Workflow',
+    description: 'Optionally select the GitHub Actions workflow to observe.',
   },
   {
     title: 'Endpoints',

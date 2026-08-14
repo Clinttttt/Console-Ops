@@ -1,16 +1,60 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { Observable, of, throwError } from 'rxjs';
 
+import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
+import { ProjectListItem } from '../../core/contracts/project-registry';
+import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
+import { DASHBOARD_OVERVIEW_FIXTURE } from '../../core/data/mock/dashboard-overview.fixture';
+import { PROJECT_REGISTRY_FIXTURE } from '../../core/data/mock/project-registry.fixture';
+import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { AddProjectPage } from './add-project-page';
+
+@Component({ template: '' })
+class ProjectsDestination {}
 
 describe('AddProjectPage', () => {
   let harness: RouterTestingHarness;
   let host: HTMLElement;
+  let registeredRequest: ProjectRegistrationRequest | null;
+  let refreshedProjectId: string | null;
+  let registrationResult: Observable<ProjectListItem>;
+  let refreshResult: Observable<unknown>;
 
   beforeEach(async () => {
+    registeredRequest = null;
+    refreshedProjectId = null;
+    registrationResult = of(PROJECT_REGISTRY_FIXTURE[0]);
+    refreshResult = of(null);
+
     TestBed.configureTestingModule({
-      providers: [provideRouter([{ path: 'projects/new', component: AddProjectPage }])],
+      providers: [
+        provideRouter([
+          { path: 'projects/new', component: AddProjectPage },
+          { path: 'projects', component: ProjectsDestination },
+        ]),
+        {
+          provide: ProjectRegistryDataSource,
+          useValue: {
+            load: () => of(PROJECT_REGISTRY_FIXTURE),
+            register: (request: ProjectRegistrationRequest) => {
+              registeredRequest = request;
+              return registrationResult;
+            },
+            refreshProject: (projectId: string) => {
+              refreshedProjectId = projectId;
+              return refreshResult;
+            },
+          },
+        },
+        {
+          provide: DashboardOverviewDataSource,
+          useValue: { load: () => of(DASHBOARD_OVERVIEW_FIXTURE) },
+        },
+      ],
     });
 
     harness = await RouterTestingHarness.create();
@@ -39,16 +83,19 @@ describe('AddProjectPage', () => {
     expect(summary()).toContain('Complete the required fields to compose a valid registration.');
   });
 
-  it('mirrors the entered configuration in the setup summary', async () => {
+  it('mirrors the persisted V1 configuration in the setup summary', async () => {
     await completeRequiredFields();
+    await type('#workflow-file', 'deploy.yml');
     await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#health-endpoint', '/health');
+    await type('#version-endpoint', '/version');
 
     expect(summary()).toContain('Spinner API');
     expect(summary()).toContain('clint/spinner (main)');
     expect(summary()).toContain('Production');
-    expect(summary()).toContain('https://api.spinnerapp.com');
-    expect(summary()).toContain('/health');
-    expect(summary()).toContain('/version');
+    expect(summary()).toContain('deploy.yml');
+    expect(summary()).toContain('https://api.spinnerapp.com/health');
+    expect(summary()).toContain('https://api.spinnerapp.com/version');
     expect(summary()).not.toContain('Complete the required fields');
   });
 
@@ -59,28 +106,22 @@ describe('AddProjectPage', () => {
     expect(summary()).toContain('Complete the required fields');
   });
 
-  it('rejects a relative base URL', async () => {
+  it('rejects a relative base URL and embedded credentials', async () => {
     await completeRequiredFields();
     await type('#base-url', 'api.spinnerapp.com');
-
     expect(host.textContent).toContain('Enter an absolute URL');
-  });
 
-  it('refuses credentials embedded in the base URL', async () => {
-    await completeRequiredFields();
     await type('#base-url', 'https://user:secret@api.spinnerapp.com');
-
     expect(host.textContent).toContain('Remove the credentials from the URL.');
     expect(summary()).not.toContain('secret');
   });
 
-  it('accepts an endpoint path or an absolute endpoint URL', async () => {
+  it('requires a base URL for a relative endpoint', async () => {
     await completeRequiredFields();
-    await type('#health-endpoint', 'health');
-    expect(host.textContent).toContain('Use a path such as /health');
+    await type('#health-endpoint', '/health');
 
-    await type('#health-endpoint', 'https://api.spinnerapp.com/health');
-    expect(host.textContent).not.toContain('Use a path such as /health');
+    expect(host.textContent).toContain('Add a Base URL before using a relative endpoint.');
+    expect(host.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(true);
   });
 
   it('keeps the environment name in step with the selected kind', async () => {
@@ -93,22 +134,66 @@ describe('AddProjectPage', () => {
     expect(host.querySelector<HTMLInputElement>('#environment-name')?.value).toBe('Local');
   });
 
-  it('reports Azure as a later phase rather than claiming a connection', () => {
-    const providers = host.querySelector('.providers')?.textContent ?? '';
+  it('submits the exact API contract, refreshes observations, and returns to Projects', async () => {
+    await completeRequiredFields();
+    await type('#workflow-file', 'deploy.yml');
+    await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#health-endpoint', '/health');
+    await type('#version-endpoint', 'https://versions.spinnerapp.com/current');
 
-    expect(providers).toContain('GitHub');
-    expect(providers).toContain('Configured');
-    expect(providers).toContain('Azure');
-    expect(providers).toContain('Later phase');
-    expect(providers).not.toContain('Connected');
+    host.querySelector<HTMLButtonElement>('.primary')!.click();
+    await harness.fixture.whenStable();
+
+    expect(registeredRequest).toEqual({
+      name: 'Spinner API',
+      description: null,
+      repository: {
+        owner: 'clint',
+        name: 'spinner',
+        defaultBranch: 'main',
+        workflowFile: 'deploy.yml',
+      },
+      environments: [
+        {
+          name: 'Production',
+          kind: 'production',
+          applicationUrl: 'https://api.spinnerapp.com',
+          healthUrl: 'https://api.spinnerapp.com/health',
+          versionUrl: 'https://versions.spinnerapp.com/current',
+        },
+      ],
+    });
+    expect(refreshedProjectId).toBe(PROJECT_REGISTRY_FIXTURE[0].id);
+    expect(TestBed.inject(Router).url).toBe('/projects');
   });
 
-  it('keeps submission unavailable until the registration slice exists', async () => {
+  it('shows a safe duplicate message when registration is rejected', async () => {
+    registrationResult = throwError(
+      () => new HttpErrorResponse({ status: 409, statusText: 'Conflict' }),
+    );
     await completeRequiredFields();
 
-    const submit = host.querySelector<HTMLButtonElement>('.primary');
-    expect(submit?.disabled).toBe(true);
-    expect(submit?.title).toContain('POST /api/projects');
+    host.querySelector<HTMLButtonElement>('.primary')!.click();
+    harness.detectChanges();
+
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+      'name or repository is already registered',
+    );
+    expect(TestBed.inject(Router).url).toBe('/projects/new');
+  });
+
+  it('keeps a successful registration when the initial refresh is unavailable', async () => {
+    refreshResult = throwError(
+      () => new HttpErrorResponse({ status: 503, statusText: 'Service Unavailable' }),
+    );
+    await completeRequiredFields();
+
+    host.querySelector<HTMLButtonElement>('.primary')!.click();
+    await harness.fixture.whenStable();
+
+    expect(registeredRequest?.name).toBe('Spinner API');
+    expect(refreshedProjectId).toBe(PROJECT_REGISTRY_FIXTURE[0].id);
+    expect(TestBed.inject(Router).url).toBe('/projects');
   });
 
   it('offers a working way back to the registry', () => {

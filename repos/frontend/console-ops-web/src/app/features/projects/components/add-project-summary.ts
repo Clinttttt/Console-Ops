@@ -19,10 +19,10 @@ interface NextStep {
 
 /** What Console Ops does once a project is registered. Deterministic, not aspirational. */
 const NEXT_STEPS: readonly NextStep[] = [
-  { icon: 'stacks', text: 'The project is created with its primary environment.' },
+  { icon: 'stacks', text: 'The project is created with its first environment.' },
+  { icon: 'github', text: 'An initial refresh reads the configured GitHub source and workflow.' },
   { icon: 'heartPulse', text: 'Health is probed when a health endpoint is configured.' },
   { icon: 'refresh', text: 'Version sync reports Unknown until a deployed commit is observed.' },
-  { icon: 'gear', text: 'Configuration stays editable from the project settings.' },
 ];
 
 /** Live review of the registration the form would send. */
@@ -59,7 +59,11 @@ export class AddProjectSummary {
         value: environment?.name ?? null,
         environmentKind: this.environmentKind(),
       },
-      { icon: 'cube', label: 'Runtime', value: request?.runtime?.target ?? null },
+      {
+        icon: 'ciCd',
+        label: 'Workflow',
+        value: request?.repository.workflowFile ?? null,
+      },
       { icon: 'codeWindow', label: 'Base URL', value: environment?.applicationUrl ?? null },
       { icon: 'heartPulse', label: 'Health Endpoint', value: environment?.healthUrl ?? null },
       { icon: 'refresh', label: 'Version Endpoint', value: environment?.versionUrl ?? null },
