@@ -10,8 +10,9 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--co-space-3);
-  padding: 0 var(--co-space-2) var(--co-space-5);
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 var(--co-space-2) var(--co-space-4);
 }
 
 .mark {
@@ -34,18 +35,22 @@
 .brand-text {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .brand-name {
   font-family: var(--co-font-display);
-  font-size: 17px;
-  line-height: 1.2;
+  font-size: 18px;
+  line-height: 1.15;
   color: var(--co-ink-strong);
 }
 
 .brand-tagline {
-  font-size: 10px;
+  margin-top: 2px;
+  font-size: 9.5px;
+  line-height: 1.25;
   color: var(--co-ink-muted);
+  white-space: nowrap;
 }
 
 .nav ul {
