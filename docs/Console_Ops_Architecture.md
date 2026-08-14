@@ -246,6 +246,11 @@ DTOs inside the adapter and map them to application-owned models. Configure expl
 cancellation, safe logging, and modest resilience policies. Never retry every failure blindly,
 especially authentication, validation, or destructive operations.
 
+The V1 GitHub adapter reads an optional token from `GitHub:Token` (environment-variable form
+`GitHub__Token`) and an optional bounded request timeout from `GitHub:TimeoutSeconds`. Keep the token
+in user-secrets, environment configuration, or a production secret store; do not add it to an
+appsettings file. Public repositories can be read without a token, subject to GitHub's limits.
+
 The runtime/provider remains the source of truth. A database row is a cached observation with a
 timestamp, not proof of current health.
 
