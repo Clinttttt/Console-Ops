@@ -8,7 +8,23 @@ public sealed record GitHubProjectReference(
 
 public sealed record GitHubProjectReadResult(
     GitHubFactResult<GitHubSourceObservation> Source,
-    GitHubFactResult<GitHubWorkflowObservation> Workflow);
+    GitHubFactResult<GitHubWorkflowObservation> Workflow,
+    IReadOnlyList<GitHubCommitComparison> CommitComparisons);
+
+public sealed record GitHubCommitComparison(
+    string DeployedCommitSha,
+    string SourceCommitSha,
+    GitHubCommitRelation Relation,
+    int? CommitsBehind,
+    GitHubReadFailure? Failure,
+    DateTimeOffset ObservedAtUtc);
+
+public enum GitHubCommitRelation
+{
+    DeployedIsAncestor,
+    Identical,
+    Unknown
+}
 
 public sealed record GitHubSourceObservation(
     string Repository,

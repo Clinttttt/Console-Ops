@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using ConsoleOps.Application.Abstractions.Persistence;
 using ConsoleOps.Application.Features.Projects;
+using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
 using ConsoleOps.Application.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Integrations.ApplicationMonitoring;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddDbContext<ConsoleOpsDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IProjectRepository, ProjectRepository>();
         services.AddScoped<IProjectReadStore, ProjectReadStore>();
+        services.AddScoped<IProjectRefreshStore, ProjectRefreshStore>();
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
         {
             client.BaseAddress = new Uri("https://api.github.com/");

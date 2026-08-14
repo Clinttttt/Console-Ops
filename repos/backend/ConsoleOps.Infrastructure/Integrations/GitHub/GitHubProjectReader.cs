@@ -16,9 +16,11 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
 
     public async Task<GitHubProjectReadResult> ReadAsync(
         GitHubProjectReference project,
+        IReadOnlyCollection<string> deployedCommitShas,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(deployedCommitShas);
         ArgumentException.ThrowIfNullOrWhiteSpace(project.Owner);
         ArgumentException.ThrowIfNullOrWhiteSpace(project.Repository);
         ArgumentException.ThrowIfNullOrWhiteSpace(project.DefaultBranch);
@@ -29,10 +31,90 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
             ReadWorkflowAsync(project, cancellationToken);
 
         await Task.WhenAll(sourceTask, workflowTask);
+        GitHubFactResult<GitHubSourceObservation> source = await sourceTask;
+        IReadOnlyList<GitHubCommitComparison> comparisons = source.Observation is null
+            ? []
+            : await ReadComparisonsAsync(
+                project,
+                source.Observation.CommitSha,
+                deployedCommitShas,
+                cancellationToken);
 
         return new GitHubProjectReadResult(
-            await sourceTask,
-            await workflowTask);
+            source,
+            await workflowTask,
+            comparisons);
+    }
+
+    private async Task<IReadOnlyList<GitHubCommitComparison>> ReadComparisonsAsync(
+        GitHubProjectReference project,
+        string sourceCommitSha,
+        IReadOnlyCollection<string> deployedCommitShas,
+        CancellationToken cancellationToken)
+    {
+        string[] commits = deployedCommitShas
+            .Where(IsFullCommitSha)
+            .Where(commit => !string.Equals(commit, sourceCommitSha, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        GitHubCommitComparison[] comparisons = new GitHubCommitComparison[commits.Length];
+
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, commits.Length),
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = 4,
+                CancellationToken = cancellationToken
+            },
+            async (index, token) =>
+            {
+                comparisons[index] = await ReadComparisonAsync(
+                    project,
+                    commits[index],
+                    sourceCommitSha,
+                    token);
+            });
+
+        return comparisons;
+    }
+
+    private async Task<GitHubCommitComparison> ReadComparisonAsync(
+        GitHubProjectReference project,
+        string deployedCommitSha,
+        string sourceCommitSha,
+        CancellationToken cancellationToken)
+    {
+        string path = $"repos/{Escape(project.Owner)}/{Escape(project.Repository)}"
+            + $"/compare/{Escape(deployedCommitSha)}...{Escape(sourceCommitSha)}?per_page=1";
+        GitHubResponse<GitHubComparisonDto> response =
+            await GetAsync<GitHubComparisonDto>(path, cancellationToken);
+        DateTimeOffset observedAtUtc = timeProvider.GetUtcNow();
+
+        if (response.Failure is not null)
+        {
+            return new GitHubCommitComparison(
+                deployedCommitSha,
+                sourceCommitSha,
+                GitHubCommitRelation.Unknown,
+                null,
+                response.Failure,
+                observedAtUtc);
+        }
+
+        GitHubCommitRelation relation = response.Value?.Status?.Trim().ToLowerInvariant() switch
+        {
+            "ahead" when response.Value.AheadBy > 0 => GitHubCommitRelation.DeployedIsAncestor,
+            "identical" => GitHubCommitRelation.Identical,
+            _ => GitHubCommitRelation.Unknown
+        };
+
+        return new GitHubCommitComparison(
+            deployedCommitSha,
+            sourceCommitSha,
+            relation,
+            relation == GitHubCommitRelation.DeployedIsAncestor ? response.Value?.AheadBy : null,
+            null,
+            observedAtUtc);
     }
 
     private async Task<GitHubFactResult<GitHubSourceObservation>> ReadSourceAsync(
@@ -265,4 +347,9 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
         DateTimeOffset? RunStartedAt,
         [property: JsonPropertyName("updated_at")]
         DateTimeOffset? UpdatedAt);
+
+    private sealed record GitHubComparisonDto(
+        string? Status,
+        [property: JsonPropertyName("ahead_by")]
+        int AheadBy);
 }

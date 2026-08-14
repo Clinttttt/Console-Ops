@@ -183,6 +183,13 @@ Unequal short SHAs alone never prove `behind`.
   composition time, not a claim that every fact was sampled simultaneously.
 - A background interval and stale threshold remain configurable Phase 5 decisions. Phase 0 does not
   invent fixed freshness guarantees before the worker exists.
+- The refresh response returns the facts persisted by that attempt: project-level source/workflow,
+  per-environment health/version/version-sync, and activities emitted by deterministic transitions.
+  It never returns raw provider failures or payloads.
+- Refreshes for the same project are serialized within the V1 process. Persistence rechecks the
+  project's configuration version under a short database lock; if configuration changed while
+  providers were being read, the attempt returns `409 Conflict` instead of attaching observations
+  to stale endpoints.
 
 ## Transition activity
 

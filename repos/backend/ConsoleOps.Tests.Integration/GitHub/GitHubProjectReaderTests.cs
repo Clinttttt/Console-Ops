@@ -48,6 +48,7 @@ public sealed class GitHubProjectReaderTests
 
         GitHubProjectReadResult result = await reader.ReadAsync(
             new GitHubProjectReference("Clinttttt", "Console-Ops", "main", "ci.yml"),
+            [],
             CancellationToken.None);
 
         Assert.True(result.Source.IsSuccess);
@@ -94,6 +95,7 @@ public sealed class GitHubProjectReaderTests
 
         GitHubProjectReadResult result = await reader.ReadAsync(
             new GitHubProjectReference("owner", "repository", "main", null),
+            [],
             CancellationToken.None);
 
         Assert.True(result.Source.IsSuccess);
@@ -115,6 +117,7 @@ public sealed class GitHubProjectReaderTests
 
         GitHubProjectReadResult result = await reader.ReadAsync(
             new GitHubProjectReference("owner", "repository", "main", "deploy.yml"),
+            [],
             CancellationToken.None);
 
         Assert.False(result.Source.IsSuccess);
@@ -124,6 +127,31 @@ public sealed class GitHubProjectReaderTests
         Assert.Equal(
             GitHubWorkflowState.InProgress,
             Assert.IsType<GitHubWorkflowObservation>(result.Workflow.Observation).State);
+    }
+
+    [Fact]
+    public async Task ReadAsync_WhenDeployedCommitIsAnAncestor_MapsProvenDistance()
+    {
+        const string deployedSha = "89abcdef0123456789abcdef0123456789abcdef";
+        RecordingHandler handler = new(request => request.RequestUri!.AbsolutePath.Contains("/compare/")
+            ? JsonResponse("""{ "status": "ahead", "ahead_by": 3 }""")
+            : SourceResponse());
+        GitHubProjectReader reader = CreateReader(handler);
+
+        GitHubProjectReadResult result = await reader.ReadAsync(
+            new GitHubProjectReference("owner", "repository", "main", null),
+            [deployedSha, deployedSha.ToUpperInvariant(), "0123456"],
+            CancellationToken.None);
+
+        GitHubCommitComparison comparison = Assert.Single(result.CommitComparisons);
+        Assert.Equal(deployedSha, comparison.DeployedCommitSha);
+        Assert.Equal(CommitSha, comparison.SourceCommitSha);
+        Assert.Equal(GitHubCommitRelation.DeployedIsAncestor, comparison.Relation);
+        Assert.Equal(3, comparison.CommitsBehind);
+        Assert.Null(comparison.Failure);
+        Assert.Equal(ObservedAt, comparison.ObservedAtUtc);
+        Assert.Contains(handler.Requests, request => request.Uri.PathAndQuery
+            == $"/repos/owner/repository/compare/{deployedSha}...{CommitSha}?per_page=1");
     }
 
     [Theory]
@@ -147,6 +175,7 @@ public sealed class GitHubProjectReaderTests
 
         GitHubProjectReadResult result = await reader.ReadAsync(
             new GitHubProjectReference("owner", "repository", "main", "ci.yml"),
+            [],
             CancellationToken.None);
 
         Assert.Equal(
@@ -170,6 +199,7 @@ public sealed class GitHubProjectReaderTests
 
         GitHubProjectReadResult result = await reader.ReadAsync(
             new GitHubProjectReference("owner", "repository", "main", null),
+            [],
             CancellationToken.None);
 
         Assert.Equal(GitHubReadFailure.RateLimited, result.Source.Failure);
@@ -184,6 +214,7 @@ public sealed class GitHubProjectReaderTests
 
         GitHubProjectReadResult result = await reader.ReadAsync(
             new GitHubProjectReference("owner", "repository", "main", null),
+            [],
             CancellationToken.None);
 
         Assert.Equal(GitHubReadFailure.InvalidResponse, result.Source.Failure);
@@ -200,6 +231,7 @@ public sealed class GitHubProjectReaderTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.ReadAsync(
             new GitHubProjectReference("owner", "repository", "main", null),
+            [],
             cancellation.Token));
     }
 
