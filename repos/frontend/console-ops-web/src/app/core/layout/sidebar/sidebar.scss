@@ -10,26 +10,41 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--co-space-2);
-  min-height: 34px;
+  gap: 10px;
+  min-height: 50px;
   padding: 0 var(--co-space-2) var(--co-space-4);
 }
 
 .mark {
   display: grid;
   place-items: center;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 34px;
-  overflow: hidden;
+  flex: 0 0 50px;
+  width: 50px;
+  height: 50px;
 }
 
 .mark-image {
   display: block;
-  width: 52px;
+  width: 76px;
   max-width: none;
-  height: 52px;
+  height: 76px;
   object-fit: contain;
+}
+
+.brand.is-collapsed {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.brand.is-collapsed .mark {
+  flex-basis: 32px;
+  width: 32px;
+  height: 32px;
+}
+
+.brand.is-collapsed .mark-image {
+  width: 50px;
+  height: 50px;
 }
 
 .brand-text {
@@ -40,8 +55,8 @@
 
 .brand-name {
   font-family: var(--co-font-display);
-  font-size: 17px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1.15;
   color: var(--co-ink-strong);
 }
 
@@ -49,7 +64,6 @@
   margin-top: 2px;
   font-size: 9.5px;
   line-height: 1.25;
-  letter-spacing: 0.01em;
   color: var(--co-ink-muted);
   white-space: nowrap;
 }
