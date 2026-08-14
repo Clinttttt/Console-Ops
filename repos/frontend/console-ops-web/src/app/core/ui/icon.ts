@@ -35,6 +35,10 @@ export type IconName =
   // Controls
   | 'search'
   | 'bell'
+  | 'sliders'
+  | 'plus'
+  | 'ellipsis'
+  | 'archive'
   | 'chevronDown'
   | 'chevronLeft'
   | 'arrowRight'
@@ -153,6 +157,29 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
   },
   bell: {
     paths: ['M18.2 15.6V10a6.2 6.2 0 1 0-12.4 0v5.6L4.4 18h15.2Z', 'M10.2 21h3.6'],
+  },
+  sliders: {
+    paths: [
+      'M4 7.4h5.6M14.4 7.4H20',
+      'M4 12h8.6M17.4 12H20',
+      'M4 16.6h3.6M12.4 16.6H20',
+      CIRCLE(12, 7.4, 2.2),
+      CIRCLE(15, 12, 2.2),
+      CIRCLE(10, 16.6, 2.2),
+    ],
+  },
+  plus: {
+    paths: ['M12 5.6v12.8M5.6 12h12.8'],
+  },
+  ellipsis: {
+    paths: [CIRCLE(6, 12, 1.1), CIRCLE(12, 12, 1.1), CIRCLE(18, 12, 1.1)],
+  },
+  archive: {
+    paths: [
+      'M3.8 4.6h16.4v3.8H3.8Z',
+      'M5.4 8.4h13.2v10.2a.8.8 0 0 1-.8.8H6.2a.8.8 0 0 1-.8-.8Z',
+      'M10 12.4h4',
+    ],
   },
   chevronDown: { paths: ['M6.8 9.6 12 14.8l5.2-5.2'] },
   chevronLeft: { paths: ['M14.4 6.8 9.2 12l5.2 5.2'] },

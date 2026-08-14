@@ -1,0 +1,48 @@
+<section>
+  <header class="section-head">
+    <h2 class="co-eyebrow">Project Intake</h2>
+    <p class="co-section-note">What registering a project asks for.</p>
+  </header>
+
+  <ol class="steps">
+    @for (step of steps; track step.title; let index = $index) {
+      <li class="step">
+        <span class="index" aria-hidden="true">{{ index + 1 }}</span>
+        <span>
+          <span class="step-title">{{ step.title }}</span>
+          <span class="step-detail">{{ step.description }}</span>
+        </span>
+      </li>
+    }
+  </ol>
+</section>
+
+<section class="recent">
+  <header class="section-head">
+    <h2 class="co-eyebrow">Recently Added</h2>
+    <p class="co-section-note">The latest projects registered.</p>
+  </header>
+
+  @if (recentlyAdded().length === 0) {
+    <p class="co-unavailable empty">No projects registered yet.</p>
+  } @else {
+    <ul class="recent-list">
+      @for (project of recentlyAdded(); track project.id) {
+        <li>
+          <co-project-mark [name]="project.name" [tone]="toneFor(project.id)" [size]="20" />
+          <span class="recent-name">{{ project.name }}</span>
+          <time class="recent-date" [attr.datetime]="project.registeredAt">
+            {{ project.registeredAt | date: 'MMM d, y' : 'UTC' }}
+          </time>
+        </li>
+      }
+    </ul>
+
+    <div class="footer">
+      <button type="button" class="co-inline-link" (click)="showAll.emit()">
+        View all projects
+        <co-icon name="arrowRight" [size]="15" />
+      </button>
+    </div>
+  }
+</section>

@@ -12,10 +12,10 @@ interface NavigationItem {
   readonly route: string | null;
 }
 
-/** V1 ships the Overview screen. The remaining destinations are declared but honestly disabled. */
+/** V1 ships Overview and Projects. The remaining destinations are declared but honestly disabled. */
 const NAVIGATION: readonly NavigationItem[] = [
   { label: 'Overview', icon: 'home', route: '/overview' },
-  { label: 'Projects', icon: 'stacks', route: null },
+  { label: 'Projects', icon: 'stacks', route: '/projects' },
   { label: 'Deployments', icon: 'rocket', route: null },
   { label: 'Health', icon: 'heartPulse', route: null },
   { label: 'Logs', icon: 'fileText', route: null },

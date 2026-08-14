@@ -33,14 +33,14 @@ describe('App shell', () => {
     expect(host.textContent).not.toContain('DevDeck');
   });
 
-  it('exposes only the Overview destination as navigable', async () => {
+  it('exposes the shipped destinations as navigable and the rest as planned', async () => {
     const host = await render();
     const navigable = Array.from(host.querySelectorAll('a.nav-item')).map((item) =>
       item.textContent?.trim(),
     );
 
-    expect(navigable).toEqual(['Overview']);
-    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(6);
+    expect(navigable).toEqual(['Overview', 'Projects']);
+    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(5);
   });
 
   it('shows partial visibility without inventing uptime history', async () => {

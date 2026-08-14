@@ -27,9 +27,11 @@ src/
     |   |-- data/                           ports + adapters (`mock/` holds the fixture adapter)
     |   |-- state/                          signal stores
     |   |-- layout/                         sidebar/, top-bar/
-    |   `-- ui/                             icon, status, sparkline, environment-tag, project-mark
+    |   `-- ui/                             icon, status, sparkline, environment-tag, project-mark,
+    |                                       project-tone
     `-- features/
-        `-- overview/                       page + `components/` sections
+        |-- overview/                       page + `components/` sections
+        `-- projects/                       page + `components/` sections
 ```
 
 Feature-first: a screen owns its page component, template, styles, sections, and spec. Something moves
@@ -95,8 +97,20 @@ contract (core/contracts) -> port (core/data) -> adapter (mock or http) -> store
   and activity glyphs, status colours only for status.
 - Add an icon only when a screen renders it, and prefer paths built from simple arcs and lines that
   stay legible at 15-17px. Avoid transplanting complex third-party path data.
-- `co-project-mark` draws the hexagonal project glyph with the project initial and tone. Tone is
+- `co-project-mark` draws the hexagonal project glyph with the project initial and tone. Tone comes
+  from `toneForProject(projectId)` so the same project keeps the same mark on every screen; tone is
   presentation only and must never encode status.
+
+## Cross-screen consistency
+
+- A project looks the same everywhere: same `co-project-mark` and tone, same `co-environment-tag`,
+  same `co-status` wording and colour. Never restyle a shared concept per screen.
+- Shared operator state lives in one signal store. The environment scope is `EnvironmentScopeStore`;
+  the shell selector and any in-page environment control write to it rather than keeping a local copy.
+- Derive a screen's view state from that shared state instead of storing it twice. The Projects quick
+  views are computed from scope plus the archived flag, so no two controls can disagree.
+- Page title and subtitle come from route `data`; the shell renders them. A page never renders its
+  own `h1`.
 
 ## Design system
 
@@ -105,7 +119,23 @@ accent, thin `--co-line` separators, serif display face for page titles, mono fo
 green healthy, blue running, amber warning, orange degraded, red down, grey unknown/N-A.
 
 Shared primitives: `.co-eyebrow`, `.co-section-note`, `.co-table`, `.co-dot`, `.co-mono`,
-`.co-unavailable`, `.co-inline-link`, `.co-section-footer`, `.co-sr-only`.
+`.co-unavailable`, `.co-inline-link`, `.co-section-footer`, `.co-sr-only`, and `.co-form` for form
+controls (label, input, select, segmented, error). Component SCSS stays under the 4 kB budget; when a
+control style is needed twice, move it into `.co-form` rather than duplicating it.
+
+## Forms
+
+- No `FormsModule` or `ReactiveFormsModule`. A field is a `signal`, bound with `[value]` and
+  `(input)`, and validation is `computed()`. This matches the signal-first style of the rest of the app
+  and keeps forms out of the initial bundle.
+- Validate what the API contract requires, with the contract's wording: `owner/name` repositories,
+  required default branch, absolute HTTP(S) URLs, and never a URL containing credentials.
+- Compose the typed request object in a `computed()` that returns `null` while input is incomplete, so
+  the form and the API contract cannot drift.
+- A write action that has no slice behind it is a disabled control with a title naming what is
+  missing. Never let a submit button appear to succeed.
+- `co-toggle` is the switch primitive; it wraps a real checkbox so keyboard and screen-reader
+  behaviour come for free.
 
 Avoid card grids, gradients, glassmorphism, heavy shadows, oversized icons, decorative charts, and
 rainbow status colours. Prefer tables, thin rules, and generous spacing.

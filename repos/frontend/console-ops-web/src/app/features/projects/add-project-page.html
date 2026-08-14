@@ -1,0 +1,314 @@
+<div class="layout">
+  <form class="panel co-form" novalidate (submit)="$event.preventDefault()">
+    <section class="section">
+      <header>
+        <h2 class="section-title">Project Details</h2>
+        <p class="co-section-note">Basic information about the application you want to monitor.</p>
+      </header>
+
+      <div class="grid">
+        <div class="field">
+          <label for="project-name">Project Name</label>
+          <input
+            id="project-name"
+            type="text"
+            placeholder="Spinner API"
+            [value]="name()"
+            (input)="name.set($any($event.target).value)"
+            [attr.aria-invalid]="name() !== '' && nameError() !== null"
+          />
+          @if (name() !== '' && nameError() !== null) {
+            <p class="error">{{ nameError() }}</p>
+          }
+        </div>
+
+        <div class="field">
+          <label for="project-repository">Repository</label>
+          <div class="input-with-prefix">
+            <co-icon name="github" [size]="15" />
+            <input
+              id="project-repository"
+              type="text"
+              placeholder="clint/spinner"
+              [value]="repository()"
+              (input)="repository.set($any($event.target).value)"
+              [attr.aria-invalid]="repository() !== '' && repositoryError() !== null"
+            />
+            <span
+              class="inline-action"
+              aria-disabled="true"
+              title="Repository browsing arrives with the GitHub app integration"
+            >
+              Browse
+              <co-icon name="externalLink" [size]="13" />
+            </span>
+          </div>
+          @if (repository() !== '' && repositoryError() !== null) {
+            <p class="error">{{ repositoryError() }}</p>
+          }
+        </div>
+
+        <div class="field">
+          <label for="project-description"
+            >Description <span class="optional">(optional)</span></label
+          >
+          <input
+            id="project-description"
+            type="text"
+            placeholder="ASP.NET Core Web API"
+            [value]="description()"
+            (input)="description.set($any($event.target).value)"
+          />
+        </div>
+
+        <div class="field">
+          <label for="project-kind">Type</label>
+          <div class="select">
+            <select
+              id="project-kind"
+              [value]="kind() ?? ''"
+              (change)="
+                kind.set($any($event.target).value === '' ? null : $any($event.target).value)
+              "
+            >
+              <option value="">Not specified</option>
+              @for (option of projectKinds; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+            <co-icon name="chevronDown" [size]="15" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <header>
+        <h2 class="section-title">Environment &amp; Runtime</h2>
+        <p class="co-section-note">Where is this application running?</p>
+      </header>
+
+      <div class="grid">
+        <div class="field">
+          <span class="label" id="environment-kind-label">Primary Environment</span>
+          <div class="segmented" role="group" aria-labelledby="environment-kind-label">
+            @for (option of environmentKinds; track option.value) {
+              <button
+                type="button"
+                class="segment"
+                [class.is-active]="option.value === environmentKind()"
+                [attr.aria-pressed]="option.value === environmentKind()"
+                (click)="selectEnvironmentKind(option.value)"
+              >
+                <co-icon [name]="option.value === 'local' ? 'monitor' : 'cloud'" [size]="14" />
+                {{ option.label }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="runtime-target"
+            >Runtime Target <span class="optional">(optional)</span></label
+          >
+          <div class="select">
+            <select
+              id="runtime-target"
+              [value]="runtimeTarget()"
+              (change)="runtimeTarget.set($any($event.target).value)"
+            >
+              <option value="">Not configured</option>
+              @for (target of runtimeTargets; track target) {
+                <option [value]="target">{{ target }}</option>
+              }
+            </select>
+            <co-icon name="chevronDown" [size]="15" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="environment-name">Environment Name</label>
+          <input
+            id="environment-name"
+            type="text"
+            placeholder="Production"
+            [value]="environmentName()"
+            (input)="environmentName.set($any($event.target).value)"
+          />
+        </div>
+
+        <div class="field">
+          <label for="default-branch">Default Branch</label>
+          <input
+            id="default-branch"
+            type="text"
+            placeholder="main"
+            [value]="defaultBranch()"
+            (input)="defaultBranch.set($any($event.target).value)"
+            [attr.aria-invalid]="branchError() !== null"
+          />
+          @if (branchError() !== null) {
+            <p class="error">{{ branchError() }}</p>
+          }
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <header>
+        <h2 class="section-title">Application Endpoints</h2>
+        <p class="co-section-note">Provide the base URL and optional endpoints for monitoring.</p>
+      </header>
+
+      <div class="field">
+        <label for="base-url">Base URL <span class="optional">(optional)</span></label>
+        <input
+          id="base-url"
+          type="url"
+          inputmode="url"
+          placeholder="https://api.spinnerapp.com"
+          [value]="baseUrl()"
+          (input)="baseUrl.set($any($event.target).value)"
+          [attr.aria-invalid]="baseUrlError() !== null"
+        />
+        @if (baseUrlError() !== null) {
+          <p class="error">{{ baseUrlError() }}</p>
+        }
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="health-endpoint"
+            >Health Endpoint <span class="optional">(optional)</span></label
+          >
+          <input
+            id="health-endpoint"
+            type="text"
+            placeholder="/health"
+            [value]="healthEndpoint()"
+            (input)="healthEndpoint.set($any($event.target).value)"
+            [attr.aria-invalid]="healthEndpointError() !== null"
+          />
+          @if (healthEndpointError() !== null) {
+            <p class="error">{{ healthEndpointError() }}</p>
+          }
+        </div>
+
+        <div class="field">
+          <label for="version-endpoint"
+            >Version Endpoint <span class="optional">(optional)</span></label
+          >
+          <input
+            id="version-endpoint"
+            type="text"
+            placeholder="/version"
+            [value]="versionEndpoint()"
+            (input)="versionEndpoint.set($any($event.target).value)"
+            [attr.aria-invalid]="versionEndpointError() !== null"
+          />
+          @if (versionEndpointError() !== null) {
+            <p class="error">{{ versionEndpointError() }}</p>
+          }
+        </div>
+      </div>
+
+      <p class="note">
+        <co-icon name="checkCircle" [size]="14" />
+        Endpoints are used for health checks and version tracking. Without them, health and version
+        sync stay <span class="co-mono">notConfigured</span>.
+      </p>
+    </section>
+
+    <div class="split">
+      <section class="section">
+        <header>
+          <h2 class="section-title">Connected Providers</h2>
+          <p class="co-section-note">These providers supply source and runtime context.</p>
+        </header>
+
+        <ul class="providers">
+          <li class="provider">
+            <co-icon name="github" [size]="18" />
+            <span>
+              <span class="provider-name">GitHub</span>
+              <span class="provider-detail">Source and workflow facts</span>
+            </span>
+            <span class="provider-state" data-state="configured">Configured</span>
+          </li>
+          <li class="provider">
+            <co-icon name="cloud" [size]="18" />
+            <span>
+              <span class="provider-name">Azure</span>
+              <span class="provider-detail">Container Apps runtime</span>
+            </span>
+            <span class="provider-state" data-state="later">Later phase</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <header>
+          <h2 class="section-title">Monitoring Options</h2>
+          <p class="co-section-note">Which observations Console Ops should collect.</p>
+        </header>
+
+        <ul class="options">
+          <li>
+            <co-toggle
+              [checked]="healthMonitoring()"
+              label="Health monitoring"
+              (checkedChange)="healthMonitoring.set($event)"
+            />
+            <span>
+              <span class="option-name">Health Monitoring</span>
+              <span class="option-detail">Check the health endpoint on every refresh</span>
+            </span>
+          </li>
+          <li>
+            <co-toggle
+              [checked]="versionSync()"
+              label="Version sync"
+              (checkedChange)="versionSync.set($event)"
+            />
+            <span>
+              <span class="option-name">Version Sync</span>
+              <span class="option-detail">Compare the deployed commit with source</span>
+            </span>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <footer class="actions">
+      <button
+        type="submit"
+        class="primary"
+        disabled
+        [attr.title]="
+          request() === null
+            ? 'Complete the required fields to compose a valid registration'
+            : 'Registration is sent once the register-project slice is wired to POST /api/projects'
+        "
+      >
+        <co-icon name="plus" [size]="15" [strokeWidth]="2" />
+        Add Project
+      </button>
+
+      <button
+        type="button"
+        class="secondary"
+        disabled
+        title="Drafts are not part of the current product phase"
+      >
+        <co-icon name="fileText" [size]="15" />
+        Save Draft
+      </button>
+
+      <a class="cancel" routerLink="/projects">Cancel</a>
+    </footer>
+  </form>
+
+  <aside class="rail" aria-label="Setup summary">
+    <co-add-project-summary [request]="request()" [environmentKind]="environmentKind()" />
+  </aside>
+</div>

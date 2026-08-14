@@ -1,0 +1,36 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading the project registry...</p>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>The project registry could not be read.</p>
+      <button type="button" class="retry" (click)="retry()">Try again</button>
+    </div>
+  }
+
+  @default {
+    <co-project-filters
+      [query]="query()"
+      [activeView]="activeView()"
+      (queryChange)="setQuery($event)"
+      (viewChange)="selectView($event)"
+    />
+
+    <div class="layout">
+      <div class="primary">
+        <co-project-registry-table
+          [projects]="projects()"
+          [showingArchived]="showArchived()"
+          (clearFilters)="clearFilters()"
+          (viewArchived)="selectView('archived')"
+        />
+      </div>
+
+      <aside class="rail" aria-label="Project intake">
+        <co-project-intake [recentlyAdded]="recentlyAdded()" (showAll)="clearFilters()" />
+      </aside>
+    </div>
+  }
+}

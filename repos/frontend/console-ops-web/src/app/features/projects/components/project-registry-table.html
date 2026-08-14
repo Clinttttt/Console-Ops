@@ -1,0 +1,130 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Project Registry</h2>
+  <p class="co-section-note">Manage and monitor all registered projects.</p>
+</header>
+
+@if (projects().length === 0) {
+  <div class="empty">
+    <p class="co-unavailable">No registered projects match this view.</p>
+    <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else {
+  <table class="co-table">
+    <thead>
+      <tr>
+        <th scope="col">Project</th>
+        <th scope="col">Type</th>
+        <th scope="col">Environment</th>
+        <th scope="col">Health</th>
+        <th scope="col">Source / Branch</th>
+        <th scope="col">Runtime</th>
+        <th scope="col">Last Deployed</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (project of projects(); track project.id) {
+        <tr>
+          <td>
+            <div class="project">
+              <co-project-mark [name]="project.name" [tone]="toneFor(project.id)" [size]="32" />
+              <span>
+                <span class="project-name">{{ project.name }}</span>
+                @if (project.description !== null) {
+                  <span class="project-kind">{{ project.description }}</span>
+                }
+              </span>
+            </div>
+          </td>
+
+          <td>
+            @let kind = kindLabel(project.kind);
+            @if (kind === null) {
+              <span class="co-unavailable">&mdash;</span>
+            } @else {
+              <span class="type">{{ kind }}</span>
+            }
+          </td>
+
+          <td>
+            <co-environment-tag
+              [name]="project.environment.name"
+              [kind]="project.environment.kind"
+            />
+          </td>
+
+          <td><co-status [cell]="project.health" [showDetail]="false" /></td>
+
+          <td>
+            <div class="source">
+              <co-icon name="github" [size]="15" />
+              <span>
+                <span class="repository">{{ project.repository.repository }}</span>
+                <span class="branch">{{ project.repository.defaultBranch }}</span>
+              </span>
+            </div>
+          </td>
+
+          <td>
+            @let runtime = project.runtime;
+            @if (runtime === null) {
+              <span class="co-unavailable">Not configured</span>
+            } @else {
+              <span class="runtime-framework">{{ runtime.framework ?? 'Unknown' }}</span>
+              <span class="runtime-target">{{ runtime.target ?? 'Target unknown' }}</span>
+            }
+          </td>
+
+          <td>
+            @let deployment = project.lastDeployment;
+            @if (deployment === null) {
+              <span class="co-unavailable">Never deployed</span>
+            } @else {
+              <span class="deployed-at">
+                {{ deployment.deployedAt | date: 'MMM d, y' : 'UTC' }}
+              </span>
+              <span class="deployed-by">
+                @if (deployment.triggeredBy === null) {
+                  Trigger unknown
+                } @else {
+                  by {{ deployment.triggeredBy }}
+                }
+              </span>
+            }
+          </td>
+
+          <td>
+            <div class="actions">
+              <span
+                class="action"
+                aria-disabled="true"
+                title="Project detail arrives in a later slice"
+              >
+                Open
+              </span>
+              <span class="action" aria-disabled="true" title="Logs arrive in a later phase">
+                Logs
+              </span>
+              <span
+                class="more"
+                aria-disabled="true"
+                title="Edit and archive arrive with the project detail slice"
+              >
+                <co-icon name="ellipsis" [size]="16" />
+              </span>
+            </div>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  @if (!showingArchived()) {
+    <div class="co-section-footer">
+      <button type="button" class="co-inline-link" (click)="viewArchived.emit()">
+        View archived projects
+        <co-icon name="archive" [size]="15" />
+      </button>
+    </div>
+  }
+}
