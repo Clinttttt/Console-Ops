@@ -270,30 +270,15 @@
         </div>
       </div>
 
-      <ul class="monitoring">
-        <li>
-          <co-icon name="heartPulse" [size]="15" />
-          <span class="monitoring-name">Health monitoring</span>
-          @if (healthEndpoint().trim() === '') {
-            <span class="monitoring-state co-unavailable">Not configured</span>
-          } @else {
-            <span class="monitoring-state co-mono">{{ healthEndpoint().trim() }}</span>
-          }
-        </li>
-        <li>
-          <co-icon name="refresh" [size]="15" />
-          <span class="monitoring-name">Version tracking</span>
-          @if (versionEndpoint().trim() === '') {
-            <span class="monitoring-state co-unavailable">Not configured</span>
-          } @else {
-            <span class="monitoring-state co-mono">{{ versionEndpoint().trim() }}</span>
-          }
-        </li>
-      </ul>
-      <p class="note">
-        An endpoint is all Console Ops needs: the observation runs because the endpoint exists.
-        Verifying an endpoint before registration arrives with the verification phase.
-      </p>
+      <co-endpoint-monitoring
+        [healthEndpoint]="healthEndpoint()"
+        [versionEndpoint]="versionEndpoint()"
+        [verification]="verification()"
+        [verifying]="verifying()"
+        [error]="verificationError()"
+        [canVerify]="canVerify()"
+        (verify)="verifyEndpoints()"
+      />
     </section>
 
     @if (submissionError() !== null) {

@@ -1,0 +1,104 @@
+:host {
+  display: block;
+  padding-top: var(--co-space-4);
+}
+
+.monitoring,
+.dependencies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+}
+
+.monitoring li {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.name {
+  color: var(--co-ink);
+}
+
+.state {
+  margin-left: auto;
+}
+
+.observed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  color: var(--co-ink-strong);
+}
+
+.detail {
+  color: var(--co-ink-muted);
+}
+
+/* Dependencies come only from a supported health payload, never from a guess. */
+.dependencies {
+  margin-top: var(--co-space-3);
+  padding-left: var(--co-space-6);
+  gap: var(--co-space-2);
+}
+
+.dependencies li {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  font-size: 11.5px;
+  color: var(--co-ink);
+}
+
+.dependencies .detail {
+  margin-left: auto;
+}
+
+.verify {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--co-space-3);
+  margin-top: var(--co-space-4);
+}
+
+.action {
+  padding: 7px var(--co-space-4);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-ink);
+  white-space: nowrap;
+}
+
+.action:hover:not(:disabled) {
+  background: var(--co-surface-sunken);
+}
+
+.action:disabled {
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}
+
+.observed-at,
+.failed {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.failed {
+  color: var(--co-status-down);
+}
+
+.note {
+  margin-top: var(--co-space-4);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--co-ink-muted);
+}

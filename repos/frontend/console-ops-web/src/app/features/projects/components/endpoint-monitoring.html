@@ -1,0 +1,87 @@
+@let checked = verification();
+
+<ul class="monitoring">
+  <li>
+    <co-icon name="heartPulse" [size]="15" />
+    <span class="name">Health monitoring</span>
+    @if (healthEndpoint().trim() === '') {
+      <span class="state co-unavailable">Not configured</span>
+    } @else if (checked === null) {
+      <span class="state co-mono">{{ healthEndpoint().trim() }}</span>
+    } @else {
+      <span class="state observed">
+        <span class="co-dot" [attr.data-level]="level(checked.health.state)"></span>
+        {{ label(checked.health.state) }}
+        @if (checked.health.responseMilliseconds !== null) {
+          <span class="detail">{{ checked.health.responseMilliseconds }} ms</span>
+        }
+      </span>
+    }
+  </li>
+
+  <li>
+    <co-icon name="refresh" [size]="15" />
+    <span class="name">Version tracking</span>
+    @if (versionEndpoint().trim() === '') {
+      <span class="state co-unavailable">Not configured</span>
+    } @else if (checked === null) {
+      <span class="state co-mono">{{ versionEndpoint().trim() }}</span>
+    } @else if (checked.version.state === 'available') {
+      <span class="state observed">
+        <span class="co-dot" data-level="healthy"></span>
+        {{ checked.version.version ?? 'Detected' }}
+        @if (checked.version.commitShortSha !== null) {
+          <span class="detail co-mono">{{ checked.version.commitShortSha }}</span>
+        }
+      </span>
+    } @else {
+      <span class="state observed">
+        <span class="co-dot" data-level="unknown"></span>
+        {{ checked.version.state === 'notConfigured' ? 'Not configured' : 'No version reported' }}
+      </span>
+    }
+  </li>
+</ul>
+
+@if (checked !== null && checked.health.dependencies.length > 0) {
+  <ul class="dependencies">
+    @for (dependency of checked.health.dependencies; track dependency.name) {
+      <li>
+        <span class="co-dot" [attr.data-level]="level(dependency.state)"></span>
+        {{ dependency.name }}
+        <span class="detail">{{ label(dependency.state) }}</span>
+      </li>
+    }
+  </ul>
+}
+
+<div class="verify">
+  <button
+    type="button"
+    class="action"
+    [disabled]="!canVerify()"
+    [attr.title]="canVerify() ? null : 'Add a base URL and at least one endpoint to check them'"
+    (click)="verify.emit()"
+  >
+    {{ checked === null ? 'Check endpoints' : 'Check again' }}
+  </button>
+
+  @if (verifying()) {
+    <span class="co-reading" aria-live="polite" aria-busy="true">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Probing the application...
+    </span>
+  } @else if (error() !== null) {
+    <span class="failed" role="alert">{{ error() }}</span>
+  } @else if (checked !== null) {
+    <span class="observed-at">
+      Observed {{ checked.observedAt | date: 'HH:mm' : 'UTC' }} UTC, by the API rather than your
+      browser.
+    </span>
+  }
+</div>
+
+<p class="note">
+  An endpoint is all Console Ops needs: the observation runs because the endpoint exists. A check
+  that fails does not block registration, since the application may not be deployed yet.
+</p>

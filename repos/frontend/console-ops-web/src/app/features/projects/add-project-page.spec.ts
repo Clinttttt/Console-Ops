@@ -6,6 +6,10 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, Subject, of, throwError } from 'rxjs';
 
 import {
+  EndpointVerification,
+  EndpointVerificationRequest,
+} from '../../core/contracts/endpoint-verification';
+import {
   GitHubRepository,
   GitHubRepositoryPage,
   GitHubWorkflow,
@@ -14,6 +18,7 @@ import {
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
 import { ProjectListItem } from '../../core/contracts/project-registry';
 import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
+import { EndpointVerificationDataSource } from '../../core/data/endpoint-verification.data-source';
 import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { DASHBOARD_OVERVIEW_FIXTURE } from '../../core/data/mock/dashboard-overview.fixture';
 import { PROJECT_REGISTRY_FIXTURE } from '../../core/data/mock/project-registry.fixture';
@@ -39,6 +44,19 @@ const DEPLOY_WORKFLOW: GitHubWorkflow = {
   latestRunCompletedAt: '2026-08-14T08:00:00Z',
 };
 
+const HEALTHY_VERIFICATION: EndpointVerification = {
+  health: { state: 'healthy', responseMilliseconds: 103, dependencies: [] },
+  version: {
+    state: 'available',
+    application: 'Spinner.Api',
+    version: '1.5.0',
+    commitSha: '8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2',
+    commitShortSha: '8a17c2f',
+    builtAt: '2026-08-14T08:00:00Z',
+  },
+  observedAt: '2026-08-14T09:24:00Z',
+};
+
 const CI_WORKFLOW: GitHubWorkflow = {
   name: 'CI',
   path: '.github/workflows/ci.yml',
@@ -59,13 +77,17 @@ describe('AddProjectPage', () => {
   let registrationResult: Observable<ProjectListItem>;
   let repositoryResult: Observable<GitHubRepositoryPage>;
   let workflowResult: Observable<GitHubWorkflowList>;
+  let verificationResult: Observable<EndpointVerification>;
+  let verifiedRequest: EndpointVerificationRequest | null;
 
   beforeEach(async () => {
     registeredRequest = null;
     refreshedProjectId = null;
+    verifiedRequest = null;
     registrationResult = of(PROJECT_REGISTRY_FIXTURE[0]);
     repositoryResult = of({ repositories: [SPINNER_REPOSITORY], hasMore: false });
     workflowResult = of({ workflows: [DEPLOY_WORKFLOW, CI_WORKFLOW] });
+    verificationResult = of(HEALTHY_VERIFICATION);
 
     TestBed.configureTestingModule({
       providers: [
@@ -96,6 +118,15 @@ describe('AddProjectPage', () => {
           useValue: {
             listRepositories: () => repositoryResult,
             listWorkflows: () => workflowResult,
+          },
+        },
+        {
+          provide: EndpointVerificationDataSource,
+          useValue: {
+            verify: (request: EndpointVerificationRequest) => {
+              verifiedRequest = request;
+              return verificationResult;
+            },
           },
         },
       ],
@@ -251,6 +282,79 @@ describe('AddProjectPage', () => {
     expect(host.querySelector<HTMLAnchorElement>('.cancel')?.getAttribute('href')).toBe(
       '/projects',
     );
+  });
+
+  function checkButton(): HTMLButtonElement {
+    return host.querySelector<HTMLButtonElement>('co-endpoint-monitoring .action')!;
+  }
+
+  function monitoring(): string {
+    return host.querySelector('co-endpoint-monitoring')?.textContent ?? '';
+  }
+
+  it('cannot check endpoints until there is something to probe', () => {
+    expect(checkButton().disabled).toBe(true);
+    expect(checkButton().title).toContain('Add a base URL');
+  });
+
+  it('sends absolute endpoint URLs and reports what was observed', async () => {
+    await completeRequiredFields();
+    await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#health-endpoint', '/health');
+    await type('#version-endpoint', '/version');
+
+    expect(checkButton().disabled).toBe(false);
+    checkButton().click();
+    harness.detectChanges();
+
+    // Relative paths are resolved before they leave the browser, as registration does.
+    expect(verifiedRequest).toEqual({
+      healthUrl: 'https://api.spinnerapp.com/health',
+      versionUrl: 'https://api.spinnerapp.com/version',
+    });
+    expect(monitoring()).toContain('Healthy');
+    expect(monitoring()).toContain('103 ms');
+    expect(monitoring()).toContain('1.5.0');
+    expect(monitoring()).toContain('8a17c2f');
+    expect(monitoring()).toContain('by the API rather than your browser');
+  });
+
+  it('reports an unreachable application without blocking registration', async () => {
+    verificationResult = of({
+      health: { state: 'unreachable', responseMilliseconds: 331, dependencies: [] },
+      version: {
+        state: 'notConfigured',
+        application: null,
+        version: null,
+        commitSha: null,
+        commitShortSha: null,
+        builtAt: null,
+      },
+      observedAt: '2026-08-14T09:24:00Z',
+    } satisfies EndpointVerification);
+
+    await completeRequiredFields();
+    await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#health-endpoint', '/health');
+    checkButton().click();
+    harness.detectChanges();
+
+    expect(monitoring()).toContain('Unreachable');
+    // The application may simply not be deployed yet, so registration stays available.
+    expect(host.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(false);
+  });
+
+  it('explains a failed check without blaming the configuration', async () => {
+    verificationResult = throwError(() => new HttpErrorResponse({ status: 429 }));
+
+    await completeRequiredFields();
+    await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#health-endpoint', '/health');
+    checkButton().click();
+    harness.detectChanges();
+
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('Too many checks');
+    expect(host.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(false);
   });
 
   async function importSpinner(): Promise<void> {

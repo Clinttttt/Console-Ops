@@ -6,9 +6,25 @@ Design plan, agreed 2026-08-14. Subordinate to `Console_Ops_Project_Context.md`,
 `Console_Ops_Architecture.md`, and `Console_Ops_V1_API_Contract.md`. If this plan ever disagrees with
 those documents, they win and this plan is corrected.
 
-Phase 0 is implemented. **Phases 1 and 2 are implemented end to end** and live at
-`GET /api/github/repositories` and `GET /api/github/repositories/{owner}/{repository}/workflows`.
-Phases 3 and 4 are not built and must not be faked in the UI before their endpoint exists.
+Phase 0 is implemented. **Phases 1 to 3 are implemented end to end**: discovery at
+`GET /api/github/repositories` and `GET /api/github/repositories/{owner}/{repository}/workflows`, and
+verification at `POST /api/projects/verification`. Phase 3a and Phase 4 are not built and must not be
+faked in the UI before their endpoint exists.
+
+### Phase 3 as built
+
+- The check is an explicit action, not something typing triggers. Probing on every keystroke would make
+  the API contact arbitrary hosts as the operator types, spend the rate limit, and surprise them.
+- Relative endpoint paths are resolved against the base URL in the browser, exactly as registration
+  does, so the API only ever receives absolute URLs.
+- Results replace the configured paths with observations: `Healthy 103 ms`, `1.5.0 8a17c2f`, and any
+  dependencies the health payload reported. The observation time is shown, and the screen says the API
+  performed the probe rather than the browser.
+- A failed check is reported as a problem with the check, never with the configuration, and never blocks
+  registration. An unreachable application is a normal observation.
+- Source-to-deployed comparison during setup is still pending: it needs the latest source commit, which
+  the discovery endpoints do not yet return. Adding `latestCommitSha` to the repository response is the
+  smallest step that unlocks it.
 
 ### Phases 1 and 2 as built
 

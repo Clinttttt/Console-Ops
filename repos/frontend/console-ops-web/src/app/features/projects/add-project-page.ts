@@ -12,13 +12,16 @@ import { Router, RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 import { EnvironmentKind } from '../../core/contracts/dashboard-overview';
+import { EndpointVerification } from '../../core/contracts/endpoint-verification';
 import { GitHubRepository, GitHubWorkflow } from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
+import { EndpointVerificationDataSource } from '../../core/data/endpoint-verification.data-source';
 import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { Icon } from '../../core/ui/icon';
 import { AddProjectSummary } from './components/add-project-summary';
+import { EndpointMonitoring } from './components/endpoint-monitoring';
 import { GitHubRepositoryPicker } from './components/github-repository-picker';
 import { WorkflowSelector } from './components/workflow-selector';
 
@@ -40,7 +43,14 @@ const ENVIRONMENT_KINDS: readonly Option<EnvironmentKind>[] = [
 @Component({
   selector: 'co-add-project-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AddProjectSummary, GitHubRepositoryPicker, Icon, RouterLink, WorkflowSelector],
+  imports: [
+    AddProjectSummary,
+    EndpointMonitoring,
+    GitHubRepositoryPicker,
+    Icon,
+    RouterLink,
+    WorkflowSelector,
+  ],
   templateUrl: './add-project-page.html',
   styleUrl: './add-project-page.scss',
 })
@@ -48,6 +58,7 @@ export class AddProjectPage {
   private readonly projects = inject(ProjectRegistryStore);
   private readonly dashboard = inject(DashboardOverviewStore);
   private readonly discovery = inject(GitHubDiscoveryDataSource);
+  private readonly endpointVerification = inject(EndpointVerificationDataSource);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -78,6 +89,27 @@ export class AddProjectPage {
   /** `null` is the explicit "no deployment workflow" choice. */
   protected readonly chosenWorkflowFile = computed(() =>
     this.workflowFile().trim() === '' ? null : this.workflowFile().trim(),
+  );
+
+  protected readonly verification = signal<EndpointVerification | null>(null);
+  protected readonly verifying = signal(false);
+  protected readonly verificationError = signal<string | null>(null);
+
+  /**
+   * Verification is an explicit action, not something typing triggers.
+   *
+   * Probing on every keystroke would make the API contact arbitrary hosts as the operator types, waste
+   * the endpoint's rate limit, and surprise them. It becomes available once there is a resolvable
+   * endpoint to probe.
+   */
+  protected readonly canVerify = computed(
+    () =>
+      !this.verifying() &&
+      this.baseUrlError() === null &&
+      this.healthEndpointError() === null &&
+      this.versionEndpointError() === null &&
+      (resolveEndpoint(blankToNull(this.baseUrl()), this.healthEndpoint()) !== null ||
+        resolveEndpoint(blankToNull(this.baseUrl()), this.versionEndpoint()) !== null),
   );
   protected readonly baseUrl = signal('');
   protected readonly healthEndpoint = signal('');
@@ -205,6 +237,35 @@ export class AddProjectPage {
     this.workflowChosen.set(true);
   }
 
+  /** Asks the API to probe the configured endpoints and reports whatever it observed. */
+  protected verifyEndpoints(): void {
+    if (!this.canVerify()) {
+      return;
+    }
+
+    const applicationUrl = blankToNull(this.baseUrl());
+    this.verifying.set(true);
+    this.verificationError.set(null);
+
+    this.endpointVerification
+      .verify({
+        healthUrl: resolveEndpoint(applicationUrl, this.healthEndpoint()),
+        versionUrl: resolveEndpoint(applicationUrl, this.versionEndpoint()),
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.verification.set(result);
+          this.verifying.set(false);
+        },
+        error: (error: unknown) => {
+          this.verification.set(null);
+          this.verificationError.set(verificationErrorMessage(error));
+          this.verifying.set(false);
+        },
+      });
+  }
+
   private loadWorkflows(repository: GitHubRepository): void {
     this.workflows.set([]);
     this.workflowChosen.set(false);
@@ -310,6 +371,29 @@ function resolveEndpoint(baseUrl: string | null, endpoint: string): string | nul
   if (value === '') return null;
   if (!value.startsWith('/')) return value;
   return new URL(value, baseUrl!).toString();
+}
+
+/**
+ * A failed check is about the check, never about the configuration.
+ *
+ * An unreachable application comes back as a successful observation, so reaching here means Console Ops
+ * itself could not run the probe.
+ */
+function verificationErrorMessage(error: unknown): string {
+  if (!(error instanceof HttpErrorResponse)) {
+    return 'The endpoints could not be checked. Try again.';
+  }
+
+  if (error.status === 0) {
+    return 'The Console Ops API is unavailable, so the endpoints could not be checked.';
+  }
+  if (error.status === 429) {
+    return 'Too many checks in a short time. Wait a moment and try again.';
+  }
+  if (error.status === 400) {
+    return 'The endpoints could not be checked. Review the URLs above.';
+  }
+  return 'The endpoints could not be checked. Try again.';
 }
 
 function registrationErrorMessage(error: unknown): string {

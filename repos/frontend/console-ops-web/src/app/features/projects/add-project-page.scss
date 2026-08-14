@@ -66,23 +66,7 @@
   cursor: not-allowed;
 }
 
-.note {
-  margin-top: var(--co-space-4);
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--co-ink-muted);
-}
-
-.monitoring {
-  margin: 0;
-  padding: var(--co-space-4) 0 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--co-space-3);
-}
-
-/* Source import banner: the intended primary route, honest about not being available yet. */
+/* Source import: the primary route into registration. */
 .import {
   display: flex;
   align-items: center;
@@ -207,22 +191,6 @@
 
 .derived-action:hover {
   color: var(--co-navy);
-}
-
-.monitoring li {
-  display: flex;
-  align-items: center;
-  gap: var(--co-space-3);
-  font-size: 12.5px;
-  color: var(--co-ink-muted);
-}
-
-.monitoring-name {
-  color: var(--co-ink);
-}
-
-.monitoring-state {
-  margin-left: auto;
 }
 
 .submission-error {
