@@ -1,4 +1,8 @@
 <Solution>
+  <Project Path="ConsoleOps.Domain/ConsoleOps.Domain.csproj" />
+  <Project Path="ConsoleOps.Application/ConsoleOps.Application.csproj" />
+  <Project Path="ConsoleOps.Infrastructure/ConsoleOps.Infrastructure.csproj" />
   <Project Path="ConsoleOps.Api/ConsoleOps.Api.csproj" />
-  <Project Path="ConsoleOps.Tests/ConsoleOps.Tests.csproj" />
+  <Project Path="ConsoleOps.Tests.Unit/ConsoleOps.Tests.Unit.csproj" />
+  <Project Path="ConsoleOps.Tests.Integration/ConsoleOps.Tests.Integration.csproj" />
 </Solution>
