@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 import { EnvironmentKind, StatusCell } from '../../core/contracts/dashboard-overview';
@@ -20,6 +20,7 @@ import {
   GitHubWorkflow,
 } from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
+import { ProjectListItem } from '../../core/contracts/project-registry';
 import { EndpointVerificationDataSource } from '../../core/data/endpoint-verification.data-source';
 import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
@@ -28,6 +29,7 @@ import { Icon } from '../../core/ui/icon';
 import { AddProjectSummary } from './components/add-project-summary';
 import { EndpointMonitoring } from './components/endpoint-monitoring';
 import { GitHubRepositoryPicker } from './components/github-repository-picker';
+import { RegistrationOutcomePanel } from './components/registration-outcome';
 import { WorkflowSelector } from './components/workflow-selector';
 
 interface Option<T> {
@@ -36,6 +38,12 @@ interface Option<T> {
 }
 
 type SubmissionState = 'idle' | 'submitting' | 'failed';
+
+/** The registered project, and whether the best-effort initial observation refresh ran. */
+export interface RegistrationOutcome {
+  readonly project: ProjectListItem;
+  readonly refreshed: boolean;
+}
 
 const ENVIRONMENT_KINDS: readonly Option<EnvironmentKind>[] = [
   { value: 'production', label: 'Production' },
@@ -53,6 +61,7 @@ const ENVIRONMENT_KINDS: readonly Option<EnvironmentKind>[] = [
     EndpointMonitoring,
     GitHubRepositoryPicker,
     Icon,
+    RegistrationOutcomePanel,
     RouterLink,
     WorkflowSelector,
   ],
@@ -64,7 +73,6 @@ export class AddProjectPage {
   private readonly dashboard = inject(DashboardOverviewStore);
   private readonly discovery = inject(GitHubDiscoveryDataSource);
   private readonly endpointVerification = inject(EndpointVerificationDataSource);
-  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly environmentKinds = ENVIRONMENT_KINDS;
@@ -173,6 +181,12 @@ export class AddProjectPage {
   protected readonly versionEndpoint = signal('');
   protected readonly submissionState = signal<SubmissionState>('idle');
   protected readonly submissionError = signal<string | null>(null);
+
+  /**
+   * What registration actually did, once it has. Held rather than redirected away from, so the operator
+   * sees which steps completed instead of guessing from a list they land on.
+   */
+  protected readonly registered = signal<RegistrationOutcome | null>(null);
 
   protected readonly nameError = computed(() =>
     this.name().trim() === '' ? 'A project name is required.' : null,
@@ -398,17 +412,19 @@ export class AddProjectPage {
       .pipe(
         switchMap((project) =>
           this.projects.refreshProject(project.id).pipe(
-            // Registration is durable even if the best-effort initial observation cannot run.
-            catchError(() => of(null)),
-            map(() => project),
+            // Registration is durable even if the best-effort initial observation cannot run, so the
+            // outcome records whether it ran rather than hiding the failure.
+            map(() => ({ project, refreshed: true })),
+            catchError(() => of({ project, refreshed: false })),
           ),
         ),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => {
+        next: ({ project, refreshed }) => {
           this.dashboard.refresh();
-          void this.router.navigateByUrl('/projects');
+          this.submissionState.set('idle');
+          this.registered.set({ project, refreshed });
         },
         error: (error: unknown) => {
           this.submissionState.set('failed');

@@ -11,6 +11,14 @@
   }
 
   @default {
+    <aside class="preview-notice" role="note">
+      <span class="preview-badge">Sample data</span>
+      <span class="preview-text">
+        This screen is a design preview. Deployment history is a later product phase, so nothing
+        here was observed from your projects.
+      </span>
+    </aside>
+
     <co-deployment-filters
       [query]="query()"
       [projects]="projectOptions()"

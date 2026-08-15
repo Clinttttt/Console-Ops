@@ -76,6 +76,7 @@ describe('AddProjectPage', () => {
   let host: HTMLElement;
   let registeredRequest: ProjectRegistrationRequest | null;
   let refreshedProjectId: string | null;
+  let refreshResult: Observable<unknown>;
   let registrationResult: Observable<ProjectListItem>;
   let repositoryResult: Observable<GitHubRepositoryPage>;
   let workflowResult: Observable<GitHubWorkflowList>;
@@ -87,6 +88,7 @@ describe('AddProjectPage', () => {
   beforeEach(async () => {
     registeredRequest = null;
     refreshedProjectId = null;
+    refreshResult = of(null);
     verifiedRequest = null;
     registrationResult = of(PROJECT_REGISTRY_FIXTURE[0]);
     repositoryResult = of({ repositories: [SPINNER_REPOSITORY], hasMore: false });
@@ -118,7 +120,7 @@ describe('AddProjectPage', () => {
             },
             refreshProject: (projectId: string) => {
               refreshedProjectId = projectId;
-              return of(null);
+              return refreshResult;
             },
           },
         },
@@ -275,7 +277,29 @@ describe('AddProjectPage', () => {
       ],
     });
     expect(refreshedProjectId).toBe(PROJECT_REGISTRY_FIXTURE[0].id);
-    expect(TestBed.inject(Router).url).toBe('/projects');
+
+    // The operator stays put and is told what happened, rather than landing on a list.
+    const outcome = host.querySelector('co-registration-outcome');
+    expect(outcome?.textContent).toContain('is registered');
+    expect(outcome?.textContent).toContain('Project registered');
+    expect(outcome?.textContent).toContain('Source connected');
+    expect(outcome?.querySelector<HTMLAnchorElement>('.primary')?.getAttribute('href')).toBe(
+      `/projects/${PROJECT_REGISTRY_FIXTURE[0].id}`,
+    );
+    expect(host.querySelector('form')).toBeNull();
+  });
+
+  it('says the initial observation did not run when the refresh fails', async () => {
+    refreshResult = throwError(() => new HttpErrorResponse({ status: 500 }));
+    await completeRequiredFields();
+
+    host.querySelector<HTMLButtonElement>('.primary')!.click();
+    await harness.fixture.whenStable();
+
+    const outcome = host.querySelector('co-registration-outcome');
+    // Registration is durable, so it still succeeded; the refresh is reported honestly.
+    expect(outcome?.textContent).toContain('is registered');
+    expect(outcome?.textContent).toContain('Could not run now');
   });
 
   it('shows a safe duplicate message when registration is rejected', async () => {

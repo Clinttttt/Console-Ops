@@ -206,12 +206,22 @@ hidden one in the common case.
 
 ## Phase 4 - Confirmation and runtime import
 
-- Registration returns to a short confirmation of what was actually created and verified - project,
-  environment, source connected, workflow linked, endpoints verified - with `Open Project`. Every line
-  reflects a completed step; nothing is listed optimistically.
-- When Azure runtime awareness ships (V2), the same import pattern extends to runtime: list the
-  operator's Container Apps, let them pick which resource belongs to this project, and never ask for a
-  resource ID that the Azure API can enumerate.
+The confirmation step is implemented. Registration no longer redirects to a list; it reports what
+actually happened and offers `Open project`.
+
+Every line is a completed step or an honest absence:
+
+- project registered, environment created, and source connected are stated from the resource the API
+  returned, not from the form that was submitted;
+- a project registered without a workflow file reads `Not configured, so CI stays notConfigured`;
+- the best-effort initial refresh reports `Could not run now; the next refresh will read them` when it
+  failed, because registration is durable even when that observation cannot run;
+- a health endpoint that was never probed reads `Configured; it is probed on each refresh`, marked
+  `Later`, rather than borrowing the word "passed" from a check nobody ran.
+
+Runtime import remains for when Azure runtime awareness (V2) ships: list the operator's Container Apps,
+let them pick which resource belongs to this project, and never ask for a resource ID the Azure API can
+enumerate.
 
 ## Sequencing and ownership
 

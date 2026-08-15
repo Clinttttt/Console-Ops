@@ -1,329 +1,341 @@
 <div class="layout">
-  <form class="panel co-form" novalidate (submit)="$event.preventDefault(); submit()">
-    <section class="section">
-      <header>
-        <h2 class="section-title">Source</h2>
-        <p class="co-section-note">
-          Console Ops reads source and CI facts from GitHub. It never stores your credentials.
-        </p>
-      </header>
+  @let outcome = registered();
+  @if (outcome !== null) {
+    <co-registration-outcome [outcome]="outcome" [verification]="verification()" />
+  } @else {
+    <form class="panel co-form" novalidate (submit)="$event.preventDefault(); submit()">
+      <section class="section">
+        <header>
+          <h2 class="section-title">Source</h2>
+          <p class="co-section-note">
+            Console Ops reads source and CI facts from GitHub. It never stores your credentials.
+          </p>
+        </header>
 
-      @let imported = importedRepository();
+        @let imported = importedRepository();
 
-      @if (imported === null) {
-        <div class="import">
-          <co-icon name="github" [size]="20" />
-          <span class="import-text">
-            <span class="import-title">Import an existing repository</span>
-            <span class="import-detail">
-              Repository, default branch and workflows will be discovered for you.
+        @if (imported === null) {
+          <div class="import">
+            <co-icon name="github" [size]="20" />
+            <span class="import-text">
+              <span class="import-title">Import an existing repository</span>
+              <span class="import-detail">
+                Repository, default branch and workflows will be discovered for you.
+              </span>
             </span>
-          </span>
-          <button type="button" class="import-action" (click)="openPicker()">
-            Import from GitHub
-          </button>
-        </div>
+            <button type="button" class="import-action" (click)="openPicker()">
+              Import from GitHub
+            </button>
+          </div>
 
-        @if (pickerOpen()) {
-          <co-github-repository-picker
-            (choose)="importRepository($event)"
-            (dismiss)="closePicker()"
-          />
+          @if (pickerOpen()) {
+            <co-github-repository-picker
+              (choose)="importRepository($event)"
+              (dismiss)="closePicker()"
+            />
+          }
+
+          <div class="grid">
+            <div class="field">
+              <label for="project-repository">Repository</label>
+              <div class="input-with-prefix">
+                <co-icon name="github" [size]="15" />
+                <input
+                  id="project-repository"
+                  type="text"
+                  placeholder="clint/spinner"
+                  [value]="repository()"
+                  (input)="repository.set($any($event.target).value)"
+                  [attr.aria-invalid]="repository() !== '' && repositoryError() !== null"
+                />
+              </div>
+              @if (repository() !== '' && repositoryError() !== null) {
+                <p class="error">{{ repositoryError() }}</p>
+              }
+            </div>
+
+            <div class="field">
+              <label for="default-branch">Source Branch</label>
+              <input
+                id="default-branch"
+                type="text"
+                placeholder="main"
+                [value]="defaultBranch()"
+                (input)="defaultBranch.set($any($event.target).value)"
+                [attr.aria-invalid]="branchError() !== null"
+              />
+              @if (branchError() !== null) {
+                <p class="error">{{ branchError() }}</p>
+              } @else {
+                <p class="help">The branch Console Ops compares deployments against.</p>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="discovered">
+            <co-icon name="github" [size]="18" />
+            <span class="discovered-text">
+              <span class="discovered-name">{{ imported.owner }}/{{ imported.name }}</span>
+              <span class="discovered-meta">
+                GitHub
+                <span class="co-meta-dot" aria-hidden="true"></span>
+                <span class="co-mono">{{ imported.defaultBranch }}</span>
+                @if (imported.isPrivate) {
+                  <span class="co-meta-dot" aria-hidden="true"></span>
+                  <span>Private</span>
+                }
+              </span>
+            </span>
+            <button type="button" class="discovered-action" (click)="clearImportedRepository()">
+              Change repository
+            </button>
+          </div>
         }
+
+        <div class="field is-span">
+          @if (workflowsLoading()) {
+            <span class="label">Deployment Workflow</span>
+            <p class="co-reading reading" aria-live="polite" aria-busy="true">
+              <span class="co-spinner" aria-hidden="true"></span>
+              Reading workflows from GitHub...
+            </p>
+          } @else if (imported !== null && workflows().length > 0) {
+            <co-workflow-selector
+              [workflows]="workflows()"
+              [selected]="workflowChosen() ? chosenWorkflowFile() : undefined"
+              (selectWorkflow)="selectWorkflow($event)"
+            />
+          } @else {
+            <label for="workflow-file"
+              >Deployment Workflow <span class="optional">(optional)</span></label
+            >
+            <input
+              id="workflow-file"
+              type="text"
+              placeholder="deploy-production.yml"
+              [value]="workflowFile()"
+              (input)="workflowFile.set($any($event.target).value)"
+            />
+            <p class="help">
+              @if (workflowsUnavailable()) {
+                Workflow discovery is unavailable, so name the GitHub Actions workflow file
+                yourself.
+              } @else {
+                The GitHub Actions workflow file that deploys this environment.
+              }
+              Leave blank to keep CI <span class="co-mono">notConfigured</span>.
+            </p>
+          }
+        </div>
+      </section>
+
+      <section class="section">
+        <header>
+          <h2 class="section-title">Project</h2>
+          <p class="co-section-note">How this application appears across Console Ops.</p>
+        </header>
 
         <div class="grid">
           <div class="field">
-            <label for="project-repository">Repository</label>
-            <div class="input-with-prefix">
-              <co-icon name="github" [size]="15" />
-              <input
-                id="project-repository"
-                type="text"
-                placeholder="clint/spinner"
-                [value]="repository()"
-                (input)="repository.set($any($event.target).value)"
-                [attr.aria-invalid]="repository() !== '' && repositoryError() !== null"
-              />
-            </div>
-            @if (repository() !== '' && repositoryError() !== null) {
-              <p class="error">{{ repositoryError() }}</p>
+            <label for="project-name">Project Name</label>
+            <input
+              id="project-name"
+              type="text"
+              placeholder="Spinner API"
+              [value]="name()"
+              (input)="name.set($any($event.target).value)"
+              [attr.aria-invalid]="name() !== '' && nameError() !== null"
+            />
+            @if (name() !== '' && nameError() !== null) {
+              <p class="error">{{ nameError() }}</p>
             }
           </div>
 
           <div class="field">
-            <label for="default-branch">Source Branch</label>
+            <label for="project-description"
+              >Description <span class="optional">(optional)</span></label
+            >
             <input
-              id="default-branch"
+              id="project-description"
               type="text"
-              placeholder="main"
-              [value]="defaultBranch()"
-              (input)="defaultBranch.set($any($event.target).value)"
-              [attr.aria-invalid]="branchError() !== null"
+              placeholder="ASP.NET Core Web API"
+              [value]="description()"
+              (input)="description.set($any($event.target).value)"
             />
-            @if (branchError() !== null) {
-              <p class="error">{{ branchError() }}</p>
-            } @else {
-              <p class="help">The branch Console Ops compares deployments against.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <header>
+          <h2 class="section-title">Environment</h2>
+          <p class="co-section-note">
+            Which instance of the application this registration observes.
+          </p>
+        </header>
+
+        <div class="field">
+          <span class="label" id="environment-kind-label">Where is this instance running?</span>
+          <div class="segmented" role="group" aria-labelledby="environment-kind-label">
+            @for (option of environmentKinds; track option.value) {
+              <button
+                type="button"
+                class="segment"
+                [class.is-active]="option.value === environmentKind()"
+                [attr.aria-pressed]="option.value === environmentKind()"
+                (click)="selectEnvironmentKind(option.value)"
+              >
+                <co-icon [name]="option.value === 'local' ? 'monitor' : 'cloud'" [size]="14" />
+                {{ option.label }}
+              </button>
             }
           </div>
         </div>
-      } @else {
-        <div class="discovered">
-          <co-icon name="github" [size]="18" />
-          <span class="discovered-text">
-            <span class="discovered-name">{{ imported.owner }}/{{ imported.name }}</span>
-            <span class="discovered-meta">
-              GitHub
-              <span class="co-meta-dot" aria-hidden="true"></span>
-              <span class="co-mono">{{ imported.defaultBranch }}</span>
-              @if (imported.isPrivate) {
-                <span class="co-meta-dot" aria-hidden="true"></span>
-                <span>Private</span>
-              }
-            </span>
-          </span>
-          <button type="button" class="discovered-action" (click)="clearImportedRepository()">
-            Change repository
-          </button>
-        </div>
-      }
 
-      <div class="field is-span">
-        @if (workflowsLoading()) {
-          <span class="label">Deployment Workflow</span>
-          <p class="co-reading reading" aria-live="polite" aria-busy="true">
-            <span class="co-spinner" aria-hidden="true"></span>
-            Reading workflows from GitHub...
-          </p>
-        } @else if (imported !== null && workflows().length > 0) {
-          <co-workflow-selector
-            [workflows]="workflows()"
-            [selected]="workflowChosen() ? chosenWorkflowFile() : undefined"
-            (selectWorkflow)="selectWorkflow($event)"
-          />
-        } @else {
-          <label for="workflow-file"
-            >Deployment Workflow <span class="optional">(optional)</span></label
-          >
-          <input
-            id="workflow-file"
-            type="text"
-            placeholder="deploy-production.yml"
-            [value]="workflowFile()"
-            (input)="workflowFile.set($any($event.target).value)"
-          />
-          <p class="help">
-            @if (workflowsUnavailable()) {
-              Workflow discovery is unavailable, so name the GitHub Actions workflow file yourself.
-            } @else {
-              The GitHub Actions workflow file that deploys this environment.
+        @if (environmentNameCustomized()) {
+          <div class="field">
+            <label for="environment-name">Environment Name</label>
+            <input
+              id="environment-name"
+              type="text"
+              placeholder="Production"
+              [value]="environmentName()"
+              (input)="environmentName.set($any($event.target).value)"
+              [attr.aria-invalid]="environmentNameError() !== null"
+            />
+            @if (environmentNameError() !== null) {
+              <p class="error">{{ environmentNameError() }}</p>
             }
-            Leave blank to keep CI <span class="co-mono">notConfigured</span>.
+          </div>
+        } @else {
+          <p class="derived">
+            Named <span class="derived-value">{{ environmentName() }}</span>
+            <button type="button" class="derived-action" (click)="customizeEnvironmentName()">
+              Customize name
+            </button>
           </p>
         }
-      </div>
-    </section>
+      </section>
 
-    <section class="section">
-      <header>
-        <h2 class="section-title">Project</h2>
-        <p class="co-section-note">How this application appears across Console Ops.</p>
-      </header>
+      <section class="section">
+        <header>
+          <h2 class="section-title">Application</h2>
+          <p class="co-section-note">
+            The address Console Ops uses for monitoring. No provider can tell us this.
+          </p>
+        </header>
 
-      <div class="grid">
         <div class="field">
-          <label for="project-name">Project Name</label>
+          <label for="base-url">Base URL <span class="optional">(optional)</span></label>
           <input
-            id="project-name"
-            type="text"
-            placeholder="Spinner API"
-            [value]="name()"
-            (input)="name.set($any($event.target).value)"
-            [attr.aria-invalid]="name() !== '' && nameError() !== null"
+            id="base-url"
+            type="url"
+            inputmode="url"
+            placeholder="https://api.spinnerapp.com"
+            [value]="baseUrl()"
+            (input)="baseUrl.set($any($event.target).value)"
+            [attr.aria-invalid]="baseUrlError() !== null"
           />
-          @if (name() !== '' && nameError() !== null) {
-            <p class="error">{{ nameError() }}</p>
+          @if (baseUrlError() !== null) {
+            <p class="error">{{ baseUrlError() }}</p>
           }
         </div>
 
-        <div class="field">
-          <label for="project-description"
-            >Description <span class="optional">(optional)</span></label
-          >
-          <input
-            id="project-description"
-            type="text"
-            placeholder="ASP.NET Core Web API"
-            [value]="description()"
-            (input)="description.set($any($event.target).value)"
-          />
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <header>
-        <h2 class="section-title">Environment</h2>
-        <p class="co-section-note">Which instance of the application this registration observes.</p>
-      </header>
-
-      <div class="field">
-        <span class="label" id="environment-kind-label">Where is this instance running?</span>
-        <div class="segmented" role="group" aria-labelledby="environment-kind-label">
-          @for (option of environmentKinds; track option.value) {
-            <button
-              type="button"
-              class="segment"
-              [class.is-active]="option.value === environmentKind()"
-              [attr.aria-pressed]="option.value === environmentKind()"
-              (click)="selectEnvironmentKind(option.value)"
+        <div class="grid">
+          <div class="field">
+            <label for="health-endpoint"
+              >Health Endpoint <span class="optional">(optional)</span></label
             >
-              <co-icon [name]="option.value === 'local' ? 'monitor' : 'cloud'" [size]="14" />
-              {{ option.label }}
-            </button>
-          }
+            <input
+              id="health-endpoint"
+              type="text"
+              placeholder="/health"
+              [value]="healthEndpoint()"
+              (input)="healthEndpoint.set($any($event.target).value)"
+              [attr.aria-invalid]="healthEndpointError() !== null"
+            />
+            @if (healthEndpointError() !== null) {
+              <p class="error">{{ healthEndpointError() }}</p>
+            }
+            @let healthHint = healthSuggestion();
+            @if (healthHint !== null) {
+              <p class="suggestion">
+                Detected <span class="co-mono">{{ healthHint.path }}</span> in
+                <span class="co-mono">{{ healthHint.sourceFile }}</span>
+                <button type="button" class="suggestion-action" (click)="applyHealthSuggestion()">
+                  Use
+                </button>
+              </p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="version-endpoint"
+              >Version Endpoint <span class="optional">(optional)</span></label
+            >
+            <input
+              id="version-endpoint"
+              type="text"
+              placeholder="/version"
+              [value]="versionEndpoint()"
+              (input)="versionEndpoint.set($any($event.target).value)"
+              [attr.aria-invalid]="versionEndpointError() !== null"
+            />
+            @if (versionEndpointError() !== null) {
+              <p class="error">{{ versionEndpointError() }}</p>
+            }
+            @let versionHint = versionSuggestion();
+            @if (versionHint !== null) {
+              <p class="suggestion">
+                Detected <span class="co-mono">{{ versionHint.path }}</span> in
+                <span class="co-mono">{{ versionHint.sourceFile }}</span>
+                <button type="button" class="suggestion-action" (click)="applyVersionSuggestion()">
+                  Use
+                </button>
+              </p>
+            }
+          </div>
         </div>
-      </div>
 
-      @if (environmentNameCustomized()) {
-        <div class="field">
-          <label for="environment-name">Environment Name</label>
-          <input
-            id="environment-name"
-            type="text"
-            placeholder="Production"
-            [value]="environmentName()"
-            (input)="environmentName.set($any($event.target).value)"
-            [attr.aria-invalid]="environmentNameError() !== null"
-          />
-          @if (environmentNameError() !== null) {
-            <p class="error">{{ environmentNameError() }}</p>
-          }
-        </div>
-      } @else {
-        <p class="derived">
-          Named <span class="derived-value">{{ environmentName() }}</span>
-          <button type="button" class="derived-action" (click)="customizeEnvironmentName()">
-            Customize name
-          </button>
-        </p>
-      }
-    </section>
-
-    <section class="section">
-      <header>
-        <h2 class="section-title">Application</h2>
-        <p class="co-section-note">
-          The address Console Ops uses for monitoring. No provider can tell us this.
-        </p>
-      </header>
-
-      <div class="field">
-        <label for="base-url">Base URL <span class="optional">(optional)</span></label>
-        <input
-          id="base-url"
-          type="url"
-          inputmode="url"
-          placeholder="https://api.spinnerapp.com"
-          [value]="baseUrl()"
-          (input)="baseUrl.set($any($event.target).value)"
-          [attr.aria-invalid]="baseUrlError() !== null"
+        <co-endpoint-monitoring
+          [healthEndpoint]="healthEndpoint()"
+          [versionEndpoint]="versionEndpoint()"
+          [verification]="verification()"
+          [sourceSync]="sourceSync()"
+          [verifying]="verifying()"
+          [error]="verificationError()"
+          [canVerify]="canVerify()"
+          (verify)="verifyEndpoints()"
         />
-        @if (baseUrlError() !== null) {
-          <p class="error">{{ baseUrlError() }}</p>
-        }
-      </div>
+      </section>
 
-      <div class="grid">
-        <div class="field">
-          <label for="health-endpoint"
-            >Health Endpoint <span class="optional">(optional)</span></label
-          >
-          <input
-            id="health-endpoint"
-            type="text"
-            placeholder="/health"
-            [value]="healthEndpoint()"
-            (input)="healthEndpoint.set($any($event.target).value)"
-            [attr.aria-invalid]="healthEndpointError() !== null"
-          />
-          @if (healthEndpointError() !== null) {
-            <p class="error">{{ healthEndpointError() }}</p>
-          }
-          @let healthHint = healthSuggestion();
-          @if (healthHint !== null) {
-            <p class="suggestion">
-              Detected <span class="co-mono">{{ healthHint.path }}</span> in
-              <span class="co-mono">{{ healthHint.sourceFile }}</span>
-              <button type="button" class="suggestion-action" (click)="applyHealthSuggestion()">
-                Use
-              </button>
-            </p>
-          }
-        </div>
+      @if (submissionError() !== null) {
+        <p class="submission-error" role="alert">{{ submissionError() }}</p>
+      }
 
-        <div class="field">
-          <label for="version-endpoint"
-            >Version Endpoint <span class="optional">(optional)</span></label
-          >
-          <input
-            id="version-endpoint"
-            type="text"
-            placeholder="/version"
-            [value]="versionEndpoint()"
-            (input)="versionEndpoint.set($any($event.target).value)"
-            [attr.aria-invalid]="versionEndpointError() !== null"
-          />
-          @if (versionEndpointError() !== null) {
-            <p class="error">{{ versionEndpointError() }}</p>
-          }
-          @let versionHint = versionSuggestion();
-          @if (versionHint !== null) {
-            <p class="suggestion">
-              Detected <span class="co-mono">{{ versionHint.path }}</span> in
-              <span class="co-mono">{{ versionHint.sourceFile }}</span>
-              <button type="button" class="suggestion-action" (click)="applyVersionSuggestion()">
-                Use
-              </button>
-            </p>
-          }
-        </div>
-      </div>
+      <footer class="actions">
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="request() === null || submissionState() === 'submitting'"
+          [attr.title]="
+            request() === null
+              ? 'Complete the required fields to compose a valid registration'
+              : null
+          "
+        >
+          <co-icon name="plus" [size]="15" [strokeWidth]="2" />
+          {{ submissionState() === 'submitting' ? 'Adding Project...' : 'Add Project' }}
+        </button>
 
-      <co-endpoint-monitoring
-        [healthEndpoint]="healthEndpoint()"
-        [versionEndpoint]="versionEndpoint()"
-        [verification]="verification()"
-        [sourceSync]="sourceSync()"
-        [verifying]="verifying()"
-        [error]="verificationError()"
-        [canVerify]="canVerify()"
-        (verify)="verifyEndpoints()"
-      />
-    </section>
+        <a class="cancel" routerLink="/projects">Cancel</a>
+      </footer>
+    </form>
+  }
 
-    @if (submissionError() !== null) {
-      <p class="submission-error" role="alert">{{ submissionError() }}</p>
-    }
-
-    <footer class="actions">
-      <button
-        type="submit"
-        class="primary"
-        [disabled]="request() === null || submissionState() === 'submitting'"
-        [attr.title]="
-          request() === null ? 'Complete the required fields to compose a valid registration' : null
-        "
-      >
-        <co-icon name="plus" [size]="15" [strokeWidth]="2" />
-        {{ submissionState() === 'submitting' ? 'Adding Project...' : 'Add Project' }}
-      </button>
-
-      <a class="cancel" routerLink="/projects">Cancel</a>
-    </footer>
-  </form>
-
-  <aside class="rail" aria-label="Project preview">
-    <co-add-project-summary [request]="request()" [environmentKind]="environmentKind()" />
-  </aside>
+  @if (outcome === null) {
+    <aside class="rail" aria-label="Project preview">
+      <co-add-project-summary [request]="request()" [environmentKind]="environmentKind()" />
+    </aside>
+  }
 </div>

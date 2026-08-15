@@ -1,0 +1,41 @@
+<section class="panel">
+  <header class="head">
+    <span class="mark" aria-hidden="true"
+      ><co-icon name="check" [size]="18" [strokeWidth]="2.2"
+    /></span>
+    <span>
+      <h2 class="title">{{ project().name }} is registered</h2>
+      <p class="co-section-note">Console Ops will keep observing it from now on.</p>
+    </span>
+  </header>
+
+  <ul class="steps">
+    @for (step of steps(); track step.label) {
+      <li class="step" [attr.data-state]="step.state">
+        <co-icon [name]="step.icon" [size]="15" />
+        <span class="step-text">
+          <span class="step-label">{{ step.label }}</span>
+          <span class="step-detail">{{ step.detail }}</span>
+        </span>
+        <span class="step-state">
+          @switch (step.state) {
+            @case ('done') {
+              <co-icon name="check" [size]="14" [strokeWidth]="2.2" label="Completed" />
+            }
+            @case ('pending') {
+              <span class="pending">Later</span>
+            }
+            @default {
+              <span class="skipped">Not set</span>
+            }
+          }
+        </span>
+      </li>
+    }
+  </ul>
+
+  <div class="actions">
+    <a class="primary" [routerLink]="['/projects', project().id]">Open project</a>
+    <a class="secondary" routerLink="/projects">Back to Projects</a>
+  </div>
+</section>
