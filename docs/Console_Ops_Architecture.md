@@ -372,8 +372,14 @@ opened it" instead of retrying and overwriting someone else's change. Existing e
 `id` so the API matches them rather than recreating them.
 
 Archiving takes two deliberate steps: the first press asks, naming the project and saying what archiving
-means, and only the second calls the API. Adding or removing environments is not in this pass; the form
-edits the environments a project already has.
+means, and only the second calls the API.
+
+Environments can be added and removed in the same form, within the contract's rules. A new environment is
+sent without an `id`, which is how the API knows to create it; an existing one keeps its `id` so it is
+matched rather than recreated. Removing an environment that exists asks first and says its observations
+are discarded, while an unsaved draft goes immediately because it has nothing to lose. The last
+environment cannot be removed, since every project must keep one, and duplicate names are rejected before
+the API has to.
 
 ### Environments screen contract reconciliation
 

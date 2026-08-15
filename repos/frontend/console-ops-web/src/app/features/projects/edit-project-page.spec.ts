@@ -135,6 +135,72 @@ describe('EditProjectPage', () => {
     expect(host.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(true);
   });
 
+  it('adds an environment without an id so the API creates it', async () => {
+    host.querySelector<HTMLButtonElement>('.add-environment')!.click();
+    harness.detectChanges();
+
+    await type('#environment-name-1', 'Staging');
+
+    host.querySelector<HTMLButtonElement>('.primary')!.click();
+    await harness.fixture.whenStable();
+
+    expect(updateRequest!.environments.length).toBe(2);
+    expect(updateRequest!.environments[0].id).toBe(project.environments[0].id);
+    // A new environment must not carry an id at all, or the API would try to match one.
+    expect('id' in updateRequest!.environments[1]).toBe(false);
+    expect(updateRequest!.environments[1].name).toBe('Staging');
+    expect(updateRequest!.environments[1].kind).toBe('staging');
+  });
+
+  it('refuses two environments with the same name', async () => {
+    host.querySelector<HTMLButtonElement>('.add-environment')!.click();
+    harness.detectChanges();
+
+    await type('#environment-name-1', project.environments[0].name);
+
+    expect(host.textContent).toContain('Environment names must be unique');
+    expect(host.querySelector<HTMLButtonElement>('.primary')?.disabled).toBe(true);
+  });
+
+  it('will not remove the only environment a project has', () => {
+    const remove = host.querySelector<HTMLButtonElement>('.remove');
+
+    expect(remove?.disabled).toBe(true);
+    expect(remove?.title).toContain('at least one environment');
+  });
+
+  it('asks before removing an environment that exists', async () => {
+    host.querySelector<HTMLButtonElement>('.add-environment')!.click();
+    harness.detectChanges();
+    await type('#environment-name-1', 'Staging');
+
+    // The first press on a saved environment asks rather than removing.
+    host.querySelectorAll<HTMLButtonElement>('.remove')[0].click();
+    harness.detectChanges();
+    expect(host.querySelector('.confirm-text')?.textContent).toContain(
+      'observations are discarded',
+    );
+    expect(host.querySelectorAll('.environment').length).toBe(2);
+
+    host.querySelector<HTMLButtonElement>('.environment-head .danger')!.click();
+    harness.detectChanges();
+
+    expect(host.querySelectorAll('.environment').length).toBe(1);
+  });
+
+  it('drops an unsaved environment immediately', async () => {
+    host.querySelector<HTMLButtonElement>('.add-environment')!.click();
+    harness.detectChanges();
+    expect(host.querySelectorAll('.environment').length).toBe(2);
+
+    // Nothing was saved for it, so there is nothing to warn about.
+    host.querySelectorAll<HTMLButtonElement>('.remove')[1].click();
+    harness.detectChanges();
+
+    expect(host.querySelectorAll('.environment').length).toBe(1);
+    expect(host.querySelector('.confirm-text')).toBeNull();
+  });
+
   it('explains a stale configuration version instead of retrying', async () => {
     updateResult = throwError(() => new HttpErrorResponse({ status: 409 }));
 

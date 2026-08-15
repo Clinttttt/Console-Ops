@@ -25,9 +25,16 @@ import { Icon } from '../../core/ui/icon';
 type LoadState = 'loading' | 'loaded' | 'notFound' | 'unavailable';
 type SaveState = 'idle' | 'saving' | 'failed';
 
-/** One environment being edited. Existing environments keep their id so the API can match them. */
+/**
+ * One environment being edited.
+ *
+ * `id` is `null` for an environment that does not exist yet: the API creates an entry sent without one,
+ * and matches an entry that carries one. `key` is a client-side identity so the list can be tracked and
+ * reordered without depending on a server id that may not exist.
+ */
 interface EnvironmentDraft {
-  readonly id: string;
+  readonly key: string;
+  readonly id: string | null;
   name: string;
   kind: EnvironmentKind;
   applicationUrl: string;
@@ -119,14 +126,27 @@ export class EditProjectPage {
     this.defaultBranch().trim() === '' ? 'A default branch is required.' : null,
   );
 
-  protected readonly environmentErrors = computed(() =>
-    this.environments().map((environment) => ({
-      name: environment.name.trim() === '' ? 'An environment name is required.' : null,
+  protected readonly environmentErrors = computed(() => {
+    const environments = this.environments();
+    const nameCounts = new Map<string, number>();
+    for (const environment of environments) {
+      const key = environment.name.trim().toLowerCase();
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+
+    return environments.map((environment) => ({
+      name: environmentNameError(environment.name, nameCounts),
       applicationUrl: validateOptionalHttpUrl(environment.applicationUrl),
       healthUrl: validateOptionalHttpUrl(environment.healthUrl),
       versionUrl: validateOptionalHttpUrl(environment.versionUrl),
-    })),
-  );
+    }));
+  });
+
+  /** Key of the environment whose removal is awaiting confirmation. */
+  protected readonly removingKey = signal<string | null>(null);
+
+  /** V1 requires every project to keep at least one environment. */
+  protected readonly canRemoveEnvironment = computed(() => this.environments().length > 1);
 
   protected readonly isValid = computed(
     () =>
@@ -158,6 +178,49 @@ export class EditProjectPage {
         position === index ? { ...environment, ...patch } : environment,
       ),
     );
+  }
+
+  protected addEnvironment(): void {
+    this.environments.update((environments) => [
+      ...environments,
+      {
+        key: `new-${environments.length}-${Date.now()}`,
+        id: null,
+        name: '',
+        kind: 'staging',
+        applicationUrl: '',
+        healthUrl: '',
+        versionUrl: '',
+      },
+    ]);
+  }
+
+  /**
+   * Asks before removing an environment that exists, because removing it discards its observations.
+   * A draft that was never saved has nothing to lose, so it goes immediately.
+   */
+  protected requestRemoveEnvironment(draft: EnvironmentDraft): void {
+    if (draft.id === null) {
+      this.removeEnvironment(draft.key);
+      return;
+    }
+
+    this.removingKey.set(draft.key);
+  }
+
+  protected cancelRemoveEnvironment(): void {
+    this.removingKey.set(null);
+  }
+
+  protected removeEnvironment(key: string): void {
+    if (!this.canRemoveEnvironment()) {
+      return;
+    }
+
+    this.environments.update((environments) =>
+      environments.filter((environment) => environment.key !== key),
+    );
+    this.removingKey.set(null);
   }
 
   protected save(): void {
@@ -226,6 +289,7 @@ export class EditProjectPage {
     this.loadedVersion.set(project.configurationVersion);
     this.environments.set(
       project.environments.map((environment) => ({
+        key: environment.id,
         id: environment.id,
         name: environment.name,
         kind: environment.kind,
@@ -234,11 +298,13 @@ export class EditProjectPage {
         versionUrl: environment.versionUrl ?? '',
       })),
     );
+    this.removingKey.set(null);
   }
 
   private buildRequest(configurationVersion: number): ProjectUpdateRequest {
     const environments: ProjectEnvironmentUpdate[] = this.environments().map((environment) => ({
-      id: environment.id,
+      // A new environment omits the id entirely; the API creates it.
+      ...(environment.id === null ? {} : { id: environment.id }),
       name: environment.name.trim(),
       kind: environment.kind,
       applicationUrl: blankToNull(environment.applicationUrl),
@@ -264,6 +330,18 @@ export class EditProjectPage {
 function blankToNull(value: string): string | null {
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
+}
+
+/** Names must exist and be unique within a project, as the V1 contract requires. */
+function environmentNameError(name: string, counts: Map<string, number>): string | null {
+  const trimmed = name.trim();
+  if (trimmed === '') {
+    return 'An environment name is required.';
+  }
+
+  return (counts.get(trimmed.toLowerCase()) ?? 0) > 1
+    ? 'Environment names must be unique within a project.'
+    : null;
 }
 
 /** V1 rule: absolute HTTP(S) URL with no embedded credentials. */

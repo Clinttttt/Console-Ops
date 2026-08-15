@@ -123,15 +123,49 @@
         <header>
           <h2 class="section-title">Environments</h2>
           <p class="co-section-note">
-            Each environment is observed on its own. Adding or removing one arrives with a later
-            slice.
+            Each environment is observed on its own. A project must keep at least one, and names
+            must be unique within it.
           </p>
         </header>
 
-        @for (environment of environments(); track environment.id; let index = $index) {
+        @for (environment of environments(); track environment.key; let index = $index) {
           @let errors = environmentErrors()[index];
           <fieldset class="environment">
-            <legend class="environment-legend">{{ environment.name || 'Environment' }}</legend>
+            <legend class="environment-legend">
+              {{ environment.name || 'New environment' }}
+              @if (environment.id === null) {
+                <span class="new-badge">Not saved yet</span>
+              }
+            </legend>
+
+            <div class="environment-head">
+              @if (removingKey() === environment.key) {
+                <span class="confirm">
+                  <span class="confirm-text">
+                    Remove <strong>{{ environment.name }}</strong
+                    >? Its observations are discarded, and nothing changes until you save.
+                  </span>
+                  <button type="button" class="cancel-archive" (click)="cancelRemoveEnvironment()">
+                    Keep
+                  </button>
+                  <button type="button" class="danger" (click)="removeEnvironment(environment.key)">
+                    Remove
+                  </button>
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  class="remove"
+                  [disabled]="!canRemoveEnvironment()"
+                  [attr.title]="
+                    canRemoveEnvironment() ? null : 'A project must keep at least one environment'
+                  "
+                  (click)="requestRemoveEnvironment(environment)"
+                >
+                  Remove
+                </button>
+              }
+            </div>
 
             <div class="grid">
               <div class="field">
@@ -214,6 +248,11 @@
             </div>
           </fieldset>
         }
+
+        <button type="button" class="add-environment" (click)="addEnvironment()">
+          <co-icon name="plus" [size]="14" [strokeWidth]="2" />
+          Add environment
+        </button>
       </section>
 
       @if (saveError() !== null) {

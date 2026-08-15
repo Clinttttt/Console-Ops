@@ -76,6 +76,56 @@
   color: var(--co-ink-strong);
 }
 
+.new-badge {
+  margin-left: var(--co-space-2);
+  padding: 2px 6px;
+  border-radius: var(--co-radius-sm);
+  background: var(--co-surface-sunken);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--co-ink-muted);
+}
+
+.environment-head {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--co-space-2);
+}
+
+.remove {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+}
+
+.remove:hover:not(:disabled) {
+  color: var(--co-status-down);
+}
+
+.remove:disabled {
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}
+
+.add-environment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin-top: var(--co-space-4);
+  padding: 7px var(--co-space-4);
+  border: 1px dashed var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-ink);
+}
+
+.add-environment:hover {
+  background: var(--co-surface-sunken);
+}
+
 .submission-error {
   margin-top: var(--co-space-4);
   padding: var(--co-space-3) var(--co-space-4);
