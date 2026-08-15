@@ -1,6 +1,10 @@
 import { Observable } from 'rxjs';
 
-import { GitHubRepositoryPage, GitHubWorkflowList } from '../contracts/github-discovery';
+import {
+  GitHubLatestCommit,
+  GitHubRepositoryPage,
+  GitHubWorkflowList,
+} from '../contracts/github-discovery';
 
 /**
  * Port for GitHub discovery.
@@ -13,4 +17,10 @@ export abstract class GitHubDiscoveryDataSource {
   abstract listRepositories(query: string): Observable<GitHubRepositoryPage>;
 
   abstract listWorkflows(owner: string, name: string): Observable<GitHubWorkflowList>;
+
+  abstract getLatestCommit(
+    owner: string,
+    name: string,
+    branch: string,
+  ): Observable<GitHubLatestCommit>;
 }

@@ -1,12 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
-import { StatusLevel } from '../../../core/contracts/dashboard-overview';
+import { StatusCell, StatusLevel } from '../../../core/contracts/dashboard-overview';
 import {
   EndpointVerification,
   VerifiedHealthState,
 } from '../../../core/contracts/endpoint-verification';
 import { Icon } from '../../../core/ui/icon';
+import { Status } from '../../../core/ui/status';
 
 /**
  * What Console Ops will observe, and what it observed when asked.
@@ -18,7 +19,7 @@ import { Icon } from '../../../core/ui/icon';
 @Component({
   selector: 'co-endpoint-monitoring',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, Icon],
+  imports: [DatePipe, Icon, Status],
   templateUrl: './endpoint-monitoring.html',
   styleUrl: './endpoint-monitoring.scss',
 })
@@ -26,6 +27,8 @@ export class EndpointMonitoring {
   readonly healthEndpoint = input('');
   readonly versionEndpoint = input('');
   readonly verification = input<EndpointVerification | null>(null);
+  /** Source against deployed, or `null` until both commits are known. */
+  readonly sourceSync = input<StatusCell | null>(null);
   readonly verifying = input(false);
   readonly error = input<string | null>(null);
   readonly canVerify = input(false);

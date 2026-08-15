@@ -38,3 +38,11 @@ public sealed record GitHubWorkflowSummary(
     DateTimeOffset? LatestRunCompletedAtUtc);
 
 public sealed record GitHubWorkflowCatalog(IReadOnlyList<GitHubWorkflowSummary> Workflows);
+
+/// <summary>
+/// Head commit of one branch. Read for a single repository the operator has chosen, never for a list.
+/// </summary>
+public sealed record GitHubLatestCommit(
+    string CommitSha,
+    string ShortCommitSha,
+    DateTimeOffset? CommittedAtUtc);

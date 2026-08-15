@@ -11,9 +11,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
 
-import { EnvironmentKind } from '../../core/contracts/dashboard-overview';
+import { EnvironmentKind, StatusCell } from '../../core/contracts/dashboard-overview';
 import { EndpointVerification } from '../../core/contracts/endpoint-verification';
-import { GitHubRepository, GitHubWorkflow } from '../../core/contracts/github-discovery';
+import {
+  GitHubLatestCommit,
+  GitHubRepository,
+  GitHubWorkflow,
+} from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
 import { EndpointVerificationDataSource } from '../../core/data/endpoint-verification.data-source';
 import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
@@ -94,6 +98,32 @@ export class AddProjectPage {
   protected readonly verification = signal<EndpointVerification | null>(null);
   protected readonly verifying = signal(false);
   protected readonly verificationError = signal<string | null>(null);
+
+  /** Head commit of the imported branch, when discovery could read it. */
+  protected readonly sourceCommit = signal<GitHubLatestCommit | null>(null);
+
+  /**
+   * Source against deployed, stated only from two observed commits.
+   *
+   * Equal normalized SHAs are `In Sync`. Unequal SHAs are reported as differing without claiming a
+   * direction, because ancestry is unknown until the project is registered and refreshed.
+   */
+  protected readonly sourceSync = computed<StatusCell | null>(() => {
+    const source = this.sourceCommit();
+    const deployed = this.verification()?.version.commitSha ?? null;
+
+    if (source === null || deployed === null) {
+      return null;
+    }
+
+    return source.commitSha.toLowerCase() === deployed.toLowerCase()
+      ? { level: 'healthy', label: 'In Sync', detail: source.commitShortSha }
+      : {
+          level: 'warning',
+          label: 'Differs',
+          detail: 'Ancestry is known after the first refresh',
+        };
+  });
 
   /**
    * Verification is an explicit action, not something typing triggers.
@@ -221,11 +251,13 @@ export class AddProjectPage {
     }
 
     this.loadWorkflows(repository);
+    this.loadSourceCommit(repository);
   }
 
   /** Returns to manual entry and discards discovered facts, so nothing stale is submitted. */
   protected clearImportedRepository(): void {
     this.importedRepository.set(null);
+    this.sourceCommit.set(null);
     this.workflows.set([]);
     this.workflowsLoading.set(false);
     this.workflowsUnavailable.set(false);
@@ -263,6 +295,19 @@ export class AddProjectPage {
           this.verificationError.set(verificationErrorMessage(error));
           this.verifying.set(false);
         },
+      });
+  }
+
+  /** A failure here is not fatal: the setup simply cannot compare source with deployed yet. */
+  private loadSourceCommit(repository: GitHubRepository): void {
+    this.sourceCommit.set(null);
+
+    this.discovery
+      .getLatestCommit(repository.owner, repository.name, repository.defaultBranch)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (commit) => this.sourceCommit.set(commit),
+        error: () => this.sourceCommit.set(null),
       });
   }
 

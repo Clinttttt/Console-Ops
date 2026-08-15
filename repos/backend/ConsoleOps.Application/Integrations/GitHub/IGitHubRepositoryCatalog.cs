@@ -18,4 +18,13 @@ public interface IGitHubRepositoryCatalog
         string owner,
         string repository,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the head commit of one branch so a screen can compare source with a deployed commit.
+    /// </summary>
+    Task<GitHubFactResult<GitHubLatestCommit>> GetLatestCommitAsync(
+        string owner,
+        string repository,
+        string branch,
+        CancellationToken cancellationToken);
 }

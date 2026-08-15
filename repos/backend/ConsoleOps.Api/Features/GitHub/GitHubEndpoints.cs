@@ -9,6 +9,7 @@ public static class GitHubEndpoints
 
         github.MapListGitHubRepositoriesEndpoint();
         github.MapListGitHubWorkflowsEndpoint();
+        github.MapGetGitHubLatestCommitEndpoint();
         return endpoints;
     }
 }

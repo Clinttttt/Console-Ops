@@ -10,6 +10,7 @@ import {
   EndpointVerificationRequest,
 } from '../../core/contracts/endpoint-verification';
 import {
+  GitHubLatestCommit,
   GitHubRepository,
   GitHubRepositoryPage,
   GitHubWorkflow,
@@ -78,6 +79,7 @@ describe('AddProjectPage', () => {
   let repositoryResult: Observable<GitHubRepositoryPage>;
   let workflowResult: Observable<GitHubWorkflowList>;
   let verificationResult: Observable<EndpointVerification>;
+  let commitResult: Observable<GitHubLatestCommit>;
   let verifiedRequest: EndpointVerificationRequest | null;
 
   beforeEach(async () => {
@@ -88,6 +90,11 @@ describe('AddProjectPage', () => {
     repositoryResult = of({ repositories: [SPINNER_REPOSITORY], hasMore: false });
     workflowResult = of({ workflows: [DEPLOY_WORKFLOW, CI_WORKFLOW] });
     verificationResult = of(HEALTHY_VERIFICATION);
+    commitResult = of({
+      commitSha: '8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2',
+      commitShortSha: '8a17c2f',
+      committedAt: '2026-08-14T08:00:00Z',
+    });
 
     TestBed.configureTestingModule({
       providers: [
@@ -118,6 +125,7 @@ describe('AddProjectPage', () => {
           useValue: {
             listRepositories: () => repositoryResult,
             listWorkflows: () => workflowResult,
+            getLatestCommit: () => commitResult,
           },
         },
         {
@@ -291,6 +299,40 @@ describe('AddProjectPage', () => {
   function monitoring(): string {
     return host.querySelector('co-endpoint-monitoring')?.textContent ?? '';
   }
+
+  it('states source sync only once both commits are observed', async () => {
+    await importSpinner();
+    await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#version-endpoint', '/version');
+
+    // The source commit is known from the import, but nothing is deployed-known until a check runs.
+    expect(monitoring()).not.toContain('Source sync');
+
+    checkButton().click();
+    harness.detectChanges();
+
+    expect(monitoring()).toContain('Source sync');
+    expect(monitoring()).toContain('In Sync');
+  });
+
+  it('reports differing commits without claiming a direction', async () => {
+    commitResult = of({
+      commitSha: '1111111111111111111111111111111111111111',
+      commitShortSha: '1111111',
+      committedAt: null,
+    });
+
+    await importSpinner();
+    await type('#base-url', 'https://api.spinnerapp.com');
+    await type('#version-endpoint', '/version');
+    checkButton().click();
+    harness.detectChanges();
+
+    expect(monitoring()).toContain('Differs');
+    // Ancestry is unknown before registration, so neither Behind nor Ahead may be claimed.
+    expect(monitoring()).not.toContain('Behind');
+    expect(monitoring()).toContain('Ancestry is known after the first refresh');
+  });
 
   it('cannot check endpoints until there is something to probe', () => {
     expect(checkButton().disabled).toBe(true);

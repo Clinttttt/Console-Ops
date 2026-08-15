@@ -22,9 +22,10 @@ faked in the UI before their endpoint exists.
   performed the probe rather than the browser.
 - A failed check is reported as a problem with the check, never with the configuration, and never blocks
   registration. An unreachable application is a normal observation.
-- Source-to-deployed comparison during setup is still pending: it needs the latest source commit, which
-  the discovery endpoints do not yet return. Adding `latestCommitSha` to the repository response is the
-  smallest step that unlocks it.
+- Source-to-deployed comparison during setup is implemented. The head commit of the imported branch
+  comes from `GET .../commits/latest`, the deployed commit from the verification probe, and the screen
+  states `In Sync` only on a normalized match. Unequal commits read as differing, never as `Behind`,
+  because ancestry is established by a project refresh rather than by comparing two strings.
 
 ### Phases 1 and 2 as built
 

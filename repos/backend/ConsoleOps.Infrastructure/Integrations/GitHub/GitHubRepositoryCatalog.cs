@@ -138,6 +138,40 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
         return new GitHubLatestRun(conclusion, completedAtUtc);
     }
 
+    public async Task<GitHubFactResult<GitHubLatestCommit>> GetLatestCommitAsync(
+        string owner,
+        string repository,
+        string branch,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        string path = $"repos/{Escape(owner)}/{Escape(repository)}"
+            + $"/commits?sha={Escape(branch)}&per_page=1";
+        GitHubReadResponse<GitHubCommitDto[]> response =
+            await GetAsync<GitHubCommitDto[]>(path, cancellationToken);
+
+        if (response.Value is null)
+        {
+            return GitHubFactResult<GitHubLatestCommit>.Failed(
+                response.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        GitHubCommitDto? commit = response.Value.FirstOrDefault();
+        if (commit?.Sha is not { Length: 40 or 64 } sha || !sha.All(Uri.IsHexDigit))
+        {
+            // A branch with no commits, or a payload Console Ops cannot trust.
+            return GitHubFactResult<GitHubLatestCommit>.Failed(GitHubReadFailure.InvalidResponse);
+        }
+
+        return GitHubFactResult<GitHubLatestCommit>.Success(new GitHubLatestCommit(
+            sha,
+            sha[..7],
+            commit.Commit?.Committer?.Date ?? commit.Commit?.Author?.Date));
+    }
+
     private async Task<GitHubReadResponse<T>> GetAsync<T>(
         string relativePath,
         CancellationToken cancellationToken)
@@ -302,4 +336,12 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
         string? Conclusion,
         [property: JsonPropertyName("updated_at")]
         DateTimeOffset? UpdatedAt);
+
+    private sealed record GitHubCommitDto(string? Sha, GitHubCommitDetailsDto? Commit);
+
+    private sealed record GitHubCommitDetailsDto(
+        GitHubCommitPersonDto? Author,
+        GitHubCommitPersonDto? Committer);
+
+    private sealed record GitHubCommitPersonDto(DateTimeOffset? Date);
 }

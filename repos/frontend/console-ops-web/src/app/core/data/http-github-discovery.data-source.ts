@@ -2,7 +2,11 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { GitHubRepositoryPage, GitHubWorkflowList } from '../contracts/github-discovery';
+import {
+  GitHubLatestCommit,
+  GitHubRepositoryPage,
+  GitHubWorkflowList,
+} from '../contracts/github-discovery';
 import { GitHubDiscoveryDataSource } from './github-discovery.data-source';
 
 /**
@@ -26,5 +30,16 @@ export class HttpGitHubDiscoveryDataSource extends GitHubDiscoveryDataSource {
   override listWorkflows(owner: string, name: string): Observable<GitHubWorkflowList> {
     const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/workflows`;
     return this.http.get<GitHubWorkflowList>(path);
+  }
+
+  override getLatestCommit(
+    owner: string,
+    name: string,
+    branch: string,
+  ): Observable<GitHubLatestCommit> {
+    const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/commits/latest`;
+    return this.http.get<GitHubLatestCommit>(path, {
+      params: new HttpParams({ fromObject: { branch } }),
+    });
   }
 }

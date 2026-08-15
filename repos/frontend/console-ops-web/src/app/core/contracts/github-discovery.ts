@@ -56,3 +56,14 @@ export interface GitHubWorkflow {
 export interface GitHubWorkflowList {
   readonly workflows: readonly GitHubWorkflow[];
 }
+
+/**
+ * Head commit of the imported branch.
+ *
+ * Read for one chosen repository, never for a list, so importing does not make a request per row.
+ */
+export interface GitHubLatestCommit {
+  readonly commitSha: string;
+  readonly commitShortSha: string;
+  readonly committedAt: string | null;
+}

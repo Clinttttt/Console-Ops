@@ -253,6 +253,58 @@ public sealed class GitHubRepositoryCatalogTests
             .ListWorkflowsAsync("clint", "spinner", cancellation.Token));
     }
 
+    [Fact]
+    public async Task GetLatestCommitAsync_MapsTheHeadCommitOfTheRequestedBranch()
+    {
+        StubHandler handler = new(_ => JsonResponse("""
+            [
+              {
+                "sha": "8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2",
+                "commit": {
+                  "author": { "date": "2026-08-15T04:00:00Z" },
+                  "committer": { "date": "2026-08-15T04:05:00Z" }
+                }
+              }
+            ]
+            """));
+
+        GitHubFactResult<GitHubLatestCommit> result = await CreateCatalog(handler)
+            .GetLatestCommitAsync("clint", "spinner", "release/1.2", CancellationToken.None);
+
+        Assert.Equal("8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2", result.Observation!.CommitSha);
+        Assert.Equal("8a17c2f", result.Observation.ShortCommitSha);
+        Assert.Equal(
+            new DateTimeOffset(2026, 8, 15, 4, 5, 0, TimeSpan.Zero),
+            result.Observation.CommittedAtUtc);
+
+        // The branch is passed to GitHub rather than assumed.
+        Assert.Contains("sha=release%2F1.2", handler.LastRequest!.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetLatestCommitAsync_RejectsAShaItCannotTrust()
+    {
+        StubHandler handler = new(_ => JsonResponse("""[ { "sha": "not-a-sha" } ]"""));
+
+        GitHubFactResult<GitHubLatestCommit> result = await CreateCatalog(handler)
+            .GetLatestCommitAsync("clint", "spinner", "main", CancellationToken.None);
+
+        Assert.Null(result.Observation);
+        Assert.Equal(GitHubReadFailure.InvalidResponse, result.Failure);
+    }
+
+    [Fact]
+    public async Task GetLatestCommitAsync_ReportsAnEmptyBranchAsUnreadable()
+    {
+        StubHandler handler = new(_ => JsonResponse("[]"));
+
+        GitHubFactResult<GitHubLatestCommit> result = await CreateCatalog(handler)
+            .GetLatestCommitAsync("clint", "spinner", "main", CancellationToken.None);
+
+        Assert.Null(result.Observation);
+        Assert.Equal(GitHubReadFailure.InvalidResponse, result.Failure);
+    }
+
     private static GitHubRepositoryCatalog CreateCatalog(HttpMessageHandler handler) =>
         new(new HttpClient(handler)
         {

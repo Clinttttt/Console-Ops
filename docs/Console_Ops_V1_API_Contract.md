@@ -39,6 +39,7 @@ Added 2026-08-14 for the Add Project import flow. Provider reads, not stored ent
 ```text
 GET /api/github/repositories?query=
 GET /api/github/repositories/{owner}/{repository}/workflows
+GET /api/github/repositories/{owner}/{repository}/commits/latest?branch=
 ```
 
 `GET /api/github/repositories` returns `{ repositories: [...], hasMore }`, where a repository carries
@@ -58,6 +59,15 @@ credential, the target URL, or a raw provider payload.
 
 Discovery never selects on the operator's behalf. The API returns what exists; the operator confirms
 which workflow deploys the environment, as the workflow rules below require.
+
+`GET .../commits/latest` returns the head commit of the requested branch as `commitSha`,
+`commitShortSha`, and `committedAt`. It is read for one chosen repository, never per row of a list. A
+branch with no commits, or a SHA that is not full hexadecimal, is reported as unreadable rather than
+passed through.
+
+That commit is what lets a setup screen compare source with a deployed commit before registration.
+Equal normalized SHAs are `In Sync`. Unequal SHAs may only be reported as differing: `Behind` requires
+ancestry, which is established by a project refresh, not by comparing two strings.
 
 ## Transport rules
 

@@ -43,6 +43,16 @@
   </li>
 </ul>
 
+@if (sourceSync() !== null) {
+  <ul class="monitoring source-sync">
+    <li>
+      <co-icon name="ciCd" [size]="15" />
+      <span class="name">Source sync</span>
+      <span class="state"><co-status [cell]="sourceSync()" /></span>
+    </li>
+  </ul>
+}
+
 @if (checked !== null && checked.health.dependencies.length > 0) {
   <ul class="dependencies">
     @for (dependency of checked.health.dependencies; track dependency.name) {
