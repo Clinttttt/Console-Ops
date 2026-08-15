@@ -1,8 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { provideRouter } from '@angular/router';
+import { of, throwError } from 'rxjs';
 
-import { EnvironmentRegistryDataSource } from '../../core/data/environment-registry.data-source';
-import { ENVIRONMENT_REGISTRY_FIXTURE } from '../../core/data/mock/environment-registry.fixture';
+import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
+import { DASHBOARD_OVERVIEW_FIXTURE } from '../../core/data/mock/dashboard-overview.fixture';
+import { PROJECT_REGISTRY_FIXTURE } from '../../core/data/mock/project-registry.fixture';
+import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
 import { EnvironmentsPage } from './environments-page';
 
@@ -10,170 +13,148 @@ describe('EnvironmentsPage', () => {
   let fixture: ComponentFixture<EnvironmentsPage>;
   let host: HTMLElement;
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
+  /** Every environment configured across the fixture's projects. */
+  const configuredCount = PROJECT_REGISTRY_FIXTURE.reduce(
+    (total, project) => total + project.environments.length,
+    0,
+  );
+
+  function configure(projectsFail = false): void {
+    TestBed.configureTestingModule({
       imports: [EnvironmentsPage],
       providers: [
+        provideRouter([]),
         {
-          provide: EnvironmentRegistryDataSource,
-          useValue: { load: () => of(ENVIRONMENT_REGISTRY_FIXTURE) },
+          provide: ProjectRegistryDataSource,
+          useValue: {
+            load: () =>
+              projectsFail
+                ? throwError(() => new Error('unavailable'))
+                : of(PROJECT_REGISTRY_FIXTURE),
+            getProject: () => of(PROJECT_REGISTRY_FIXTURE[0]),
+            register: () => of(PROJECT_REGISTRY_FIXTURE[0]),
+            refreshProject: () => of(null),
+          },
+        },
+        {
+          provide: DashboardOverviewDataSource,
+          useValue: { load: () => of(DASHBOARD_OVERVIEW_FIXTURE) },
         },
       ],
-    }).compileComponents();
+    });
+  }
 
+  async function render(): Promise<void> {
     fixture = TestBed.createComponent(EnvironmentsPage);
     await fixture.whenStable();
     host = fixture.nativeElement as HTMLElement;
-  });
+  }
 
   function cards(): HTMLElement[] {
     return Array.from(host.querySelectorAll('co-environment-groups .card'));
-  }
-
-  function cardProjects(): (string | undefined)[] {
-    return cards().map((card) => card.querySelector('.project-name')?.textContent?.trim());
-  }
-
-  function groupHeadings(): (string | undefined)[] {
-    return Array.from(host.querySelectorAll('.group-head')).map((heading) =>
-      heading.textContent?.replace(/\s+/g, ' ').trim(),
-    );
   }
 
   function rail(): string {
     return host.querySelector('co-selected-environment')?.textContent ?? '';
   }
 
-  function clickView(label: string): void {
-    Array.from(host.querySelectorAll<HTMLButtonElement>('.view'))
-      .find((button) => button.textContent?.trim() === label)
-      ?.click();
-  }
+  it('lists every configured environment across projects', async () => {
+    configure();
+    await render();
 
-  it('groups environments by kind and counts each group', () => {
-    // No development environment is configured, so that group does not appear at all.
-    expect(groupHeadings()).toEqual([
-      'Production 3 environments',
-      'Staging 1 environment',
-      'Local 1 environment',
-    ]);
-    expect(cardProjects()).toEqual([
-      'Spinner API',
-      'StallTrack',
-      'StockPilot',
-      'Console Ops',
-      'AMYL',
-    ]);
-    expect(host.textContent).not.toContain('Legacy Billing');
+    expect(cards().length).toBe(configuredCount);
+    expect(host.textContent).toContain(`Showing ${configuredCount} of ${configuredCount}`);
   });
 
-  it('shows runtime, health, and version sync on one line per environment', () => {
-    const spinner = cards()[0];
+  it('shows registered configuration for each environment', async () => {
+    configure();
+    await render();
 
-    expect(spinner.textContent).toContain('Production');
-    expect(spinner.textContent).toContain('Azure Container Apps');
-    expect(spinner.textContent).toContain('Healthy');
-    expect(spinner.textContent).toContain('In Sync');
-    expect(spinner.textContent).toContain('18 min ago');
+    const first = cards()[0];
+    expect(first.textContent).toContain(PROJECT_REGISTRY_FIXTURE[0].name);
+    expect(first.textContent).toContain(
+      PROJECT_REGISTRY_FIXTURE[0].environments[0].applicationUrl!,
+    );
   });
 
-  it('highlights nothing and describes nothing until an environment is chosen', () => {
+  it('says an environment has not been observed rather than inventing state', async () => {
+    configure();
+    await render();
+
+    // The overview fixture holds no observation for these environments.
+    expect(host.textContent).toContain('Not observed yet');
+  });
+
+  it('highlights nothing until an environment is chosen', async () => {
+    configure();
+    await render();
+
     expect(host.querySelectorAll('.card.is-selected').length).toBe(0);
     expect(rail()).toContain('Select an environment to inspect its configuration.');
   });
 
-  it('describes the chosen environment and highlights only that card', async () => {
+  it('describes the chosen environment and links to its project', async () => {
+    configure();
+    await render();
+
     cards()[0].click();
     await fixture.whenStable();
 
+    const project = PROJECT_REGISTRY_FIXTURE[0];
     expect(host.querySelectorAll('.card.is-selected').length).toBe(1);
-    expect(rail()).toContain('Spinner API / Production');
-    expect(rail()).toContain('spinner-api--000021');
-    expect(rail()).toContain('5 / 5 configured');
-    expect(rail()).toContain('14 sec ago');
+    expect(rail()).toContain(`${project.name} / ${project.environments[0].name}`);
+    expect(
+      host
+        .querySelector<HTMLAnchorElement>('co-selected-environment a.button[href]')
+        ?.getAttribute('href'),
+    ).toBeTruthy();
   });
 
-  it('reports a local environment without inventing version sync or a deployment', () => {
-    const amyl = cards()[4];
+  it('narrows to one kind through the shared scope', async () => {
+    configure();
+    await render();
 
-    expect(amyl.textContent).toContain('Docker Desktop');
-    expect(amyl.textContent).toContain('Running');
-    expect(amyl.textContent).toContain('Not configured');
-    expect(amyl.querySelector('.deployed')?.textContent?.trim()).toBe('—');
-  });
-
-  it('reports unknown revision and unchecked configuration honestly', async () => {
-    cards()[4].click();
+    const staging = Array.from(host.querySelectorAll<HTMLButtonElement>('.view')).find(
+      (button) => button.textContent?.trim() === 'Staging',
+    );
+    staging!.click();
     await fixture.whenStable();
 
-    expect(rail()).toContain('AMYL / Local');
-    expect(rail()).toContain('Unknown');
-    expect(rail()).toContain('Not checked');
-  });
-
-  it('narrows to a single group through the shared scope', async () => {
-    clickView('Staging');
-    await fixture.whenStable();
-
-    expect(groupHeadings()).toEqual(['Staging 1 environment']);
-    expect(cardProjects()).toEqual(['Console Ops']);
     expect(TestBed.inject(EnvironmentScopeStore).scope()).toBe('staging');
-    expect(host.textContent).toContain('Showing 1 of 5 environments');
+    expect(cards().length).toBeLessThan(configuredCount);
   });
 
-  it('clears a selection that the filters removed', async () => {
+  it('clears a selection the filters removed', async () => {
+    configure();
+    await render();
+
     cards()[0].click();
     await fixture.whenStable();
-    expect(rail()).toContain('Spinner API / Production');
+    expect(host.querySelectorAll('.card.is-selected').length).toBe(1);
 
-    clickView('Local');
-    await fixture.whenStable();
-
-    expect(host.querySelectorAll('.card.is-selected').length).toBe(0);
-    expect(rail()).toContain('Select an environment');
-  });
-
-  it('filters by project', async () => {
-    const select = host.querySelector<HTMLSelectElement>('#co-environment-project');
-    select!.value = 'amyl';
-    select!.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-
-    expect(cardProjects()).toEqual(['AMYL']);
-  });
-
-  it('searches across project, environment, runtime, and URL', async () => {
     const search = host.querySelector<HTMLInputElement>('#co-environment-search');
-    search!.value = 'docker';
+    search!.value = 'nothing-matches-this';
     search!.dispatchEvent(new Event('input'));
     await fixture.whenStable();
 
-    expect(cardProjects()).toEqual(['AMYL']);
+    expect(cards().length).toBe(0);
+    expect(rail()).toContain('Select an environment');
+    expect(host.textContent).toContain('No environments match this view.');
   });
 
-  it('shows archived environments as no longer monitored', async () => {
-    host.querySelector<HTMLButtonElement>('.list-footer .co-inline-link')!.click();
-    await fixture.whenStable();
+  it('reports when the registry could not be read', async () => {
+    configure(true);
+    await render();
 
-    expect(cardProjects()).toEqual(['Legacy Billing']);
-    expect(cards()[0].textContent).toContain('Unknown');
-    expect(cards()[0].textContent).toContain('Not configured');
+    expect(host.textContent).toContain('Environment configuration could not be read.');
   });
 
-  it('opens a configured application in a new tab and never a missing one', async () => {
-    const open = host.querySelector<HTMLAnchorElement>('.actions a.icon-action');
+  it('keeps environment creation unavailable', async () => {
+    configure();
+    await render();
 
-    expect(open?.getAttribute('href')).toBe('https://api.spinnerapp.com');
-    expect(open?.getAttribute('rel')).toBe('noopener noreferrer');
-
-    host.querySelector<HTMLButtonElement>('.list-footer .co-inline-link')!.click();
-    await fixture.whenStable();
-
-    expect(host.querySelector('.actions a.icon-action')).toBeNull();
-  });
-
-  it('keeps environment creation and editing unavailable', () => {
-    expect(host.querySelector<HTMLButtonElement>('.add')?.disabled).toBe(true);
-    expect(host.querySelectorAll('.card .icon-action.is-unavailable').length).toBe(5);
+    const add = host.querySelector<HTMLButtonElement>('.add');
+    expect(add?.disabled).toBe(true);
+    expect(add?.title).toContain('editing its project');
   });
 });

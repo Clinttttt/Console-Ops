@@ -359,26 +359,23 @@ successful registration, the frontend requests one best-effort project refresh s
 show stored observations. A refresh failure does not reinterpret a successful registration as a
 failure. Azure remains labelled as a later phase because Azure runtime awareness is V2.
 
-### Environments screen: design mock ahead of later-phase data
+### Environments screen contract reconciliation
 
-Decided 2026-08-14, after the Projects reconciliation above. The Environments screen exists as a
-fixture-backed design mock at `/environments`. It is not connected to the API and must not be, because
-its central columns depend on facts that V1 does not hold: runtime provider and target, Azure runtime
-revision (V2), configuration-presence counts (later phase), and last-deployment time (later phase).
+Decided 2026-08-15. The Environments screen is connected to V1 truth and its fixture, port, adapter and
+store were deleted. It is composed in the frontend from two existing endpoints rather than a new one:
+configuration from `GET /api/projects` and observations from the stored dashboard overview, joined on
+environment id.
 
-This is not a renewed request for the fields rejected above. The screen records the intended layout for
-when those phases arrive. When the environment query is implemented against V1 truth, the columns
-without a V1 source are removed rather than populated with guesses, exactly as the Projects screen did.
+The design proposal to add runtime provider and target, Azure revision, configuration-presence counts,
+and last-deployment time was **not** adopted for V1, matching the Projects reconciliation above. Those
+columns were removed rather than populated with guesses, and the archived-environments view went with
+them because normal V1 queries exclude archived projects and no archive query exists.
 
-Rules the mock still obeys:
-
-- Configuration is reported as counts of expected keys found, never values, so no secret can leak.
-- Relative times are measured against the payload's `observedAt`, not the browser clock, so "18 min
-  ago" always means 18 minutes before the observation and stays deterministic under test.
-- Version sync wording is derived in the UI from the machine-readable `VersionSyncState`. A local
-  environment with no version endpoint reads `Not configured` rather than borrowing a healthy label.
-- Environment creation and editing are disabled, because V1 edits environments through the project
-  configuration replacement rather than an environment resource.
+What the screen now shows per environment: project, environment name and kind, application URL, health,
+version sync, deployed version, health endpoint, version endpoint, and last check. An environment with
+no observation reads `Not observed yet` rather than borrowing another environment's state. Editing is
+offered as a link to the project, because V1 edits environments through project configuration
+replacement rather than an environment resource.
 
 ### Deployments screen: design mock ahead of the deployment phase
 

@@ -40,27 +40,20 @@
                 <co-environment-tag [name]="environment.name" [kind]="environment.kind" />
               </div>
 
-              <div class="runtime">
-                @let runtime = environment.runtime;
-                @if (runtime === null || runtime.target === null) {
-                  <span class="co-unavailable">Not configured</span>
+              <div class="url">
+                @if (environment.applicationUrl === null) {
+                  <span class="co-unavailable">No application URL</span>
                 } @else {
-                  <co-icon [name]="runtimeIcon(runtime.provider)" [size]="16" />
-                  <span class="runtime-target">{{ runtime.target }}</span>
+                  <span class="url-value">{{ environment.applicationUrl }}</span>
                 }
               </div>
 
               <div class="checks">
-                <co-status [cell]="environment.health" [showDetail]="false" />
-                <co-status [cell]="versionSyncCell(environment)" [showDetail]="false" />
-              </div>
-
-              <div class="deployed">
-                @let deployed = environment.lastDeployedAt | coRelativeTime: observedAt();
-                @if (deployed === null) {
-                  <span class="co-unavailable">&mdash;</span>
+                @if (environment.observed === null) {
+                  <span class="co-unavailable not-observed">Not observed yet</span>
                 } @else {
-                  <span [attr.title]="environment.lastDeployedAt">{{ deployed }}</span>
+                  <co-status [cell]="environment.observed.health" [showDetail]="false" />
+                  <co-status [cell]="versionSyncCell(environment)" [showDetail]="false" />
                 }
               </div>
 
@@ -81,14 +74,6 @@
                     <co-icon name="externalLink" [size]="15" />
                   </a>
                 }
-
-                <span
-                  class="icon-action is-unavailable"
-                  aria-disabled="true"
-                  title="Editing and archiving arrive with the project detail slice"
-                >
-                  <co-icon name="ellipsis" [size]="16" />
-                </span>
               </div>
             </article>
           </li>
@@ -98,18 +83,6 @@
   }
 
   <footer class="list-footer">
-    @if (showingArchived()) {
-      <button type="button" class="co-inline-link" (click)="clearFilters.emit()">
-        <co-icon name="arrowRight" [size]="15" />
-        Back to active environments
-      </button>
-    } @else {
-      <button type="button" class="co-inline-link" (click)="viewArchived.emit()">
-        <co-icon name="archive" [size]="15" />
-        View archived environments
-      </button>
-    }
-
     <p class="count">
       Showing {{ environments().length }} of {{ totalCount() }}
       {{ totalCount() === 1 ? 'environment' : 'environments' }}

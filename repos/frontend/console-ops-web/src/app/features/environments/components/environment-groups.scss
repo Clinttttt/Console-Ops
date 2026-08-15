@@ -72,9 +72,7 @@
 
 .card {
   display: grid;
-  grid-template-columns:
-    minmax(0, 1.2fr) 128px minmax(0, 1.1fr) minmax(0, 0.9fr)
-    92px auto;
+  grid-template-columns: minmax(0, 1.1fr) 128px minmax(0, 1.4fr) minmax(0, 0.9fr) auto;
   align-items: center;
   gap: var(--co-space-4);
   padding: var(--co-space-3) var(--co-space-4);
@@ -110,16 +108,13 @@
   white-space: nowrap;
 }
 
-.runtime {
-  display: flex;
-  align-items: center;
-  gap: var(--co-space-2);
+.url {
   min-width: 0;
-  color: var(--co-ink-muted);
   font-size: 12.5px;
 }
 
-.runtime-target {
+.url-value {
+  display: block;
   color: var(--co-ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,10 +130,8 @@
   border-left: 1px solid var(--co-line);
 }
 
-.deployed {
-  font-size: 12.5px;
-  color: var(--co-ink);
-  white-space: nowrap;
+.not-observed {
+  font-size: 12px;
 }
 
 .actions {

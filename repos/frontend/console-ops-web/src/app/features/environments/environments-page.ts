@@ -1,17 +1,40 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
-import { EnvironmentListItem, StatusCell } from '../../core/contracts/environment-registry';
-import { EnvironmentRegistryStore } from '../../core/state/environment-registry.store';
+import {
+  EnvironmentKind,
+  ProjectSurface,
+  StatusCell,
+} from '../../core/contracts/dashboard-overview';
+import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
+import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { EnvironmentFilters, ProjectFilterOption } from './components/environment-filters';
 import { EnvironmentGroups } from './components/environment-groups';
 import { SelectedEnvironment } from './components/selected-environment';
 
 /**
- * Environments screen: runtime targets and configuration across every registered project.
+ * One configured environment, paired with whatever has been observed about it.
  *
- * Read-only. The environment kind filter is the shared `EnvironmentScopeStore`, so this screen, the
- * shell selector, and the Projects quick views always agree on the active environment.
+ * Configuration comes from the project resource; observations come from the stored dashboard overview.
+ * `observed` is `null` until a refresh has looked at this environment.
+ */
+export interface EnvironmentRow {
+  readonly id: string;
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly name: string;
+  readonly kind: EnvironmentKind;
+  readonly applicationUrl: string | null;
+  readonly healthUrl: string | null;
+  readonly versionUrl: string | null;
+  readonly observed: ProjectSurface | null;
+}
+
+/**
+ * Environments screen: every environment Console Ops has been told about, and its current state.
+ *
+ * Built entirely from V1 facts. Runtime provider, revisions, configuration completeness and deployment
+ * history are later phases, so they are absent rather than guessed at.
  */
 @Component({
   selector: 'co-environments-page',
@@ -21,82 +44,98 @@ import { SelectedEnvironment } from './components/selected-environment';
   styleUrl: './environments-page.scss',
 })
 export class EnvironmentsPage {
-  private readonly store = inject(EnvironmentRegistryStore);
+  private readonly projects = inject(ProjectRegistryStore);
+  private readonly dashboard = inject(DashboardOverviewStore);
   private readonly environmentScope = inject(EnvironmentScopeStore);
-
-  protected readonly loadState = this.store.loadState;
-  protected readonly observedAt = this.store.observedAt;
 
   protected readonly query = signal('');
   protected readonly projectId = signal<string | null>(null);
-  protected readonly showArchived = signal(false);
   private readonly selectedId = signal<string | null>(null);
 
-  /** Only projects reachable in the current view, so the filter can never offer an empty result. */
+  /** The registry decides whether this screen has anything to show; observations are additive. */
+  protected readonly loadState = this.projects.loadState;
+
+  /** Observed surfaces keyed by environment id, so each environment reads only its own. */
+  private readonly surfaces = computed(() => {
+    const map = new Map<string, ProjectSurface>();
+    for (const surface of this.dashboard.overview()?.projects ?? []) {
+      map.set(surface.environment.id, surface);
+    }
+    return map;
+  });
+
+  private readonly allRows = computed<readonly EnvironmentRow[]>(() =>
+    this.projects.projects().flatMap((project) =>
+      project.environments.map((environment) => ({
+        id: environment.id,
+        projectId: project.id,
+        projectName: project.name,
+        name: environment.name,
+        kind: environment.kind,
+        applicationUrl: environment.applicationUrl,
+        healthUrl: environment.healthUrl,
+        versionUrl: environment.versionUrl,
+        observed: this.surfaces().get(environment.id) ?? null,
+      })),
+    ),
+  );
+
+  protected readonly totalCount = computed(() => this.allRows().length);
+
   protected readonly projectOptions = computed<readonly ProjectFilterOption[]>(() => {
     const seen = new Map<string, string>();
-    for (const environment of this.inLifecycle()) {
-      seen.set(environment.projectId, environment.projectName);
+    for (const row of this.allRows()) {
+      seen.set(row.projectId, row.projectName);
     }
     return [...seen]
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  /**
-   * Everything in the current lifecycle view, before the kind, project, and text filters.
-   * The distribution describes the whole registry, so it counts this set rather than the filtered one.
-   */
-  protected readonly inLifecycle = computed(() => {
-    const lifecycle = this.showArchived() ? 'archived' : 'active';
-    return this.store.environments().filter((item) => item.lifecycle === lifecycle);
-  });
-
-  protected readonly environments = computed<readonly EnvironmentListItem[]>(() => {
+  protected readonly environments = computed<readonly EnvironmentRow[]>(() => {
     const scope = this.environmentScope.scope();
     const projectId = this.projectId();
     const query = this.query().trim().toLowerCase();
 
-    return this.inLifecycle().filter((environment) => {
-      if (scope !== null && environment.kind !== scope) {
+    return this.allRows().filter((row) => {
+      if (scope !== null && row.kind !== scope) {
         return false;
       }
 
-      if (projectId !== null && environment.projectId !== projectId) {
+      if (projectId !== null && row.projectId !== projectId) {
         return false;
       }
 
-      return query === '' || matchesQuery(environment, query);
+      return query === '' || matchesQuery(row, query);
     });
   });
 
-  protected readonly totalCount = computed(() => this.inLifecycle().length);
-
-  /**
-   * Nothing is selected until the operator picks a row, so the screen never highlights a card the
-   * operator did not choose. A selection that scrolls out of the current filters resolves to `null`.
-   */
-  protected readonly selected = computed<EnvironmentListItem | null>(() => {
+  /** Nothing is selected until the operator picks a row, and a filtered-out selection clears. */
+  protected readonly selected = computed<EnvironmentRow | null>(() => {
     const selectedId = this.selectedId();
     if (selectedId === null) {
       return null;
     }
 
-    return this.environments().find((environment) => environment.id === selectedId) ?? null;
+    return this.environments().find((row) => row.id === selectedId) ?? null;
   });
 
   protected readonly selectedVersionSync = computed<StatusCell | null>(() => {
-    const selected = this.selected();
-    if (selected === null) {
+    const observed = this.selected()?.observed ?? null;
+    if (observed === null) {
       return null;
     }
 
-    const { state, deployedCommitShortSha } = selected.versionSync;
+    const { state, commitsBehind } = observed.versionSync;
     switch (state) {
       case 'inSync':
-        return { level: 'healthy', label: 'In Sync', detail: deployedCommitShortSha };
+        return { level: 'healthy', label: 'In Sync', detail: null };
       case 'behind':
-        return { level: 'warning', label: 'Behind', detail: deployedCommitShortSha };
+        return {
+          level: 'warning',
+          label: 'Behind',
+          detail: commitsBehind === null ? null : `${commitsBehind} commits`,
+        };
       case 'notConfigured':
         return { level: 'notApplicable', label: 'Not configured', detail: null };
       default:
@@ -116,27 +155,21 @@ export class EnvironmentsPage {
     this.projectId.set(projectId);
   }
 
-  protected showArchivedEnvironments(): void {
-    this.showArchived.set(true);
-  }
-
   protected clearFilters(): void {
     this.query.set('');
     this.projectId.set(null);
-    this.showArchived.set(false);
     this.environmentScope.select(null);
   }
 
   protected retry(): void {
-    this.store.refresh();
+    this.projects.refresh();
   }
 }
 
-function matchesQuery(environment: EnvironmentListItem, query: string): boolean {
+function matchesQuery(row: EnvironmentRow, query: string): boolean {
   return (
-    environment.projectName.toLowerCase().includes(query) ||
-    environment.name.toLowerCase().includes(query) ||
-    (environment.runtime?.target?.toLowerCase().includes(query) ?? false) ||
-    (environment.applicationUrl?.toLowerCase().includes(query) ?? false)
+    row.projectName.toLowerCase().includes(query) ||
+    row.name.toLowerCase().includes(query) ||
+    (row.applicationUrl?.toLowerCase().includes(query) ?? false)
   );
 }

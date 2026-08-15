@@ -1,6 +1,9 @@
 @switch (loadState()) {
   @case ('loading') {
-    <p class="notice">Reading configured environments...</p>
+    <p class="notice co-reading" aria-busy="true">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading configured environments...
+    </p>
   }
 
   @case ('unavailable') {
@@ -15,7 +18,6 @@
       [query]="query()"
       [projects]="projectOptions()"
       [projectId]="projectId()"
-      [archivedActive]="showArchived()"
       (queryChange)="setQuery($event)"
       (projectChange)="setProject($event)"
     />
@@ -26,20 +28,13 @@
           [environments]="environments()"
           [totalCount]="totalCount()"
           [selectedId]="selected()?.id ?? null"
-          [observedAt]="observedAt()"
-          [showingArchived]="showArchived()"
           (selectEnvironment)="select($event)"
           (clearFilters)="clearFilters()"
-          (viewArchived)="showArchivedEnvironments()"
         />
       </div>
 
       <aside class="rail" aria-label="Environment detail">
-        <co-selected-environment
-          [environment]="selected()"
-          [versionSync]="selectedVersionSync()"
-          [observedAt]="observedAt()"
-        />
+        <co-selected-environment [environment]="selected()" [versionSync]="selectedVersionSync()" />
       </aside>
     </div>
   }

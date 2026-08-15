@@ -45,17 +45,13 @@ export class EnvironmentFilters {
   readonly query = input('');
   readonly projects = input.required<readonly ProjectFilterOption[]>();
   readonly projectId = input<string | null>(null);
-  /** `true` while the archived view is active, when no kind view is the current one. */
-  readonly archivedActive = input(false);
 
   readonly queryChange = output<string>();
   readonly projectChange = output<string | null>();
 
   protected readonly views = KIND_VIEWS;
   protected readonly scope = this.environmentScope.scope;
-  protected readonly activeScope = computed<EnvironmentScope | undefined>(() =>
-    this.archivedActive() ? undefined : this.scope(),
-  );
+  protected readonly activeScope = computed<EnvironmentScope | undefined>(() => this.scope());
 
   protected selectKind(scope: EnvironmentScope): void {
     this.environmentScope.select(scope);
