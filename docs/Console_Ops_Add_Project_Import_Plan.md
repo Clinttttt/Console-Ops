@@ -6,10 +6,10 @@ Design plan, agreed 2026-08-14. Subordinate to `Console_Ops_Project_Context.md`,
 `Console_Ops_Architecture.md`, and `Console_Ops_V1_API_Contract.md`. If this plan ever disagrees with
 those documents, they win and this plan is corrected.
 
-Phase 0 is implemented. **Phases 1 to 3 are implemented end to end**: discovery at
-`GET /api/github/repositories` and `GET /api/github/repositories/{owner}/{repository}/workflows`, and
-verification at `POST /api/projects/verification`. Phase 3a and Phase 4 are not built and must not be
-faked in the UI before their endpoint exists.
+Phase 0 is implemented. **Phases 1, 2, 3 and 3a are implemented end to end**: discovery at
+`GET /api/github/repositories` and `.../workflows`, the branch head at `.../commits/latest`, endpoint
+detection at `.../endpoints`, and verification at `POST /api/projects/verification`. Phase 4 is not
+built and must not be faked in the UI before its endpoint exists.
 
 ### Phase 3 as built
 
@@ -184,29 +184,25 @@ Rules:
 
 ## Phase 3a - Endpoint detection from source
 
-Optional companion to Phase 3, and the reason endpoint fields can eventually disappear from the form.
+Implemented. `GET /api/github/repositories/{owner}/{repository}/endpoints?branch=` reports endpoint
+paths recognised in source, and Add Project offers them as suggestions beneath the endpoint fields:
+"Detected `/health` in `src/Api/Program.cs`" with a `Use` action.
 
-```text
-GET /api/github/repositories/{owner}/{repository}/endpoints?ref=
-```
+How the trust rules landed in the implementation:
 
-Reads a bounded set of source files through the GitHub Contents API and reports endpoint paths it
-recognises, such as `MapHealthChecks("/health")` or a `MapGet("/version")` registration.
+- Detection never writes to a field. The operator presses `Use`, and a test asserts the fields stay
+  empty until they do.
+- Only string literals registered on the application builder are accepted. A route registered on a
+  `MapGroup` variable carries a prefix the reader cannot see, and a path read from configuration is not
+  a literal; both are skipped, with a test covering each. A wrong suggestion is worse than none.
+- Bounded work: at most five `Program.cs` or `Startup.cs` files from one repository tree read, each size
+  capped. No cloning, no code search, no route crawling.
+- The suggestion names the file it came from, so the operator can check the claim.
+- Detection failing is not fatal: the fields remain, and the operator types the paths.
 
-Rules that keep this honest:
-
-- The result is `detected`, never `configured`. Detection is a heuristic over source text and can be
-  wrong: a route may be composed from a `MapGroup` prefix, or read from configuration at run time, in
-  which case Console Ops must report nothing rather than guess a path.
-- The operator confirms every detected path before it is registered. A detected path that Phase 3 then
-  fails to reach is shown as detected-but-unreachable, not as broken configuration.
-- Bounded work: a capped number of files, a capped file size, and no repository cloning.
-- Detection lives in .NET, in the same GitHub adapter as the rest of discovery. The browser never reads
-  repository contents.
-
-Only once detection and verification both exist does the form hide its endpoint inputs behind an
-`Edit endpoints` action. Hiding them earlier would add a click to the common case instead of removing
-one, because there would be nothing to prefill them with.
+The endpoint fields stay visible rather than hiding behind an `Edit endpoints` action. Detection finds a
+health path reliably but rarely a version path, so hiding the fields would trade a visible field for a
+hidden one in the common case.
 
 ## Phase 4 - Confirmation and runtime import
 

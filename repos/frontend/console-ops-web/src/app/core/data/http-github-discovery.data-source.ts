@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import {
+  DetectedEndpoints,
   GitHubLatestCommit,
   GitHubRepositoryPage,
   GitHubWorkflowList,
@@ -39,6 +40,17 @@ export class HttpGitHubDiscoveryDataSource extends GitHubDiscoveryDataSource {
   ): Observable<GitHubLatestCommit> {
     const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/commits/latest`;
     return this.http.get<GitHubLatestCommit>(path, {
+      params: new HttpParams({ fromObject: { branch } }),
+    });
+  }
+
+  override detectEndpoints(
+    owner: string,
+    name: string,
+    branch: string,
+  ): Observable<DetectedEndpoints> {
+    const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/endpoints`;
+    return this.http.get<DetectedEndpoints>(path, {
       params: new HttpParams({ fromObject: { branch } }),
     });
   }

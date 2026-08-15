@@ -14,6 +14,7 @@ import { catchError, map, of, switchMap } from 'rxjs';
 import { EnvironmentKind, StatusCell } from '../../core/contracts/dashboard-overview';
 import { EndpointVerification } from '../../core/contracts/endpoint-verification';
 import {
+  DetectedEndpoint,
   GitHubLatestCommit,
   GitHubRepository,
   GitHubWorkflow,
@@ -101,6 +102,32 @@ export class AddProjectPage {
 
   /** Head commit of the imported branch, when discovery could read it. */
   protected readonly sourceCommit = signal<GitHubLatestCommit | null>(null);
+
+  /** Paths recognised in repository source. Suggestions only, never applied automatically. */
+  protected readonly detected = signal<readonly DetectedEndpoint[]>([]);
+
+  protected readonly detectedHealth = computed(
+    () => this.detected().find((endpoint) => endpoint.kind === 'health') ?? null,
+  );
+
+  protected readonly detectedVersion = computed(
+    () => this.detected().find((endpoint) => endpoint.kind === 'version') ?? null,
+  );
+
+  /** A suggestion is only worth offering while the field does not already say the same thing. */
+  protected readonly healthSuggestion = computed(() => {
+    const suggestion = this.detectedHealth();
+    return suggestion !== null && this.healthEndpoint().trim() !== suggestion.path
+      ? suggestion
+      : null;
+  });
+
+  protected readonly versionSuggestion = computed(() => {
+    const suggestion = this.detectedVersion();
+    return suggestion !== null && this.versionEndpoint().trim() !== suggestion.path
+      ? suggestion
+      : null;
+  });
 
   /**
    * Source against deployed, stated only from two observed commits.
@@ -258,6 +285,7 @@ export class AddProjectPage {
   protected clearImportedRepository(): void {
     this.importedRepository.set(null);
     this.sourceCommit.set(null);
+    this.detected.set([]);
     this.workflows.set([]);
     this.workflowsLoading.set(false);
     this.workflowsUnavailable.set(false);
@@ -309,6 +337,31 @@ export class AddProjectPage {
         next: (commit) => this.sourceCommit.set(commit),
         error: () => this.sourceCommit.set(null),
       });
+
+    this.detected.set([]);
+    this.discovery
+      .detectEndpoints(repository.owner, repository.name, repository.defaultBranch)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => this.detected.set(result.endpoints),
+        // Detection is optional: without it the operator simply types the paths.
+        error: () => this.detected.set([]),
+      });
+  }
+
+  /** Applying a suggestion is the operator's decision; detection never fills a field on its own. */
+  protected applyHealthSuggestion(): void {
+    const suggestion = this.detectedHealth();
+    if (suggestion !== null) {
+      this.healthEndpoint.set(suggestion.path);
+    }
+  }
+
+  protected applyVersionSuggestion(): void {
+    const suggestion = this.detectedVersion();
+    if (suggestion !== null) {
+      this.versionEndpoint.set(suggestion.path);
+    }
   }
 
   private loadWorkflows(repository: GitHubRepository): void {

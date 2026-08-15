@@ -1,6 +1,7 @@
 import { Observable } from 'rxjs';
 
 import {
+  DetectedEndpoints,
   GitHubLatestCommit,
   GitHubRepositoryPage,
   GitHubWorkflowList,
@@ -23,4 +24,10 @@ export abstract class GitHubDiscoveryDataSource {
     name: string,
     branch: string,
   ): Observable<GitHubLatestCommit>;
+
+  abstract detectEndpoints(
+    owner: string,
+    name: string,
+    branch: string,
+  ): Observable<DetectedEndpoints>;
 }

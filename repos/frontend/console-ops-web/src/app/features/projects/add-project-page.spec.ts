@@ -10,6 +10,7 @@ import {
   EndpointVerificationRequest,
 } from '../../core/contracts/endpoint-verification';
 import {
+  DetectedEndpoints,
   GitHubLatestCommit,
   GitHubRepository,
   GitHubRepositoryPage,
@@ -80,6 +81,7 @@ describe('AddProjectPage', () => {
   let workflowResult: Observable<GitHubWorkflowList>;
   let verificationResult: Observable<EndpointVerification>;
   let commitResult: Observable<GitHubLatestCommit>;
+  let detectionResult: Observable<DetectedEndpoints>;
   let verifiedRequest: EndpointVerificationRequest | null;
 
   beforeEach(async () => {
@@ -94,6 +96,10 @@ describe('AddProjectPage', () => {
       commitSha: '8a17c2f4e1b9d0a6c3f5e2b8d7a4c1f0e9b6d3a2',
       commitShortSha: '8a17c2f',
       committedAt: '2026-08-14T08:00:00Z',
+    });
+    detectionResult = of({
+      endpoints: [{ kind: 'health', path: '/health', sourceFile: 'src/Api/Program.cs' }],
+      inspectedFileCount: 1,
     });
 
     TestBed.configureTestingModule({
@@ -126,6 +132,7 @@ describe('AddProjectPage', () => {
             listRepositories: () => repositoryResult,
             listWorkflows: () => workflowResult,
             getLatestCommit: () => commitResult,
+            detectEndpoints: () => detectionResult,
           },
         },
         {
@@ -332,6 +339,32 @@ describe('AddProjectPage', () => {
     // Ancestry is unknown before registration, so neither Behind nor Ahead may be claimed.
     expect(monitoring()).not.toContain('Behind');
     expect(monitoring()).toContain('Ancestry is known after the first refresh');
+  });
+
+  it('suggests detected endpoints without filling them in', async () => {
+    await importSpinner();
+
+    // Detection must not write to the fields on its own.
+    expect(host.querySelector<HTMLInputElement>('#health-endpoint')?.value).toBe('');
+    expect(host.textContent).toContain('Detected');
+    expect(host.textContent).toContain('/health');
+    expect(host.textContent).toContain('src/Api/Program.cs');
+
+    const use = Array.from(host.querySelectorAll<HTMLButtonElement>('.suggestion-action'));
+    use[0].click();
+    harness.detectChanges();
+
+    expect(host.querySelector<HTMLInputElement>('#health-endpoint')?.value).toBe('/health');
+    // Once applied, the suggestion has nothing left to offer.
+    expect(host.querySelectorAll('.suggestion-action').length).toBe(use.length - 1);
+  });
+
+  it('asks for the paths when detection finds nothing', async () => {
+    detectionResult = of({ endpoints: [], inspectedFileCount: 3 });
+    await importSpinner();
+
+    expect(host.querySelector('.suggestion')).toBeNull();
+    expect(host.querySelector('#health-endpoint')).not.toBeNull();
   });
 
   it('cannot check endpoints until there is something to probe', () => {

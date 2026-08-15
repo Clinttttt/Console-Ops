@@ -250,6 +250,16 @@
           @if (healthEndpointError() !== null) {
             <p class="error">{{ healthEndpointError() }}</p>
           }
+          @let healthHint = healthSuggestion();
+          @if (healthHint !== null) {
+            <p class="suggestion">
+              Detected <span class="co-mono">{{ healthHint.path }}</span> in
+              <span class="co-mono">{{ healthHint.sourceFile }}</span>
+              <button type="button" class="suggestion-action" (click)="applyHealthSuggestion()">
+                Use
+              </button>
+            </p>
+          }
         </div>
 
         <div class="field">
@@ -266,6 +276,16 @@
           />
           @if (versionEndpointError() !== null) {
             <p class="error">{{ versionEndpointError() }}</p>
+          }
+          @let versionHint = versionSuggestion();
+          @if (versionHint !== null) {
+            <p class="suggestion">
+              Detected <span class="co-mono">{{ versionHint.path }}</span> in
+              <span class="co-mono">{{ versionHint.sourceFile }}</span>
+              <button type="button" class="suggestion-action" (click)="applyVersionSuggestion()">
+                Use
+              </button>
+            </p>
           }
         </div>
       </div>

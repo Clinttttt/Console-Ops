@@ -67,3 +67,24 @@ export interface GitHubLatestCommit {
   readonly commitShortSha: string;
   readonly committedAt: string | null;
 }
+
+export type DetectedEndpointKind = 'health' | 'version';
+
+/**
+ * An endpoint path recognised in repository source.
+ *
+ * A detection, not configuration: it is offered as a suggestion the operator confirms, and only a probe
+ * proves the endpoint answers.
+ */
+export interface DetectedEndpoint {
+  readonly kind: DetectedEndpointKind;
+  readonly path: string;
+  /** Repository file the path was read from, so the operator can check it. */
+  readonly sourceFile: string;
+}
+
+export interface DetectedEndpoints {
+  readonly endpoints: readonly DetectedEndpoint[];
+  /** Separates "nothing found" from "nothing read". */
+  readonly inspectedFileCount: number;
+}

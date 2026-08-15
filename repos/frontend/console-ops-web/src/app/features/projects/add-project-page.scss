@@ -243,3 +243,22 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--co-space-2);
+  margin-top: var(--co-space-2);
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.suggestion-action {
+  font-weight: 600;
+  color: var(--co-blue);
+}
+
+.suggestion-action:hover {
+  color: var(--co-navy);
+}
