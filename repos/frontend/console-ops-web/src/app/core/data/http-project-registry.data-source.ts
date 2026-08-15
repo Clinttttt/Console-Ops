@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { ProjectRegistrationRequest } from '../contracts/project-registration';
+import { ProjectUpdateRequest } from '../contracts/project-update';
 import { ProjectListItem, ProjectRegistry } from '../contracts/project-registry';
 import { ProjectRegistryDataSource } from './project-registry.data-source';
 
@@ -21,6 +22,20 @@ export class HttpProjectRegistryDataSource extends ProjectRegistryDataSource {
 
   override register(request: ProjectRegistrationRequest): Observable<ProjectListItem> {
     return this.http.post<ProjectListItem>('/api/projects', request);
+  }
+
+  override updateProject(
+    projectId: string,
+    request: ProjectUpdateRequest,
+  ): Observable<ProjectListItem> {
+    return this.http.put<ProjectListItem>(
+      `/api/projects/${encodeURIComponent(projectId)}`,
+      request,
+    );
+  }
+
+  override archiveProject(projectId: string): Observable<unknown> {
+    return this.http.delete(`/api/projects/${encodeURIComponent(projectId)}`);
   }
 
   override refreshProject(projectId: string): Observable<unknown> {

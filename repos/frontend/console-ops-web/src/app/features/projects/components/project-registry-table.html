@@ -72,9 +72,9 @@
           <td>
             <div class="actions">
               <a class="action is-available" [routerLink]="['/projects', project.id]">Open</a>
-              <span class="action" aria-disabled="true" title="Editing arrives with project detail">
+              <a class="action is-available" [routerLink]="['/projects', project.id, 'edit']">
                 Edit
-              </span>
+              </a>
               <span
                 class="more"
                 aria-disabled="true"

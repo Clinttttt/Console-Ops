@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, tap } from 'rxjs';
 
 import { ProjectRegistrationRequest } from '../contracts/project-registration';
+import { ProjectUpdateRequest } from '../contracts/project-update';
 import { ProjectListItem, ProjectRegistry } from '../contracts/project-registry';
 import { ProjectRegistryDataSource } from '../data/project-registry.data-source';
 
@@ -61,6 +62,31 @@ export class ProjectRegistryStore {
         this.state.set('loaded');
       }),
     );
+  }
+
+  /** Replaces the stored project on success, so lists reflect the edit without a reload. */
+  updateProject(projectId: string, request: ProjectUpdateRequest): Observable<ProjectListItem> {
+    return this.dataSource.updateProject(projectId, request).pipe(
+      tap((project) => {
+        this.current.update((projects) =>
+          projects.map((existing) => (existing.id === project.id ? project : existing)),
+        );
+        this.state.set('loaded');
+      }),
+    );
+  }
+
+  /** Archived projects leave normal queries, so the local list drops it too. */
+  archiveProject(projectId: string): Observable<unknown> {
+    return this.dataSource
+      .archiveProject(projectId)
+      .pipe(
+        tap(() =>
+          this.current.update((projects) =>
+            projects.filter((existing) => existing.id !== projectId),
+          ),
+        ),
+      );
   }
 
   refreshProject(projectId: string): Observable<unknown> {

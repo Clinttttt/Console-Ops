@@ -359,6 +359,22 @@ successful registration, the frontend requests one best-effort project refresh s
 show stored observations. A refresh failure does not reinterpret a successful registration as a
 failure. Azure remains labelled as a later phase because Azure runtime awareness is V2.
 
+### Project editing and archiving reached the UI
+
+Decided 2026-08-15. `PUT /api/projects/{id}` and `DELETE /api/projects/{id}` existed and were tested but
+unreachable, leaving two V1 capabilities - edit configuration, archive a project - implemented and
+unusable. Both are now exposed at `/projects/{id}/edit`.
+
+The edit form always sends the complete repository and environment list, because the endpoint replaces
+editable configuration rather than patching it, and it carries the `configurationVersion` it loaded. A
+stale version comes back as a conflict, which the screen reports as "this project changed since you
+opened it" instead of retrying and overwriting someone else's change. Existing environments keep their
+`id` so the API matches them rather than recreating them.
+
+Archiving takes two deliberate steps: the first press asks, naming the project and saying what archiving
+means, and only the second calls the API. Adding or removing environments is not in this pass; the form
+edits the environments a project already has.
+
 ### Environments screen contract reconciliation
 
 Decided 2026-08-15. The Environments screen is connected to V1 truth and its fixture, port, adapter and

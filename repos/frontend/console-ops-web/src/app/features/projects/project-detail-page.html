@@ -32,6 +32,8 @@
           }
         </span>
 
+        <a class="edit" [routerLink]="['/projects', projectId(), 'edit']">Edit configuration</a>
+
         <button type="button" class="refresh" [disabled]="refreshing()" (click)="refresh()">
           {{ refreshing() ? 'Refreshing...' : 'Refresh observations' }}
         </button>

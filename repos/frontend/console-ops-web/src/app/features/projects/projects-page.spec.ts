@@ -118,10 +118,13 @@ describe('ProjectsPage', () => {
       '/projects/new',
     );
 
-    // Open reaches the project detail screen; Edit has no destination yet.
-    const open = Array.from(host.querySelectorAll<HTMLAnchorElement>('.action.is-available'));
-    expect(open.length).toBe(5);
-    expect(open[0].getAttribute('href')).toBe(`/projects/${PROJECT_REGISTRY_FIXTURE[0].id}`);
-    expect(host.querySelectorAll('.action[aria-disabled="true"]').length).toBe(5);
+    // Open and Edit both reach a screen now, for each of the five projects.
+    const available = Array.from(host.querySelectorAll<HTMLAnchorElement>('.action.is-available'));
+    expect(available.length).toBe(10);
+    expect(available[0].getAttribute('href')).toBe(`/projects/${PROJECT_REGISTRY_FIXTURE[0].id}`);
+    expect(available[1].getAttribute('href')).toBe(
+      `/projects/${PROJECT_REGISTRY_FIXTURE[0].id}/edit`,
+    );
+    expect(host.querySelectorAll('.action[aria-disabled="true"]').length).toBe(0);
   });
 });

@@ -1,0 +1,249 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice co-reading" aria-busy="true">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading the project...
+    </p>
+  }
+
+  @case ('notFound') {
+    <div class="notice">
+      <p>That project is not registered, or it has been archived.</p>
+      <a class="back" routerLink="/projects">Back to Projects</a>
+    </div>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>The project could not be read.</p>
+      <a class="back" routerLink="/projects">Back to Projects</a>
+    </div>
+  }
+
+  @default {
+    <form class="panel co-form" novalidate (submit)="$event.preventDefault(); save()">
+      <section class="section">
+        <header>
+          <h2 class="section-title">Project</h2>
+          <p class="co-section-note">How this application appears across Console Ops.</p>
+        </header>
+
+        <div class="grid">
+          <div class="field">
+            <label for="project-name">Project Name</label>
+            <input
+              id="project-name"
+              type="text"
+              [value]="name()"
+              (input)="name.set($any($event.target).value)"
+              [attr.aria-invalid]="nameError() !== null"
+            />
+            @if (nameError() !== null) {
+              <p class="error">{{ nameError() }}</p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="project-description">
+              Description <span class="optional">(optional)</span>
+            </label>
+            <input
+              id="project-description"
+              type="text"
+              [value]="description()"
+              (input)="description.set($any($event.target).value)"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <header>
+          <h2 class="section-title">Source</h2>
+          <p class="co-section-note">Where Console Ops reads source and CI facts.</p>
+        </header>
+
+        <div class="grid">
+          <div class="field">
+            <label for="repository-owner">Repository Owner</label>
+            <input
+              id="repository-owner"
+              type="text"
+              [value]="repositoryOwner()"
+              (input)="repositoryOwner.set($any($event.target).value)"
+              [attr.aria-invalid]="repositoryError() !== null"
+            />
+          </div>
+
+          <div class="field">
+            <label for="repository-name">Repository Name</label>
+            <input
+              id="repository-name"
+              type="text"
+              [value]="repositoryName()"
+              (input)="repositoryName.set($any($event.target).value)"
+              [attr.aria-invalid]="repositoryError() !== null"
+            />
+            @if (repositoryError() !== null) {
+              <p class="error">{{ repositoryError() }}</p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="default-branch">Source Branch</label>
+            <input
+              id="default-branch"
+              type="text"
+              [value]="defaultBranch()"
+              (input)="defaultBranch.set($any($event.target).value)"
+              [attr.aria-invalid]="branchError() !== null"
+            />
+            @if (branchError() !== null) {
+              <p class="error">{{ branchError() }}</p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="workflow-file">
+              Deployment Workflow <span class="optional">(optional)</span>
+            </label>
+            <input
+              id="workflow-file"
+              type="text"
+              placeholder="deploy-production.yml"
+              [value]="workflowFile()"
+              (input)="workflowFile.set($any($event.target).value)"
+            />
+            <p class="help">Leave blank to keep CI <span class="co-mono">notConfigured</span>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <header>
+          <h2 class="section-title">Environments</h2>
+          <p class="co-section-note">
+            Each environment is observed on its own. Adding or removing one arrives with a later
+            slice.
+          </p>
+        </header>
+
+        @for (environment of environments(); track environment.id; let index = $index) {
+          @let errors = environmentErrors()[index];
+          <fieldset class="environment">
+            <legend class="environment-legend">{{ environment.name || 'Environment' }}</legend>
+
+            <div class="grid">
+              <div class="field">
+                <label [attr.for]="'environment-name-' + index">Name</label>
+                <input
+                  [attr.id]="'environment-name-' + index"
+                  type="text"
+                  [value]="environment.name"
+                  (input)="updateEnvironment(index, { name: $any($event.target).value })"
+                  [attr.aria-invalid]="errors.name !== null"
+                />
+                @if (errors.name !== null) {
+                  <p class="error">{{ errors.name }}</p>
+                }
+              </div>
+
+              <div class="field">
+                <label [attr.for]="'environment-kind-' + index">Kind</label>
+                <div class="select">
+                  <select
+                    [attr.id]="'environment-kind-' + index"
+                    [value]="environment.kind"
+                    (change)="updateEnvironment(index, { kind: $any($event.target).value })"
+                  >
+                    @for (option of environmentKinds; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
+                  <co-icon name="chevronDown" [size]="15" />
+                </div>
+              </div>
+
+              <div class="field is-span">
+                <label [attr.for]="'environment-url-' + index">
+                  Application URL <span class="optional">(optional)</span>
+                </label>
+                <input
+                  [attr.id]="'environment-url-' + index"
+                  type="url"
+                  [value]="environment.applicationUrl"
+                  (input)="updateEnvironment(index, { applicationUrl: $any($event.target).value })"
+                  [attr.aria-invalid]="errors.applicationUrl !== null"
+                />
+                @if (errors.applicationUrl !== null) {
+                  <p class="error">{{ errors.applicationUrl }}</p>
+                }
+              </div>
+
+              <div class="field">
+                <label [attr.for]="'environment-health-' + index">
+                  Health URL <span class="optional">(optional)</span>
+                </label>
+                <input
+                  [attr.id]="'environment-health-' + index"
+                  type="url"
+                  [value]="environment.healthUrl"
+                  (input)="updateEnvironment(index, { healthUrl: $any($event.target).value })"
+                  [attr.aria-invalid]="errors.healthUrl !== null"
+                />
+                @if (errors.healthUrl !== null) {
+                  <p class="error">{{ errors.healthUrl }}</p>
+                }
+              </div>
+
+              <div class="field">
+                <label [attr.for]="'environment-version-' + index">
+                  Version URL <span class="optional">(optional)</span>
+                </label>
+                <input
+                  [attr.id]="'environment-version-' + index"
+                  type="url"
+                  [value]="environment.versionUrl"
+                  (input)="updateEnvironment(index, { versionUrl: $any($event.target).value })"
+                  [attr.aria-invalid]="errors.versionUrl !== null"
+                />
+                @if (errors.versionUrl !== null) {
+                  <p class="error">{{ errors.versionUrl }}</p>
+                }
+              </div>
+            </div>
+          </fieldset>
+        }
+      </section>
+
+      @if (saveError() !== null) {
+        <p class="submission-error" role="alert">{{ saveError() }}</p>
+      }
+
+      <footer class="actions">
+        <button type="submit" class="primary" [disabled]="!isValid() || saveState() === 'saving'">
+          {{ saveState() === 'saving' ? 'Saving...' : 'Save changes' }}
+        </button>
+
+        <a class="cancel" [routerLink]="['/projects', projectId()]">Cancel</a>
+
+        <span class="danger-zone">
+          @if (!archiveConfirming()) {
+            <button type="button" class="danger" (click)="confirmArchive()">Archive project</button>
+          } @else {
+            <span class="confirm">
+              <span class="confirm-text">
+                Archive <strong>{{ name() }}</strong
+                >? It stops being monitored and leaves the registry. History is kept.
+              </span>
+              <button type="button" class="cancel-archive" (click)="cancelArchive()">Cancel</button>
+              <button type="button" class="danger" [disabled]="archiving()" (click)="archive()">
+                {{ archiving() ? 'Archiving...' : 'Archive' }}
+              </button>
+            </span>
+          }
+        </span>
+      </footer>
+    </form>
+  }
+}
