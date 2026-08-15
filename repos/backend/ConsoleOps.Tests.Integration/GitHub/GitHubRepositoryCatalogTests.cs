@@ -305,6 +305,95 @@ public sealed class GitHubRepositoryCatalogTests
         Assert.Equal(GitHubReadFailure.InvalidResponse, result.Failure);
     }
 
+    [Fact]
+    public async Task DetectEndpointsAsync_FindsLiteralHealthAndVersionPaths()
+    {
+        StubHandler handler = new(request => request.RequestUri!.AbsolutePath.Contains("/git/trees/")
+            ? JsonResponse("""
+                {
+                  "tree": [
+                    { "path": "src/Api/Program.cs", "type": "blob", "size": 900 },
+                    { "path": "README.md", "type": "blob", "size": 50 }
+                  ]
+                }
+                """)
+            : ContentResponse("""
+                var app = builder.Build();
+                app.MapHealthChecks("/health");
+                app.MapGet("/version", () => Results.Ok());
+                """));
+
+        GitHubFactResult<GitHubEndpointDetection> result = await CreateCatalog(handler)
+            .DetectEndpointsAsync("clint", "spinner", "main", CancellationToken.None);
+
+        Assert.Equal(1, result.Observation!.InspectedFileCount);
+        GitHubDetectedEndpoint health = Assert.Single(
+            result.Observation.Endpoints,
+            endpoint => endpoint.Kind == GitHubDetectedEndpointKind.Health);
+        GitHubDetectedEndpoint version = Assert.Single(
+            result.Observation.Endpoints,
+            endpoint => endpoint.Kind == GitHubDetectedEndpointKind.Version);
+        Assert.Equal("/health", health.Path);
+        Assert.Equal("src/Api/Program.cs", health.SourceFile);
+        Assert.Equal("/version", version.Path);
+    }
+
+    [Fact]
+    public async Task DetectEndpointsAsync_SkipsRoutesItCannotResolve()
+    {
+        StubHandler handler = new(request => request.RequestUri!.AbsolutePath.Contains("/git/trees/")
+            ? JsonResponse("""
+                { "tree": [ { "path": "Program.cs", "type": "blob", "size": 400 } ] }
+                """)
+            : ContentResponse("""
+                var group = app.MapGroup("/api");
+                group.MapGet("/version", () => Results.Ok());
+                app.MapHealthChecks(configuration["Health:Path"]!);
+                """));
+
+        GitHubFactResult<GitHubEndpointDetection> result = await CreateCatalog(handler)
+            .DetectEndpointsAsync("clint", "spinner", "main", CancellationToken.None);
+
+        // A group prefix hides the real path and a configured path is not a literal, so neither is
+        // reported: a wrong suggestion is worse than none.
+        Assert.Empty(result.Observation!.Endpoints);
+        Assert.Equal(1, result.Observation.InspectedFileCount);
+    }
+
+    [Fact]
+    public async Task DetectEndpointsAsync_ReportsNothingWhenNoSourceFileMatches()
+    {
+        StubHandler handler = new(_ => JsonResponse("""
+            { "tree": [ { "path": "docs/readme.md", "type": "blob", "size": 20 } ] }
+            """));
+
+        GitHubFactResult<GitHubEndpointDetection> result = await CreateCatalog(handler)
+            .DetectEndpointsAsync("clint", "spinner", "main", CancellationToken.None);
+
+        Assert.Empty(result.Observation!.Endpoints);
+        Assert.Equal(0, result.Observation.InspectedFileCount);
+    }
+
+    [Fact]
+    public async Task DetectEndpointsAsync_MapsATreeFailure()
+    {
+        StubHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        GitHubFactResult<GitHubEndpointDetection> result = await CreateCatalog(handler)
+            .DetectEndpointsAsync("clint", "spinner", "main", CancellationToken.None);
+
+        Assert.Null(result.Observation);
+        Assert.Equal(GitHubReadFailure.NotFound, result.Failure);
+    }
+
+    private static HttpResponseMessage ContentResponse(string source)
+    {
+        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(source));
+        return JsonResponse($$"""
+            { "content": "{{encoded}}", "encoding": "base64" }
+            """);
+    }
+
     private static GitHubRepositoryCatalog CreateCatalog(HttpMessageHandler handler) =>
         new(new HttpClient(handler)
         {

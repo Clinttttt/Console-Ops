@@ -40,6 +40,7 @@ Added 2026-08-14 for the Add Project import flow. Provider reads, not stored ent
 GET /api/github/repositories?query=
 GET /api/github/repositories/{owner}/{repository}/workflows
 GET /api/github/repositories/{owner}/{repository}/commits/latest?branch=
+GET /api/github/repositories/{owner}/{repository}/endpoints?branch=
 ```
 
 `GET /api/github/repositories` returns `{ repositories: [...], hasMore }`, where a repository carries
@@ -68,6 +69,19 @@ passed through.
 That commit is what lets a setup screen compare source with a deployed commit before registration.
 Equal normalized SHAs are `In Sync`. Unequal SHAs may only be reported as differing: `Behind` requires
 ancestry, which is established by a project refresh, not by comparing two strings.
+
+`GET .../endpoints` returns `{ endpoints: [...], inspectedFileCount }`, where each entry carries `kind`
+(`health` or `version`), `path`, and the `sourceFile` it was read from. These are **detections, not
+configuration**: the operator confirms each one, and only a probe proves an endpoint answers.
+
+The detection is deliberately narrow, because a wrong suggestion is worse than none:
+
+- It inspects at most five `Program.cs` or `Startup.cs` files, each capped in size, found through one
+  repository tree read. No cloning, no code search, no crawling.
+- It accepts only string literals registered on the application builder. A route registered on a
+  `MapGroup` variable carries a prefix the reader cannot see, and a path read from configuration is not
+  a literal; both yield nothing rather than a path at the wrong address.
+- `inspectedFileCount` lets a caller distinguish "nothing found" from "nothing read".
 
 ## Transport rules
 

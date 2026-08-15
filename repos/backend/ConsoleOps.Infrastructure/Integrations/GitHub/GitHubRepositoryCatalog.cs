@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using ConsoleOps.Application.Integrations.GitHub;
 
 namespace ConsoleOps.Infrastructure.Integrations.GitHub;
@@ -23,6 +25,21 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
 
     /// <summary>Upper bound on what the picker shows, independent of GitHub's page size.</summary>
     private const int ResultLimit = 30;
+
+    /// <summary>Detection stays bounded: a few likely files, each of modest size.</summary>
+    private const int MaximumInspectedFiles = 5;
+
+    private const int MaximumFileBytes = 256 * 1024;
+
+    private static readonly Regex HealthCheckPattern = new(
+        @"MapHealthChecks\(\s*""(?<path>/[^""]*)""",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    private static readonly Regex AppMapGetPattern = new(
+        @"\bapp\s*\.\s*MapGet\(\s*""(?<path>/[^""]*)""",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
@@ -171,6 +188,140 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
             sha[..7],
             commit.Commit?.Committer?.Date ?? commit.Commit?.Author?.Date));
     }
+
+    public async Task<GitHubFactResult<GitHubEndpointDetection>> DetectEndpointsAsync(
+        string owner,
+        string repository,
+        string branch,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+
+        string treePath = $"repos/{Escape(owner)}/{Escape(repository)}"
+            + $"/git/trees/{Escape(branch)}?recursive=1";
+        GitHubReadResponse<GitHubTreeDto> tree =
+            await GetAsync<GitHubTreeDto>(treePath, cancellationToken);
+
+        if (tree.Value is null)
+        {
+            return GitHubFactResult<GitHubEndpointDetection>.Failed(
+                tree.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        string[] candidates = (tree.Value.Tree ?? [])
+            .Where(entry => string.Equals(entry.Type, "blob", StringComparison.Ordinal))
+            .Where(entry => IsCandidateFile(entry.Path))
+            .Where(entry => entry.Size is null or <= MaximumFileBytes)
+            .Select(entry => entry.Path!)
+            .OrderBy(path => path.Count(character => character == '/'))
+            .Take(MaximumInspectedFiles)
+            .ToArray();
+
+        List<GitHubDetectedEndpoint> detected = [];
+        int inspected = 0;
+
+        foreach (string path in candidates)
+        {
+            string? source = await ReadTextFileAsync(owner, repository, branch, path, cancellationToken);
+            if (source is null)
+            {
+                continue;
+            }
+
+            inspected++;
+            AddDetections(source, path, detected);
+        }
+
+        return GitHubFactResult<GitHubEndpointDetection>.Success(
+            new GitHubEndpointDetection(DistinctByKind(detected), inspected));
+    }
+
+    private async Task<string?> ReadTextFileAsync(
+        string owner,
+        string repository,
+        string branch,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        string contentPath = $"repos/{Escape(owner)}/{Escape(repository)}"
+            + $"/contents/{EscapePath(path)}?ref={Escape(branch)}";
+        GitHubReadResponse<GitHubContentDto> response =
+            await GetAsync<GitHubContentDto>(contentPath, cancellationToken);
+
+        if (response.Value?.Content is not { Length: > 0 } encoded
+            || !string.Equals(response.Value.Encoding, "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            byte[] bytes = Convert.FromBase64String(encoded.Replace("\n", string.Empty));
+            return bytes.Length > MaximumFileBytes ? null : Encoding.UTF8.GetString(bytes);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Recognises only literal paths registered on the application builder.
+    /// </summary>
+    /// <remarks>
+    /// Requiring the <c>app.</c> receiver is what keeps this honest: a route registered on a
+    /// <c>MapGroup</c> variable carries a prefix this cannot see, so it is skipped rather than reported
+    /// at the wrong path. A path built from configuration is not a literal and is skipped too.
+    /// </remarks>
+    private static void AddDetections(string source, string file, List<GitHubDetectedEndpoint> into)
+    {
+        foreach (Match match in HealthCheckPattern.Matches(source))
+        {
+            into.Add(new GitHubDetectedEndpoint(
+                GitHubDetectedEndpointKind.Health,
+                match.Groups["path"].Value,
+                file));
+        }
+
+        foreach (Match match in AppMapGetPattern.Matches(source))
+        {
+            string path = match.Groups["path"].Value;
+            if (path.Contains("version", StringComparison.OrdinalIgnoreCase))
+            {
+                into.Add(new GitHubDetectedEndpoint(GitHubDetectedEndpointKind.Version, path, file));
+            }
+            else if (path.Contains("health", StringComparison.OrdinalIgnoreCase))
+            {
+                into.Add(new GitHubDetectedEndpoint(GitHubDetectedEndpointKind.Health, path, file));
+            }
+        }
+    }
+
+    /// <summary>One suggestion per kind: the shallowest file wins, and ties keep the first match.</summary>
+    private static IReadOnlyList<GitHubDetectedEndpoint> DistinctByKind(
+        IEnumerable<GitHubDetectedEndpoint> detected) =>
+        detected
+            .GroupBy(endpoint => endpoint.Kind)
+            .Select(group => group.First())
+            .OrderBy(endpoint => endpoint.Kind)
+            .ToArray();
+
+    private static bool IsCandidateFile(string? path)
+    {
+        if (path is null)
+        {
+            return false;
+        }
+
+        string name = FileNameOf(path);
+        return string.Equals(name, "Program.cs", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "Startup.cs", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string EscapePath(string path) =>
+        string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
 
     private async Task<GitHubReadResponse<T>> GetAsync<T>(
         string relativePath,
@@ -344,4 +495,10 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
         GitHubCommitPersonDto? Committer);
 
     private sealed record GitHubCommitPersonDto(DateTimeOffset? Date);
+
+    private sealed record GitHubTreeDto(GitHubTreeEntryDto[]? Tree);
+
+    private sealed record GitHubTreeEntryDto(string? Path, string? Type, int? Size);
+
+    private sealed record GitHubContentDto(string? Content, string? Encoding);
 }

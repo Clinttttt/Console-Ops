@@ -27,4 +27,18 @@ public interface IGitHubRepositoryCatalog
         string repository,
         string branch,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Looks for health and version endpoint paths in a bounded set of repository source files.
+    /// </summary>
+    /// <remarks>
+    /// Best effort and deliberately narrow. It reports only paths written as string literals on the
+    /// application builder, so a route composed from a group prefix or read from configuration yields
+    /// nothing rather than a guess.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubEndpointDetection>> DetectEndpointsAsync(
+        string owner,
+        string repository,
+        string branch,
+        CancellationToken cancellationToken);
 }
