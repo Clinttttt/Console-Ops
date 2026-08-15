@@ -3,6 +3,7 @@ using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.GitHub;
 using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Api.Middleware;
+using ConsoleOps.Api.Security;
 using ConsoleOps.Application;
 using ConsoleOps.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
@@ -32,12 +33,29 @@ builder.Services.AddRateLimiter(options =>
 
 WebApplication app = builder.Build();
 
+// Console Ops has no user accounts by design, which is safe only while it answers on loopback. If it is
+// bound anywhere else, it must not start without a configured key: its endpoints expose repository names
+// and probe operator-supplied URLs.
+string[] boundUrls = app.Urls.Count > 0
+    ? [.. app.Urls]
+    : [builder.Configuration["urls"] ?? builder.Configuration["ASPNETCORE_URLS"] ?? "http://localhost"];
+
+if (!NetworkExposure.IsLoopbackOnly(boundUrls)
+    && string.IsNullOrWhiteSpace(builder.Configuration["Api:Key"]))
+{
+    throw new InvalidOperationException(
+        "Console Ops is bound to a non-loopback address without 'Api:Key' configured. Set Api:Key "
+        + "(user-secrets or environment) so requests must send the "
+        + $"{ApiKeyAuthentication.HeaderName} header, or bind to localhost only.");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<ApiKeyMiddleware>();
 app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.UseRateLimiter();

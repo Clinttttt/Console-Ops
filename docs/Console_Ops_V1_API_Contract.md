@@ -31,6 +31,29 @@ V1 does not claim Azure revision state, deployment history, restart/migration/co
 configuration completeness, logs, rollback, uptime percentages, or Docker state. Those facts must
 be omitted or reported as unavailable until their product phase is implemented.
 
+## Exposure and the optional API key
+
+Console Ops has no user accounts by design: it is a single-operator tool, and the product context defers
+multi-user concerns. That is safe while the API answers only on loopback, which is how it is configured
+to run.
+
+Two controls keep that assumption from decaying silently:
+
+- **Startup guard.** If the API is bound to any non-loopback address - a wildcard, `0.0.0.0`, or a real
+  interface address - and `Api:Key` is not configured, it refuses to start and names the setting to add.
+  An address it cannot parse counts as exposed. Accidental exposure therefore fails loudly instead of
+  quietly serving repository names to the network.
+- **Optional shared key.** When `Api:Key` is configured, every `/api` request must send
+  `X-Console-Ops-Key`, compared in fixed time. When it is not configured the check is skipped entirely,
+  so local development needs no header.
+
+The key says "this caller knows the shared secret" and nothing about who they are. It is a guard for one
+operator's own API, not an authorization system, and it is not a substitute for real authentication if
+Console Ops ever serves more than one person.
+
+No CORS policy is registered, so a browser on another origin cannot call the API; the Angular dev server
+proxies instead.
+
 ## GitHub discovery API
 
 Added 2026-08-14 for the Add Project import flow. Provider reads, not stored entities; see
