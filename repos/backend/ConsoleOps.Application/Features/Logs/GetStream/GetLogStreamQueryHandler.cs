@@ -18,10 +18,16 @@ namespace ConsoleOps.Application.Features.Logs.GetStream;
 /// and asking for one is refused rather than answered with an empty stream, because "nothing was logged"
 /// and "Console Ops has nowhere to look" are different facts.
 /// </para>
+/// <para>
+/// Markers are woven in from data Console Ops already holds - recorded runs, and the revisions the log
+/// rows themselves report. A marker never comes from the log store and never asserts a deployment target,
+/// so the screen gains context without gaining a claim the provider did not make.
+/// </para>
 /// </summary>
 public sealed class GetLogStreamQueryHandler(
     IProjectReadStore projects,
     IApplicationLogReader logs,
+    ILogMarkerReadStore markers,
     TimeProvider timeProvider)
     : IRequestHandler<GetLogStreamQuery, Result<LogStreamResponse>>
 {
@@ -76,13 +82,104 @@ public sealed class GetLogStreamQueryHandler(
                 LogStreamErrors.From(result.Failure ?? ApplicationLogReadFailure.Unavailable));
         }
 
+        LogEventResponse[] events = result.Entries.Select(ToEventResponse).ToArray();
+        IReadOnlyList<LogDeploymentMarker> runs = await markers.ReadDeploymentsAsync(
+            selected.Project.Id,
+            // Markers are bounded by the events on screen, not by the requested window: placing a marker
+            // below the oldest line the provider returned would put it where the operator cannot see what
+            // it explains. When the cap truncated the read, the visible range is what counts.
+            events.Length == 0 ? from : events[^1].OccurredAt,
+            to,
+            cancellationToken);
+
         return Result<LogStreamResponse>.Success(new LogStreamResponse(
             now,
             scopeResponses,
             ToScopeResponse(selected),
             window with { Truncated = result.Truncated },
-            result.Entries.Select(ToEventResponse).ToArray()));
+            Merge(events, runs)));
     }
+
+    /// <summary>
+    /// Interleaves events with markers, newest first, so a marker sits between the lines it separates.
+    /// <para>
+    /// Ties place the marker after the events at the same instant in newest-first order, which puts it
+    /// above them on screen: a release is the reason for the lines that follow it, not for the ones before.
+    /// </para>
+    /// </summary>
+    private static LogStreamItemResponse[] Merge(
+        LogEventResponse[] events,
+        IReadOnlyList<LogDeploymentMarker> runs)
+    {
+        LogMarkerResponse[] all =
+        [
+            .. runs.Select(ToMarkerResponse),
+            .. RevisionMarkers(events)
+        ];
+        if (all.Length == 0)
+        {
+            return [.. events];
+        }
+
+        return
+        [
+            .. events
+                .Concat<LogStreamItemResponse>(all)
+                .OrderByDescending(item => item.OccurredAt)
+                .ThenBy(item => item is LogMarkerResponse ? 1 : 0)
+        ];
+    }
+
+    /// <summary>
+    /// One marker for each revision the log rows report, placed at the earliest line Console Ops has from
+    /// it.
+    /// <para>
+    /// Deliberately not "the revision changed between these two lines". During a rollout both revisions
+    /// serve at once and their lines interleave, so a change-detecting rule flaps between them and claims a
+    /// revision started several times over - observed against a real deployment, which produced three
+    /// markers for two revisions. One marker per revision states what was seen without asserting a
+    /// lifecycle Console Ops cannot see from console output.
+    /// </para>
+    /// <para>
+    /// The revision that was already serving when the window opened gets no marker: its first line here is
+    /// an artifact of where the read began, not of anything happening.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<LogMarkerResponse> RevisionMarkers(LogEventResponse[] events)
+    {
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        for (int index = events.Length - 1; index >= 0; index--)
+        {
+            if (events[index].Revision is not { Length: > 0 } revision)
+            {
+                continue;
+            }
+
+            if (!seen.Add(revision) || seen.Count == 1)
+            {
+                continue;
+            }
+
+            yield return new LogMarkerResponse(
+                // Deterministic, and distinct from a provider id: this marker is Console Ops' reading of
+                // the rows, not a record the provider handed over.
+                $"revision-{revision}-{events[index].Id}",
+                events[index].OccurredAt,
+                "revision",
+                null,
+                revision,
+                null);
+        }
+    }
+
+    private static LogMarkerResponse ToMarkerResponse(LogDeploymentMarker marker) => new(
+        $"deployment-{marker.Id:n}",
+        marker.OccurredAt,
+        "deployment",
+        // Seven characters, matching how the rest of Console Ops shortens a commit.
+        marker.CommitSha is { Length: >= 7 } sha ? sha[..7] : marker.CommitSha,
+        null,
+        marker.Id);
 
     /// <summary>
     /// The asked-for scope, or the first readable one so the screen has something on first open. An
@@ -110,8 +207,6 @@ public sealed class GetLogStreamQueryHandler(
         scope.Environment.LogSource!.Provider);
 
     private static LogEventResponse ToEventResponse(ApplicationLogEntry entry) => new(
-        // The stream is a tagged union on the client, so the tag travels with every item.
-        "event",
         entry.Id,
         entry.OccurredAtUtc,
         entry.ReceivedAtUtc,

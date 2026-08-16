@@ -4,6 +4,9 @@ using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Application.Features.Logs.GetStream;
 using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Integrations.AzureMonitor;
+using ConsoleOps.Application.Integrations.GitHub;
+using ConsoleOps.Infrastructure.Persistence;
+using ConsoleOps.Infrastructure.Persistence.Deployments;
 using ConsoleOps.Tests.Integration.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -47,11 +50,7 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         Assert.Equal("azureContainerApps", stream.Scope?.Provider);
         Assert.Equal(2, stream.Items.Count);
 
-        LogEventResponse first = stream.Items[0];
-        // The client selects on this discriminator, so every item must carry it. Without it the screen
-        // recognizes nothing and renders an empty stream over a perfectly good response.
-        Assert.Equal("event", first.Kind);
-        Assert.All(stream.Items, item => Assert.Equal("event", item.Kind));
+        LogEventResponse first = Assert.IsType<LogEventResponse>(stream.Items[0]);
         Assert.Equal("information", first.Level);
         // Console output carries no severity column, so a parsed level is reported as derived.
         Assert.True(first.LevelIsDerived);
@@ -137,6 +136,196 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         Assert.Equal(before.AddHours(-24), stream.Window.From);
     }
 
+    [Fact]
+    public async Task Stream_CarriesTheDiscriminatorOnTheWire()
+    {
+        StubLogReader reader = new()
+        {
+            Entries = [Entry("info", "Order created", ApplicationLogLevel.Information, "Spinner.Orders")],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+
+        string body = await client.GetStringAsync($"/api/logs?projectId={project.Id}");
+
+        // Asserted on the raw JSON rather than the deserialized type, because the client selects on this
+        // property. It was once absent from the wire while every typed test still passed, and a correct
+        // response with seventeen events rendered as an empty stream.
+        Assert.Contains("\"kind\":\"event\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Stream_PlacesARecordedRunInTheTimelineAsAMarker()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("newer", "After the release", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-2)),
+                Entry("older", "Before the release", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-20)),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+        Guid deploymentId = await RecordRunAsync(
+            application,
+            project.Id,
+            "0f1e2d3c4b5a69788796a5b4c3d2e1f001234567",
+            now.AddMinutes(-10));
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        Assert.Equal(3, stream.Items.Count);
+        // Newest first, so the marker sits between the lines it separates.
+        Assert.IsType<LogEventResponse>(stream.Items[0]);
+        LogMarkerResponse marker = Assert.IsType<LogMarkerResponse>(stream.Items[1]);
+        Assert.IsType<LogEventResponse>(stream.Items[2]);
+        Assert.Equal("deployment", marker.MarkerKind);
+        Assert.Equal("0f1e2d3", marker.CommitShortSha);
+        Assert.Equal(deploymentId, marker.DeploymentId);
+        // A run proves CI built a commit, not that a particular revision started serving it.
+        Assert.Null(marker.Revision);
+    }
+
+    [Fact]
+    public async Task Stream_DoesNotMarkARunOlderThanTheLinesOnScreen()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("only", "Recent line", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-1)),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+        // Inside the requested 24-hour window, but well before the oldest line the provider returned.
+        await RecordRunAsync(application, project.Id, "abcdef1234567890abcdef1234567890abcdef12", now.AddHours(-6));
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        // A marker below the oldest visible line would sit where nothing it explains can be seen.
+        Assert.Single(stream.Items);
+        Assert.DoesNotContain(stream.Items, item => item is LogMarkerResponse);
+    }
+
+    [Fact]
+    public async Task Stream_MarksARevisionChangeItObservedInTheLinesThemselves()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("newer", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-2), "spinner-api-stg--0000044"),
+                Entry("older", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-9), "spinner-api-stg--0000043"),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        LogMarkerResponse marker = Assert.Single(stream.Items.OfType<LogMarkerResponse>());
+        Assert.Equal("revision", marker.MarkerKind);
+        // The revision the newer lines came from, taken from the rows and not from a control-plane call.
+        Assert.Equal("spinner-api-stg--0000044", marker.Revision);
+        Assert.Null(marker.DeploymentId);
+        Assert.Equal(stream.Items.OfType<LogEventResponse>().First().OccurredAt, marker.OccurredAt);
+    }
+
+    [Fact]
+    public async Task Stream_WhenTwoRevisionsOverlapped_MarksEachOnceInsteadOfFlapping()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        // Taken from a real rollout: the outgoing revision keeps logging while the incoming one starts, so
+        // the lines interleave. Detecting a change between neighbours produced three markers for two
+        // revisions and claimed the old one had started serving.
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("e5", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-1), "spinner-api-stg--0000043"),
+                Entry("e4", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-2), "spinner-api-stg--0000042"),
+                Entry("e3", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-3), "spinner-api-stg--0000043"),
+                Entry("e2", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-4), "spinner-api-stg--0000042"),
+                Entry("e1", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-5), "spinner-api-stg--0000042"),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        LogMarkerResponse marker = Assert.Single(stream.Items.OfType<LogMarkerResponse>());
+        // Only the revision that appeared during the window is marked, once, at its earliest line. The
+        // revision that was already serving is not announced.
+        Assert.Equal("spinner-api-stg--0000043", marker.Revision);
+        Assert.Equal(now.AddMinutes(-3), marker.OccurredAt);
+    }
+
+    [Fact]
+    public async Task Stream_WhenOneRevisionServedTheWholeWindow_MarksNothing()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("newer", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-2)),
+                Entry("older", "Serving", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-9)),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        // The oldest revision was already serving when the window opened. Console Ops does not know when
+        // it started, so it says nothing rather than marking the edge of what it happened to read.
+        Assert.DoesNotContain(stream.Items, item => item is LogMarkerResponse);
+    }
+
+    /// <summary>
+    /// Writes a recorded run directly, standing in for what a refresh would have collected from GitHub.
+    /// </summary>
+    private static async Task<Guid> RecordRunAsync(
+        WebApplicationFactory<Program> application,
+        Guid projectId,
+        string commitSha,
+        DateTimeOffset completedAt)
+    {
+        await using AsyncServiceScope scope = application.Services.CreateAsyncScope();
+        ConsoleOpsDbContext dbContext = scope.ServiceProvider.GetRequiredService<ConsoleOpsDbContext>();
+        DeploymentEntity entity = new()
+        {
+            Id = Guid.CreateVersion7(),
+            ProjectId = projectId,
+            ExternalRunId = Random.Shared.NextInt64(1, long.MaxValue),
+            RunNumber = 12,
+            WorkflowFile = "deploy.yml",
+            WorkflowName = "Deploy",
+            Branch = "main",
+            CommitSha = commitSha,
+            Result = GitHubWorkflowState.Passed,
+            StartedAtUtc = completedAt.AddMinutes(-3),
+            CompletedAtUtc = completedAt,
+            RecordedAtUtc = completedAt,
+            ObservedAtUtc = completedAt,
+        };
+        dbContext.Deployments.Add(entity);
+        await dbContext.SaveChangesAsync();
+        return entity.Id;
+    }
+
     private WebApplicationFactory<Program> CreateApplication(IApplicationLogReader reader) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
@@ -154,10 +343,12 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         string id,
         string message,
         ApplicationLogLevel level,
-        string category) =>
+        string category,
+        DateTimeOffset? occurredAt = null,
+        string revision = "spinner-api-stg--0000043") =>
         new(
             id,
-            DateTimeOffset.UtcNow.AddMinutes(-1),
+            occurredAt ?? DateTimeOffset.UtcNow.AddMinutes(-1),
             DateTimeOffset.UtcNow,
             level,
             true,
@@ -165,7 +356,7 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
             message,
             null,
             ApplicationLogStream.Stdout,
-            "spinner-api-stg--0000043",
+            revision,
             "spinner-api-stg-abc123");
 
     private static async Task<LogStreamResponse> ReadAsync(

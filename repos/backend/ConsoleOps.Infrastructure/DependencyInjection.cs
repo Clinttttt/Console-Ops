@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IProjectRefreshStore, ProjectRefreshStore>();
         services.AddScoped<IDashboardOverviewReadStore, DashboardOverviewReadStore>();
         services.AddScoped<IDeploymentHistoryReadStore, DeploymentHistoryReadStore>();
+        services.AddScoped<Application.Features.Logs.GetStream.ILogMarkerReadStore, LogMarkerReadStore>();
         AddAzureMonitor(services, configuration);
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
             ConfigureGitHubClient(client, configuration));

@@ -114,3 +114,96 @@ describe('LogsPage against the captured wire payload', () => {
     expect(host.textContent).toContain('window holds more');
   });
 });
+
+/**
+ * The same wire shape with the two markers the API composes: a recorded release, and a revision change the
+ * log rows themselves reported. Both are pinned server-side by GetLogStreamTests; these tests cover what
+ * the screen does with them.
+ */
+const MARKED_PAYLOAD = CAPTURED_PAYLOAD.replace(
+  '"items": [',
+  `"items": [
+    {
+      "kind": "marker",
+      "id": "revision-spinner-api-stg--0000044-57017fe2adf97723f6ba533a",
+      "occurredAt": "2026-08-16T11:16:06.4285904+00:00",
+      "markerKind": "revision",
+      "commitShortSha": null,
+      "revision": "spinner-api-stg--0000044",
+      "deploymentId": null
+    },
+    {
+      "kind": "marker",
+      "id": "deployment-8f14e45fceea167a5a36dedd4bea2543",
+      "occurredAt": "2026-08-16T11:12:00.0000000+00:00",
+      "markerKind": "deployment",
+      "commitShortSha": "0f1e2d3",
+      "revision": null,
+      "deploymentId": "8f14e45f-ceea-167a-5a36-dedd4bea2543"
+    },`,
+);
+
+describe('LogsPage markers', () => {
+  let fixture: ComponentFixture<LogsPage>;
+  let host: HTMLElement;
+
+  beforeEach(async () => {
+    const payload = JSON.parse(MARKED_PAYLOAD) as LogStream;
+
+    await TestBed.configureTestingModule({
+      imports: [LogsPage],
+      providers: [
+        provideRouter([]),
+        { provide: LogStreamDataSource, useValue: { load: () => of(payload) } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(LogsPage);
+    await fixture.whenStable();
+    host = fixture.nativeElement as HTMLElement;
+  });
+
+  it('shows a recorded release inline, with a way back to it', () => {
+    const marker = Array.from(host.querySelectorAll('co-log-marker')).find((element) =>
+      element.textContent?.includes('Deployment'),
+    );
+
+    expect(marker?.textContent).toContain('0f1e2d3');
+    expect(marker?.querySelector('a')?.getAttribute('href')).toBe('/deployments');
+  });
+
+  it('names the revision it observed taking over', () => {
+    const marker = Array.from(host.querySelectorAll('co-log-marker')).find((element) =>
+      element.textContent?.includes('Revision first seen'),
+    );
+
+    // "First seen" rather than "started": console output shows which revision emitted a line, not when
+    // that revision began serving, and during a rollout both revisions log at once.
+    expect(marker?.textContent).toContain('spinner-api-stg--0000044');
+  });
+
+  it('keeps markers in their place in the stream rather than in a separate list', () => {
+    const items = Array.from(
+      host.querySelectorAll('co-log-stream .line, co-log-stream co-log-marker'),
+    );
+
+    // Oldest first: the older line, the release that followed it, then the newer line under its revision.
+    expect(items.map((item) => item.tagName.toLowerCase() === 'co-log-marker')).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it('drops markers when the events they explain are filtered away', () => {
+    Array.from(host.querySelectorAll<HTMLButtonElement>('.level'))
+      .find((button) => button.textContent?.trim() === 'ERR')
+      ?.click();
+    fixture.detectChanges();
+
+    // A marker with nothing left to explain would be context without a subject.
+    expect(host.querySelectorAll('co-log-marker').length).toBe(0);
+    expect(host.textContent).toContain('No events match this view');
+  });
+});

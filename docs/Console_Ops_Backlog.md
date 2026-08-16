@@ -16,28 +16,29 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Scheduled collection (`Monitoring:Refresh`) | Real |
 | Observed availability over 24h, with its sample count | Real |
 | Browser re-reads without blanking screens | Real |
+| Logs screen reading real Azure Container Apps console output | Real |
+| Azure log-source discovery, so a scope is picked rather than typed | Real |
+| Deployment and revision markers derived from recorded runs | Real |
 
 ## Next
 
-1. **Logs screen, design mock first.** Requested 2026-08-16. A labelled sample-data mock of the forensic
-   stream: chronological application, runtime, and platform events, deployment and revision markers for
-   context, and a detail rail with correlation ids, structured properties, and a collapsed stack trace.
-   Data comes later; nothing on it may be presented as observed until it is.
-2. **Provider-backed logs, Azure first.** Planned in `Console_Ops_Logs_Plan.md`. Console Ops keeps
-   pulling: the first log source is Azure Container Apps console logs through Log Analytics, normalized
-   behind a port like every other provider. No inbound ingestion, no `ILoggerProvider`, no ingestion
-   keys, no internet-facing collector. V1 is application console logs only; system and platform events
-   follow from `ContainerAppSystemLogs`. Application-pushed structured telemetry is revisited only once
-   this slice is stable.
-3. **The first Azure integration.** Phase 1 of that plan establishes the Azure adapter seam and an
-   optional per-environment Azure log source in project configuration. It deliberately does **not** claim
-   a current runtime revision: a revision name on a log row says which revision emitted that line, not
-   which one is serving now. That still needs the Container Apps control-plane API (V2).
-4. **Settings: configuration status.** A small endpoint reporting `Configured` / `Missing` **by key name
+1. **Logs Phase 4 - live tail.** The same query with `after=<last id>` on a short interval while `Live` is on,
+   appending rather than replacing. Needs the short-lived response cache and a check that the existing rate
+   limit holds. Planned in `Console_Ops_Logs_Plan.md`.
+2. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
+   cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
+   OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
+3. **An App Service log adapter.** EEMO/StallTrack run on App Service, whose console output lands in
+   different tables. Until an adapter exists those environments must be reported as an unsupported
+   platform rather than silently offering nothing.
+4. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+   `/version` 404s and every release reads `Unverified`. Operator-side fix; it would light up version sync,
+   `Current`, and health-before/after on Deployments.
+5. **Settings: configuration status.** A small endpoint reporting `Configured` / `Missing` **by key name
    only** for the keys Console Ops needs (`GitHub:Token`, `ConnectionStrings:DefaultConnection`,
-   `Api:Key`, `Monitoring:Refresh`, and the Azure credential keys once Logs Phase 1 lands). Never a value.
+   `Api:Key`, `Monitoring:Refresh`, and the Azure credential keys). Never a value.
    Would have diagnosed the missing GitHub token instantly.
-5. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+6. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.

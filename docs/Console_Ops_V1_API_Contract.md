@@ -386,6 +386,37 @@ with gaps and one that records runs nobody was watching. See the collection rule
 Not in this contract, because V1 has no source: runtime revision, runtime target, log links, and any
 control that triggers, redeploys, or rolls back a release.
 
+## Log stream contract
+
+`GET /api/logs` reads one project environment's console output from its provider during the request, and is
+Console Ops' only pass-through read. Query parameters: `projectId`, `environmentId`, `search`, `limit`,
+`before`. The full behavior is specified in `Console_Ops_Logs_Plan.md`; the transport rules are here.
+
+`items` is a **tagged union, discriminated by `kind`**, in one ordered list so a marker keeps its position in
+time:
+
+- `kind: "event"` - one line of console output. `level` is one of seven values with `unknown` for a line
+  carrying no recognizable prefix, and `levelIsDerived` says whether Console Ops parsed the level rather
+  than the emitter declaring it. `receivedAt` sits beside `occurredAt` so ingestion delay stays visible.
+- `kind: "marker"` - context Console Ops derived from what it already recorded. `markerKind` is
+  `deployment`, `revision`, or `containerRestart`.
+
+Rules that keep markers honest:
+
+- A marker is composed at query time from the `deployments` rows a refresh already wrote. There is no marker
+  table, nothing is written to a log store, and the Deployments screen reads the same rows.
+- A deployment marker carries `commitShortSha` and `deploymentId`, and `revision` is always `null`: a run
+  proves CI built a commit, not that a revision started serving it.
+- A revision marker carries `revision` only, once per revision, at the earliest line Console Ops has from
+  it. The revision already serving when the window opened is not marked. The wording is "first seen", never
+  "started": console output says which revision emitted a line, not when it began serving.
+- Markers are bounded by the events actually returned, not by the requested window, so a marker never sits
+  below the oldest visible line.
+
+The discriminator is emitted by the serializer rather than by hand. It was once omitted while every typed
+test still passed, and a correct response with seventeen events rendered as an empty stream; a test now
+asserts it on the raw JSON.
+
 ## Transition activity
 
 V1 emits only deterministic changes:

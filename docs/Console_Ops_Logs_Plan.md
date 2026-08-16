@@ -2,8 +2,44 @@
 
 ## Status
 
-Planning, 2026-08-16. **Phases 1, 1b (discovery), and 2 are implemented**; Phases 3 to 5 remain planned.
-Supersedes the ingestion-first draft, which is withdrawn.
+Planning, 2026-08-16. **Phases 1, 1b (discovery), 2, and 3 are implemented**; Phases 4 and 5 remain
+planned. Supersedes the ingestion-first draft, which is withdrawn.
+
+Phase 3 as built, and corrected by real data:
+
+- Markers are composed at query time from the `deployments` rows a refresh already wrote. There is no
+  marker table and no second collection path, so Deployments and Logs cannot tell different stories.
+- A **deployment marker** carries the short commit, the recorded release id, and no revision: a run proves
+  CI built a commit, not that a particular revision started serving it.
+- Markers are bounded by the **events on screen**, not by the requested window. A marker below the oldest
+  line the provider returned would sit where nothing it explains can be seen.
+- A **revision marker** is emitted once per revision, at the earliest line Console Ops has from it, and
+  never for the revision that was already serving when the window opened.
+- The UI says **"Revision first seen"**, not "Revision started". Console output shows which revision emitted
+  a line, not when that revision began serving.
+- Measured live against run #35 of Spinner: `Deployment 280dd86` at 04:56:14, then
+  `Revision first seen spinner-api-stg--0000043` at 04:56:18 - two markers over 106 real events.
+
+### Correction: a change-detecting revision rule flaps during a rollout
+
+The first implementation marked a revision wherever two neighbouring lines reported different revisions.
+Against a real deployment that produced **three markers for two revisions** (43 -> 42 -> 43), because during
+a rollout the outgoing revision keeps logging while the incoming one starts and their lines interleave. Two
+of the three also claimed a revision had started when it had been serving all along. One marker per
+revision, at its earliest line, is what the rows actually support. Pinned by
+`Stream_WhenTwoRevisionsOverlapped_MarksEachOnceInsteadOfFlapping`.
+
+### Correction: the tagged union needs its tag on the wire
+
+`items` is a tagged union and the screen selects on `kind`. The API did not send it, so every real event was
+unrecognizable to the client and a correct 200 with seventeen events rendered as an empty stream. The
+frontend specs passed throughout because their fixtures were hand-written to the contract, with `kind`
+typed in by hand.
+
+The tag is now emitted by the serializer (`JsonPolymorphic` over `LogStreamItemResponse`), so a new item
+type cannot forget to carry one. Two tests guard it: one asserts the raw JSON contains `"kind":"event"`, and
+a frontend spec renders the page from a payload captured verbatim from a live response, parsed at runtime so
+TypeScript cannot supply a field the server omits.
 
 Phase 2 as built, and verified against the operator's own workspace:
 
@@ -253,6 +289,11 @@ marker appears because a run of that project completed inside the window being r
 
 `RevisionName` from the log rows enriches a revision marker where it agrees with what we recorded. Where
 it does not agree, we show what we observed and say nothing about the difference.
+
+**Built.** Two departures from the plan above, both forced by real data and recorded in Status: the window
+that bounds markers is the visible events rather than the requested window, and a revision marker is one
+per revision rather than one per observed change. Version observations were not needed - the recorded run
+plus the revision the rows report is the whole story - so nothing was joined that a marker did not use.
 
 ## Phase 4 - Live tail
 
