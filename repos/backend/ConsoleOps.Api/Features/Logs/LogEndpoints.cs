@@ -45,10 +45,11 @@ internal static class GetLogStreamEndpoint
         Guid? environmentId = null,
         string? search = null,
         DateTimeOffset? before = null,
-        int? limit = null)
+        int? limit = null,
+        bool includeNoise = false)
     {
         Result<LogStreamResponse> result = await sender.Send(
-            new GetLogStreamQuery(projectId, environmentId, search, before, limit),
+            new GetLogStreamQuery(projectId, environmentId, search, before, limit, includeNoise),
             cancellationToken);
 
         return result.ToHttpResult();

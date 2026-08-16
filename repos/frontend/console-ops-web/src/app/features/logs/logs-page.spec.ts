@@ -46,6 +46,7 @@ const STREAM: LogStream = {
   scopes: [SPINNER, STALLTRACK],
   scope: SPINNER,
   window: { from: '2026-08-15T10:30:00.000Z', to: OBSERVED_AT, hours: 24, truncated: false },
+  noise: { excluded: true, hiddenCount: 0 },
   items: [
     event({}),
     event({

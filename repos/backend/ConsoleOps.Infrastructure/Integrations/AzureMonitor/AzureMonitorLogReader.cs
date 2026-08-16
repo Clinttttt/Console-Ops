@@ -23,6 +23,11 @@ internal sealed class AzureMonitorLogReader(
     TimeProvider timeProvider,
     AzureMonitorOptions options) : IApplicationLogReader
 {
+    /// <summary>
+    /// How many raw rows to scan per wanted entry when framework chatter is being excluded. A busy service
+    /// logs several infrastructure lines for every line of its own, and a folded entry spans several rows.
+    /// </summary>
+    private const int NoiseScanFactor = 5;
     public async Task<ApplicationLogReadResult> ReadAsync(
         ApplicationLogQuery query,
         CancellationToken cancellationToken)
@@ -38,9 +43,13 @@ internal sealed class AzureMonitorLogReader(
                 timeProvider.GetUtcNow());
         }
 
-        int limit = options.ClampRows(query.Limit);
+        int wanted = options.ClampRows(query.Limit);
+        // Framework chatter can be almost all of a window, so filtering has to scan further back or the page
+        // arrives empty. The scan is still bounded by the configured row cap, which is what protects the
+        // provider and the bill.
+        int scan = query.ExcludeNoise ? options.ClampRows(wanted * NoiseScanFactor) : wanted;
         QueryTimeRange range = BuildRange(query);
-        string kql = AzureConsoleLogQuery.Build(query.ContainerAppName, limit, query.Search);
+        string kql = AzureConsoleLogQuery.Build(query.ContainerAppName, scan, query.Search);
 
         try
         {
@@ -61,10 +70,28 @@ internal sealed class AzureMonitorLogReader(
             }
 
             AzureConsoleLogRow[] rows = table.Rows.Select(ReadRow).ToArray();
+            // Normalized first: continuation lines are folded into the entry that owns them, so filtering
+            // afterwards can never orphan a stack trace or attach it to an unrelated line.
+            IReadOnlyList<ApplicationLogEntry> normalized = AzureConsoleLogNormalizer.Normalize(rows);
+            bool scanTruncated = rows.Length >= scan;
+            normalized = DropBoundaryFragment(normalized, scanTruncated);
+
+            if (!query.ExcludeNoise)
+            {
+                return ApplicationLogReadResult.Success(
+                    normalized,
+                    scanTruncated,
+                    timeProvider.GetUtcNow());
+            }
+
+            ApplicationLogEntry[] kept = normalized.Where(entry => !ApplicationLogNoise.IsNoise(entry)).ToArray();
+            ApplicationLogEntry[] page = kept.Length > wanted ? [.. kept.Take(wanted)] : kept;
+
             return ApplicationLogReadResult.Success(
-                AzureConsoleLogNormalizer.Normalize(rows),
-                rows.Length >= limit,
-                timeProvider.GetUtcNow());
+                page,
+                scanTruncated || kept.Length > wanted,
+                timeProvider.GetUtcNow(),
+                normalized.Count - kept.Length);
         }
         catch (RequestFailedException failure)
         {
@@ -90,6 +117,41 @@ internal sealed class AzureMonitorLogReader(
         return start >= end
             ? new QueryTimeRange(end - options.MaximumWindow, end)
             : new QueryTimeRange(start, end);
+    }
+
+    /// <summary>
+    /// Removes the oldest entry when the row cap cut the scan mid-entry.
+    /// <para>
+    /// The cap slices the window at a row, not at an entry, so the oldest lines read can be the tail of a
+    /// multi-line entry whose first line was never read. Folding has nothing to attach them to, and the
+    /// result is an event with no severity, no category, and a message like <c>LIMIT @p</c> - which is a
+    /// fragment presented as a record. The complete entry appears in the next window back, so dropping the
+    /// fragment loses nothing.
+    /// </para>
+    /// <para>
+    /// Only when the scan was truncated, and only for the oldest entry. An unprefixed line anywhere else is
+    /// a real line of output that simply carried no convention, and it is kept as <c>unknown</c>.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<ApplicationLogEntry> DropBoundaryFragment(
+        IReadOnlyList<ApplicationLogEntry> entries,
+        bool scanTruncated)
+    {
+        if (!scanTruncated || entries.Count == 0)
+        {
+            return entries;
+        }
+
+        // Entries are newest first, so the cut is at the end.
+        ApplicationLogEntry oldest = entries[^1];
+        bool carriedNoPrefix = oldest is
+        {
+            Category: null,
+            Level: ApplicationLogLevel.Unknown,
+            LevelIsDerived: false
+        };
+
+        return carriedNoPrefix ? [.. entries.Take(entries.Count - 1)] : entries;
     }
 
     private static AzureConsoleLogRow ReadRow(LogsTableRow row) => new(

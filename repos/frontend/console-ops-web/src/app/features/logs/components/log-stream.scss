@@ -216,3 +216,16 @@
   font-size: 11.5px;
   color: var(--co-ink-muted);
 }
+
+/* Reads as part of the sentence it sits in; it explains the count rather than acting on the stream. */
+.noise-toggle {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--co-line-strong);
+  text-underline-offset: 2px;
+}
+
+.noise-toggle:hover {
+  color: var(--co-ink-strong);
+}

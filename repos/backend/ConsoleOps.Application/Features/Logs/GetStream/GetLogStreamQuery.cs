@@ -13,10 +13,15 @@ namespace ConsoleOps.Application.Features.Logs.GetStream;
 /// </param>
 /// <param name="Before">Read events older than this instant, which is how the stream pages backwards.</param>
 /// <param name="Limit">Clamped by the handler and again by the adapter.</param>
+/// <param name="IncludeNoise">
+/// Keep framework chatter in the stream. Off by default, because an idle service logs almost nothing else
+/// and the lines an operator came for are buried. The response always states how many lines were left out.
+/// </param>
 public sealed record GetLogStreamQuery(
     Guid? ProjectId = null,
     Guid? EnvironmentId = null,
     string? Search = null,
     DateTimeOffset? Before = null,
-    int? Limit = null)
+    int? Limit = null,
+    bool IncludeNoise = false)
     : IRequest<Result<LogStreamResponse>>;

@@ -16,6 +16,7 @@ import {
   LogEvent,
   LogMarker,
   LogStreamItem,
+  LogStreamNoise,
   LogStreamWindow,
 } from '../../../core/contracts/log-stream';
 import { LogStreamOlderPages } from '../../../core/state/log-stream.store';
@@ -61,10 +62,12 @@ export class LogStreamView {
   readonly live = input(false);
   readonly window = input<LogStreamWindow | null>(null);
   readonly olderPages = input<LogStreamOlderPages>('unknown');
+  readonly noise = input<LogStreamNoise | null>(null);
 
   readonly selectEvent = output<string>();
   readonly clearFilters = output<void>();
   readonly loadOlder = output<void>();
+  readonly toggleNoise = output<void>();
 
   /**
    * The row that offers the previous window, watched so that scrolling to the top of the stream reads it

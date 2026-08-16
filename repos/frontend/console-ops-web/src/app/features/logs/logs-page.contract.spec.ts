@@ -37,6 +37,7 @@ const CAPTURED_PAYLOAD = `{
     "hours": 24,
     "truncated": true
   },
+  "noise": { "excluded": true, "hiddenCount": 41 },
   "items": [
     {
       "kind": "event",
@@ -209,6 +210,75 @@ describe('LogsPage markers', () => {
     // A marker with nothing left to explain would be context without a subject.
     expect(host.querySelectorAll('co-log-marker').length).toBe(0);
     expect(host.textContent).toContain('No events match this view');
+  });
+});
+
+describe('LogsPage noise', () => {
+  /**
+   * What an idle service actually looks like: the window was busy, but everything in it was framework
+   * chatter. The screen has to say that rather than reading as "nothing happened".
+   */
+  async function render(stream: LogStream): Promise<{
+    fixture: ComponentFixture<LogsPage>;
+    host: HTMLElement;
+    requests: boolean[];
+  }> {
+    const requests: boolean[] = [];
+    await TestBed.configureTestingModule({
+      imports: [LogsPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: LogStreamDataSource,
+          useValue: {
+            load: (request: { includeNoise: boolean }) => {
+              requests.push(request.includeNoise);
+              return of(
+                request.includeNoise
+                  ? { ...stream, noise: { excluded: false, hiddenCount: 0 } }
+                  : stream,
+              );
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(LogsPage);
+    await fixture.whenStable();
+    return { fixture, host: fixture.nativeElement as HTMLElement, requests };
+  }
+
+  it('excludes framework lines by default and says how many', async () => {
+    const { host, requests } = await render(JSON.parse(CAPTURED_PAYLOAD) as LogStream);
+
+    // Filtering is pushed to the provider, because the window holds far more lines than a page.
+    expect(requests).toEqual([false]);
+    expect(host.textContent).toContain('41 framework lines hidden');
+  });
+
+  it('puts them back when asked, and asks the provider again', async () => {
+    const { fixture, host, requests } = await render(JSON.parse(CAPTURED_PAYLOAD) as LogStream);
+
+    host.querySelector<HTMLButtonElement>('.noise-toggle')!.click();
+    await fixture.whenStable();
+
+    expect(requests).toEqual([false, true]);
+    expect(host.textContent).toContain('Hide framework lines');
+    expect(host.textContent).not.toContain('framework lines hidden');
+  });
+
+  it('explains a window that held nothing but chatter', async () => {
+    const base = JSON.parse(CAPTURED_PAYLOAD) as LogStream;
+    const { host } = await render({
+      ...base,
+      items: [],
+      noise: { excluded: true, hiddenCount: 263 },
+    });
+
+    // Without this an operator cannot tell an idle service from a broken log source.
+    expect(host.textContent).toContain('263 framework lines were left out of this window');
+    expect(host.querySelector('.reset')?.textContent?.trim()).toBe('Show framework lines');
   });
 });
 

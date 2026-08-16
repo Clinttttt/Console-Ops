@@ -45,11 +45,17 @@ export class LogsPage {
   protected readonly scope = this.store.scope;
   protected readonly window = this.store.window;
   protected readonly olderPages = this.store.olderPages;
+  protected readonly noise = this.store.noise;
 
   protected readonly query = signal('');
   protected readonly level = signal<LogLevelFilter>(null);
   protected readonly source = signal<LogSourceFilter>(null);
   protected readonly live = signal(true);
+  /**
+   * Whether framework chatter is asked for. Off by default, because a stream of "Executed DbCommand" buries
+   * whatever the operator opened the screen for. The footer always says how many lines that removed.
+   */
+  private readonly includeNoise = signal(false);
   private readonly requestedScopeId = signal<string | null>(null);
   private readonly submittedQuery = signal('');
 
@@ -71,6 +77,7 @@ export class LogsPage {
     effect(() => {
       const scopeId = this.requestedScopeId();
       const search = this.submittedQuery();
+      const includeNoise = this.includeNoise();
       const [projectId, environmentId] = scopeId === null ? [null, null] : scopeId.split(':');
 
       // Untracked: the store writes its own load-state signals, and reading them here would make this
@@ -82,6 +89,7 @@ export class LogsPage {
           search: search === '' ? null : search,
           // A fresh question always starts at now; paging backwards is a separate, explicit read.
           before: null,
+          includeNoise,
         }),
       );
     });
@@ -146,6 +154,12 @@ export class LogsPage {
    */
   protected readOlder(): void {
     this.store.readOlder();
+  }
+
+  /** Puts the framework lines back, or takes them out again. Either way the provider is asked afresh. */
+  protected toggleNoise(): void {
+    this.includeNoise.update((current) => !current);
+    this.selectedId.set(null);
   }
 
   protected dismissDetail(): void {

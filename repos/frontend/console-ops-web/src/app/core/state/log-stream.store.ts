@@ -1,7 +1,13 @@
 import { DestroyRef, Injectable, computed, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { LogStream, LogStreamItem, LogStreamScope, LogStreamWindow } from '../contracts/log-stream';
+import {
+  LogStream,
+  LogStreamItem,
+  LogStreamNoise,
+  LogStreamScope,
+  LogStreamWindow,
+} from '../contracts/log-stream';
 import { LogStreamDataSource, LogStreamRequest } from '../data/log-stream.data-source';
 
 /** Load outcome, kept explicit so the UI can distinguish "waiting" from "could not be determined". */
@@ -73,6 +79,9 @@ export class LogStreamStore {
   readonly scope = computed<LogStreamScope | null>(() => this.current()?.scope ?? null);
   readonly window = computed<LogStreamWindow | null>(() => this.current()?.window ?? null);
 
+  /** What was left out to make the stream readable. `null` until a stream exists. */
+  readonly noise = computed<LogStreamNoise | null>(() => this.current()?.noise ?? null);
+
   /** Reference clock for relative times and the day grouping. `null` until a stream exists. */
   readonly observedAt = computed(() => this.current()?.observedAt ?? null);
 
@@ -81,6 +90,7 @@ export class LogStreamStore {
     environmentId: null,
     search: null,
     before: null,
+    includeNoise: false,
   };
 
   // No read in the constructor: the screen states which scope and search it wants and reads once for it.
@@ -97,7 +107,9 @@ export class LogStreamStore {
     const isSameScope =
       request.projectId === this.lastRequest.projectId &&
       request.environmentId === this.lastRequest.environmentId &&
-      request.search === this.lastRequest.search;
+      request.search === this.lastRequest.search &&
+      // Asking for the noisy lines back is a different question, so its answer replaces rather than merges.
+      request.includeNoise === this.lastRequest.includeNoise;
     this.lastRequest = request;
 
     // Untracked so a caller inside a reactive context cannot end up depending on this store's own state.

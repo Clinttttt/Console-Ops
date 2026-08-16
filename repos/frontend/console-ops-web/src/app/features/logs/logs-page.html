@@ -60,9 +60,11 @@
           [live]="live()"
           [window]="window()"
           [olderPages]="olderPages()"
+          [noise]="noise()"
           (selectEvent)="select($event)"
           (clearFilters)="clearFilters()"
           (loadOlder)="readOlder()"
+          (toggleNoise)="toggleNoise()"
         />
       </div>
 

@@ -1,7 +1,20 @@
 @if (items().length === 0) {
   <div class="empty">
     <p class="co-unavailable">No events match this view.</p>
-    <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+    @let hidden = noise();
+    @if (hidden !== null && hidden.excluded && hidden.hiddenCount > 0) {
+      <!--
+        The important case for a quiet service: the window was not empty, everything in it was framework
+        chatter. Saying so is the difference between "nothing happened" and "nothing was worth showing".
+      -->
+      <p class="co-unavailable">
+        {{ hidden.hiddenCount }} framework
+        {{ hidden.hiddenCount === 1 ? 'line was' : 'lines were' }} left out of this window.
+      </p>
+      <button type="button" class="reset" (click)="toggleNoise.emit()">Show framework lines</button>
+    } @else {
+      <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+    }
   </div>
 } @else {
   <!--
@@ -107,6 +120,23 @@
           <span class="co-meta-dot" aria-hidden="true"></span>
           <span class="co-unavailable">window holds more</span>
         }
+      }
+      <!--
+        What was left out, and the way to put it back. It lives with the other facts about the view rather
+        than as another control in the toolbar, because it explains a number rather than filtering a field.
+      -->
+      @let hidden = noise();
+      @if (hidden !== null && hidden.excluded && hidden.hiddenCount > 0) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        <button type="button" class="noise-toggle" (click)="toggleNoise.emit()">
+          {{ hidden.hiddenCount }} framework
+          {{ hidden.hiddenCount === 1 ? 'line' : 'lines' }} hidden
+        </button>
+      } @else if (hidden !== null && !hidden.excluded) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        <button type="button" class="noise-toggle" (click)="toggleNoise.emit()">
+          Hide framework lines
+        </button>
       }
     </p>
   </footer>

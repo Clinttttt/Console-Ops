@@ -110,6 +110,18 @@ export interface LogStreamWindow {
   readonly truncated: boolean;
 }
 
+/**
+ * Framework chatter left out of the stream, stated rather than silently dropped.
+ *
+ * An idle service logs almost nothing but infrastructure lines, so excluding them is what makes the stream
+ * readable. The count is what stops that from being a lie by omission: it distinguishes "nothing happened"
+ * from "everything that happened was noise", and the screen offers to put it back.
+ */
+export interface LogStreamNoise {
+  readonly excluded: boolean;
+  readonly hiddenCount: number;
+}
+
 export interface LogStream {
   /**
    * ISO-8601 UTC response-composition time. Relative times and the day grouping are measured against it.
@@ -120,6 +132,7 @@ export interface LogStream {
   /** The scope this stream belongs to, or `null` when none could be read. */
   readonly scope: LogStreamScope | null;
   readonly window: LogStreamWindow;
+  readonly noise: LogStreamNoise;
   /** Newest first, as the provider returns them. */
   readonly items: readonly LogStreamItem[];
 }

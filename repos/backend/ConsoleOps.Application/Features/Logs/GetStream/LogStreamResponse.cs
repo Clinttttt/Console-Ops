@@ -17,12 +17,24 @@ namespace ConsoleOps.Application.Features.Logs.GetStream;
 /// <param name="Items">
 /// Events and markers in one ordered list, newest first, so a marker keeps its place in time.
 /// </param>
+/// <param name="Noise">What was left out of the stream to make it readable, and whether it was.</param>
 public sealed record LogStreamResponse(
     DateTimeOffset ObservedAt,
     IReadOnlyList<LogStreamScopeResponse> Scopes,
     LogStreamScopeResponse? Scope,
     LogStreamWindowResponse Window,
-    IReadOnlyList<LogStreamItemResponse> Items);
+    IReadOnlyList<LogStreamItemResponse> Items,
+    LogStreamNoiseResponse Noise);
+
+/// <summary>
+/// Framework chatter that was excluded, stated rather than silently dropped.
+/// </summary>
+/// <param name="Excluded"><c>true</c> when the read left framework categories out.</param>
+/// <param name="HiddenCount">
+/// How many lines were removed. This is why a quiet window is quiet, and without it an operator cannot tell
+/// "nothing happened" from "everything that happened was noise".
+/// </param>
+public sealed record LogStreamNoiseResponse(bool Excluded, int HiddenCount);
 
 public sealed record LogStreamScopeResponse(
     Guid ProjectId,

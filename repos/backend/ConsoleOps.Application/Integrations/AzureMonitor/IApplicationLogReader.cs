@@ -28,13 +28,19 @@ public interface IApplicationLogReader
 /// Free text to match within the log line, or <c>null</c>. Operator-supplied, so the adapter is
 /// responsible for making it safe to send.
 /// </param>
+/// <param name="ExcludeNoise">
+/// When <c>true</c> the adapter leaves out framework chatter and scans further back to fill the page, so a
+/// readable stream does not cost the caller extra round trips. The port's default is to return everything:
+/// filtering is a decision the screen makes, not one the provider layer assumes.
+/// </param>
 public sealed record ApplicationLogQuery(
     Guid WorkspaceId,
     string ContainerAppName,
     DateTimeOffset FromUtc,
     DateTimeOffset ToUtc,
     int Limit,
-    string? Search = null);
+    string? Search = null,
+    bool ExcludeNoise = false);
 
 /// <summary>
 /// Entries newest first, or the failure that prevented reading them.
@@ -42,19 +48,25 @@ public sealed record ApplicationLogQuery(
 /// <param name="Truncated">
 /// <c>true</c> when the limit cut the result, so the screen can say the window holds more.
 /// </param>
+/// <param name="NoiseHidden">
+/// How many entries were left out as framework chatter. Reported so the screen can say why a window looks
+/// quiet instead of appearing to have found nothing.
+/// </param>
 public sealed record ApplicationLogReadResult(
     IReadOnlyList<ApplicationLogEntry> Entries,
     bool Truncated,
     ApplicationLogReadFailure? Failure,
-    DateTimeOffset ObservedAtUtc)
+    DateTimeOffset ObservedAtUtc,
+    int NoiseHidden = 0)
 {
     public bool IsSuccess => Failure is null;
 
     public static ApplicationLogReadResult Success(
         IReadOnlyList<ApplicationLogEntry> entries,
         bool truncated,
-        DateTimeOffset observedAtUtc) =>
-        new(entries, truncated, null, observedAtUtc);
+        DateTimeOffset observedAtUtc,
+        int noiseHidden = 0) =>
+        new(entries, truncated, null, observedAtUtc, noiseHidden);
 
     public static ApplicationLogReadResult Failed(
         ApplicationLogReadFailure failure,

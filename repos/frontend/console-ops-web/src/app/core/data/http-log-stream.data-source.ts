@@ -28,6 +28,9 @@ export class HttpLogStreamDataSource extends LogStreamDataSource {
     if (request.before !== null) {
       params['before'] = request.before;
     }
+    if (request.includeNoise) {
+      params['includeNoise'] = 'true';
+    }
 
     return this.http.get<LogStream>('/api/logs', { params });
   }

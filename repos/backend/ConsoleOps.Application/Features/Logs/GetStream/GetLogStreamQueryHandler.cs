@@ -73,7 +73,8 @@ public sealed class GetLogStreamQueryHandler(
                 from,
                 to,
                 Math.Clamp(request.Limit ?? DefaultLimit, 1, MaximumLimit),
-                request.Search),
+                request.Search,
+                !request.IncludeNoise),
             cancellationToken);
 
         if (!result.IsSuccess)
@@ -97,7 +98,8 @@ public sealed class GetLogStreamQueryHandler(
             scopeResponses,
             ToScopeResponse(selected),
             window with { Truncated = result.Truncated },
-            Merge(events, runs)));
+            Merge(events, runs),
+            new LogStreamNoiseResponse(!request.IncludeNoise, result.NoiseHidden)));
     }
 
     /// <summary>

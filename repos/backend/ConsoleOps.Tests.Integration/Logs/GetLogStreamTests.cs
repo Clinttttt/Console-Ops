@@ -326,6 +326,56 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         return entity.Id;
     }
 
+    [Fact]
+    public async Task Stream_LeavesOutFrameworkChatterAndSaysHowMuch()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("app", "Order created", ApplicationLogLevel.Information, "Spinner.Orders", now.AddMinutes(-1)),
+                Entry("ef", "Executed DbCommand (3ms)", ApplicationLogLevel.Information, "Microsoft.EntityFrameworkCore.Database.Command", now.AddMinutes(-2)),
+                Entry("http", "Start processing HTTP request", ApplicationLogLevel.Information, "System.Net.Http.HttpClient.IProbe.LogicalHandler", now.AddMinutes(-3)),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        // The reader is told to filter, so the screen never has to hide anything after the fact.
+        Assert.True(reader.LastQuery?.ExcludeNoise);
+        Assert.True(stream.Noise.Excluded);
+        // Nothing is dropped silently: the count is why a quiet window is quiet.
+        Assert.Equal(2, stream.Noise.HiddenCount);
+        LogEventResponse kept = Assert.Single(stream.Items.OfType<LogEventResponse>());
+        Assert.Equal("Spinner.Orders", kept.Source);
+    }
+
+    [Fact]
+    public async Task Stream_WhenNoiseIsAskedFor_KeepsItAndSaysNothingWasHidden()
+    {
+        StubLogReader reader = new()
+        {
+            Entries =
+            [
+                Entry("ef", "Executed DbCommand (3ms)", ApplicationLogLevel.Information, "Microsoft.EntityFrameworkCore.Database.Command"),
+            ],
+        };
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id, "&includeNoise=true");
+
+        Assert.False(reader.LastQuery?.ExcludeNoise);
+        Assert.False(stream.Noise.Excluded);
+        Assert.Equal(0, stream.Noise.HiddenCount);
+        Assert.Single(stream.Items);
+    }
+
     private WebApplicationFactory<Program> CreateApplication(IApplicationLogReader reader) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
@@ -404,9 +454,24 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
             CancellationToken cancellationToken)
         {
             LastQuery = query;
-            return Task.FromResult(Failure is null
-                ? ApplicationLogReadResult.Success(Entries, false, DateTimeOffset.UtcNow)
-                : ApplicationLogReadResult.Failed(Failure.Value, DateTimeOffset.UtcNow));
+            if (Failure is not null)
+            {
+                return Task.FromResult(ApplicationLogReadResult.Failed(Failure.Value, DateTimeOffset.UtcNow));
+            }
+
+            if (!query.ExcludeNoise)
+            {
+                return Task.FromResult(
+                    ApplicationLogReadResult.Success(Entries, false, DateTimeOffset.UtcNow));
+            }
+
+            // Stands in for the real adapter, which filters after folding continuation lines.
+            ApplicationLogEntry[] kept = Entries.Where(entry => !ApplicationLogNoise.IsNoise(entry)).ToArray();
+            return Task.FromResult(ApplicationLogReadResult.Success(
+                kept,
+                false,
+                DateTimeOffset.UtcNow,
+                Entries.Count - kept.Length));
         }
     }
 }

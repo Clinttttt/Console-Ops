@@ -413,7 +413,14 @@ Rules that keep markers honest:
 - Markers are bounded by the events actually returned, not by the requested window, so a marker never sits
   below the oldest visible line.
 
-Paging backwards uses `before` as a **time cursor**, because a time is what the provider can seek on. The
+`noise` states what was left out to make the stream readable: `{ excluded, hiddenCount }`. Framework
+categories - EF Core, the `HttpClient` factory, routing - are excluded by default at **information and
+below**, because an idle service logs almost nothing else. A warning or worse is never hidden whatever
+emitted it, an unparsed line is never assumed to be unimportant, the count is always reported, and
+`includeNoise=true` returns everything. Filtering is pushed to the provider for the same reason as search:
+removing noise after the fact would only empty the page.
+
+Paging backwards uses `before` as a **time cursor**,because a time is what the provider can seek on. The
 window bound is inclusive and two console lines can share a millisecond, so pages are merged **by id**: an
 exclusive time cursor would silently drop every line that shared the boundary instant. Verified against the
 real workspace - a second page reached back a further eight minutes with no duplicate ids. The screen keeps

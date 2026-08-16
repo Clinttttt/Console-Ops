@@ -294,8 +294,31 @@ that bounds markers is the visible events rather than the requested window, and 
 per revision rather than one per observed change. Version observations were not needed - the recorded run
 plus the revision the rows report is the whole story - so nothing was joined that a marker did not use.
 
-## Paging backwards - built with Phase 3
+## Noise exclusion - built after reading a real stream
 
+An idle ASP.NET Core service emits almost nothing but infrastructure logging. Spinner staging produced 83
+framework lines and **zero** application lines in the same window, all of them
+`Microsoft.EntityFrameworkCore.Database.Command` from a background poller, which is what made the screen
+unreadable.
+
+`ApplicationLogNoise` names the categories - EF Core, the `HttpClient` factory, routing and static files -
+and the reader excludes them by default, scanning further back so filtering does not simply empty the page.
+Two rules keep it from hiding anything that matters:
+
+- Only **information and below** can be noise. A warning or an error from the same category always survives:
+  a failed database command is exactly what an operator came for.
+- A line whose category could not be parsed is never noise, because Console Ops does not know what it is.
+
+The count is always reported and the screen always offers to put the lines back, so this is a stated
+omission rather than a silent one. When everything in a window was chatter, the screen says so instead of
+reading as "nothing happened" - the difference between an idle service and a broken log source.
+
+Also fixed here: the row cap slices the window at a row, not at an entry, so the oldest lines read could be
+the tail of an entry whose first line was never read. Folding had nothing to attach them to and produced an
+event with no severity, no category and a message like `LIMIT @p`. That fragment is dropped when the scan was
+truncated; the complete entry appears in the next window back.
+
+## Paging backwards - built with Phase 3
 `before` is a time cursor, because a time is what the provider can seek on. Pages are merged **by id**: the
 window bound is inclusive and two console lines can share a millisecond, so an exclusive time cursor would
 drop every line that shared the boundary instant. Verified live - the second page reached back a further

@@ -19,6 +19,12 @@ export interface LogStreamRequest {
    * exclusive time cursor would drop every line that shared the boundary millisecond.
    */
   readonly before: string | null;
+  /**
+   * Keep framework chatter in the stream. Off by default: an idle service logs almost nothing else, and the
+   * lines the operator came for are buried under it. Filtering is pushed down for the same reason search is
+   * - the window holds far more lines than a page, so removing noise locally would just empty the page.
+   */
+  readonly includeNoise: boolean;
 }
 
 /**
