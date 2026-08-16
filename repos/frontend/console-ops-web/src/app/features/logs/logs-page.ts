@@ -102,6 +102,11 @@ export class LogsPage {
     });
   }
 
+  /** `true` when the operator has narrowed the view, so an empty stream can be explained correctly. */
+  protected readonly filtersActive = computed(
+    () => this.level() !== null || this.source() !== null || this.submittedQuery() !== '',
+  );
+
   /**
    * The stream in view. Severity and source narrow the fetched lines; a marker is kept only while it still
    * explains something under it.

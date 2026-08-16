@@ -96,7 +96,7 @@ describe('LogsPage against the captured wire payload', () => {
     const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
 
     expect(lines.length).toBe(2);
-    expect(host.textContent).not.toContain('No events match this view');
+    expect(host.textContent).not.toContain('Nothing here but framework logging');
     // Oldest first, so the stream reads like a terminal and new lines land at the bottom.
     expect(lines[0].textContent).toContain('SELECT n."Id"');
     expect(lines[1].textContent).toContain('Executed DbCommand');
@@ -209,7 +209,7 @@ describe('LogsPage markers', () => {
 
     // A marker with nothing left to explain would be context without a subject.
     expect(host.querySelectorAll('co-log-marker').length).toBe(0);
-    expect(host.textContent).toContain('No events match this view');
+    expect(host.textContent).toContain('No events match these filters');
   });
 });
 
@@ -284,11 +284,12 @@ describe('LogsPage noise', () => {
     });
 
     // Without this an operator cannot tell an idle service from a broken log source.
-    expect(host.textContent).toContain('263 framework lines were left out of this window');
+    expect(host.textContent).toContain('Nothing here but framework logging');
+    expect(host.textContent).toContain('This environment wrote 263 lines in this window');
     // And what produced them, so the window still says what the service was doing.
     expect(host.textContent).toContain('261');
     expect(host.textContent).toContain('Database.Command');
-    expect(host.querySelector('.reset')?.textContent?.trim()).toBe('Show framework lines');
+    expect(host.querySelector('.action')?.textContent?.trim()).toBe('Show these lines anyway');
   });
 });
 

@@ -22,6 +22,7 @@ import {
 import { LogStreamOlderPages } from '../../../core/state/log-stream.store';
 import { Icon } from '../../../core/ui/icon';
 import { LogMarkerRow } from './log-marker';
+import { LogStreamEmpty } from './log-empty';
 
 /** One UTC day of the stream. Grouping keeps a long stream orientated without repeating the date. */
 interface StreamDay {
@@ -49,7 +50,7 @@ interface StreamDay {
 @Component({
   selector: 'co-log-stream',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, Icon, LogMarkerRow],
+  imports: [DatePipe, Icon, LogMarkerRow, LogStreamEmpty],
   templateUrl: './log-stream.html',
   styleUrl: './log-stream.scss',
 })
@@ -63,6 +64,11 @@ export class LogStreamView {
   readonly window = input<LogStreamWindow | null>(null);
   readonly olderPages = input<LogStreamOlderPages>('unknown');
   readonly noise = input<LogStreamNoise | null>(null);
+  /**
+   * Whether the operator has narrowed the view. An empty stream means something different when a filter is
+   * set, and the screen should not blame a quiet service for a narrow filter.
+   */
+  readonly filtersActive = input(false);
 
   readonly selectEvent = output<string>();
   readonly clearFilters = output<void>();

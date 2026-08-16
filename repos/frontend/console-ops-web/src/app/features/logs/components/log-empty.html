@@ -1,0 +1,42 @@
+@switch (reason()) {
+  @case ('filtered') {
+    <h4 class="empty-head">No events match these filters</h4>
+    <p class="empty-body">
+      The window was read, but nothing in it matched the severity, source, or search you set.
+    </p>
+    <button type="button" class="action" (click)="clearFilters.emit()">Clear filters</button>
+  }
+
+  @case ('noiseOnly') {
+    @let hidden = noise()!;
+    <h4 class="empty-head">Nothing here but framework logging</h4>
+    <p class="empty-body">
+      This environment wrote {{ hidden.hiddenCount }}
+      {{ hidden.hiddenCount === 1 ? 'line' : 'lines' }} in this window, and every one came from .NET
+      infrastructure rather than from the application itself. Console Ops leaves those out so the
+      stream stays readable. Warnings and errors are never left out, whatever wrote them.
+    </p>
+
+    @if (hidden.categories.length > 0) {
+      <dl class="breakdown">
+        <dt>What wrote them</dt>
+        @for (category of hidden.categories; track category.category) {
+          <dd>
+            <span class="count co-mono">{{ category.count }}</span>
+            <span class="category co-mono">{{ category.category }}</span>
+          </dd>
+        }
+      </dl>
+    }
+
+    <button type="button" class="action" (click)="showNoise.emit()">Show these lines anyway</button>
+  }
+
+  @case ('quiet') {
+    <h4 class="empty-head">Nothing was logged in this window</h4>
+    <p class="empty-body">
+      The provider was read and the window was empty. A service that is idle and healthy writes
+      nothing, so this is a fact about the window rather than a problem with the read.
+    </p>
+  }
+}

@@ -5,50 +5,6 @@
   border-radius: var(--co-radius-lg);
 }
 
-.empty {
-  padding: var(--co-space-7) var(--co-space-5);
-  text-align: center;
-  font-size: 12.5px;
-}
-
-.reset {
-  margin-top: var(--co-space-3);
-  padding: 7px var(--co-space-4);
-  border: 1px solid var(--co-line-strong);
-  border-radius: var(--co-radius-md);
-  font-size: 12.5px;
-  color: var(--co-ink);
-}
-
-/* What was in the window, when what was in the window was all chatter. */
-.noise-breakdown {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: var(--co-space-3) 0 0;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-}
-
-.noise-breakdown li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--co-space-3);
-  font-size: 11.5px;
-  color: var(--co-ink-muted);
-}
-
-.noise-count {
-  min-width: 34px;
-  text-align: right;
-  color: var(--co-ink);
-}
-
-.reset:hover {
-  background: var(--co-surface-sunken);
-}
-
 .day-head {
   display: flex;
   align-items: center;
