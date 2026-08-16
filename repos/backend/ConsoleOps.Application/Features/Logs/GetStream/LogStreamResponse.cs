@@ -36,6 +36,11 @@ public sealed record LogStreamWindowResponse(
     int Hours,
     bool Truncated);
 
+/// <param name="Kind">
+/// Discriminator for the stream's tagged union, always <c>event</c> here. It is sent explicitly because
+/// the screen's stream mixes events with derived markers and selects on this value: omitting it makes
+/// every item unrecognizable to the client.
+/// </param>
 /// <param name="LevelIsDerived">
 /// <c>true</c> when Console Ops parsed the level out of the line rather than the emitter declaring it.
 /// Console output carries no severity column, so this is how the screen avoids overstating what it knows.
@@ -46,6 +51,7 @@ public sealed record LogStreamWindowResponse(
 /// When the provider ingested the line. Kept alongside <c>occurredAt</c> so clock skew stays visible.
 /// </param>
 public sealed record LogEventResponse(
+    string Kind,
     string Id,
     DateTimeOffset OccurredAt,
     DateTimeOffset? ReceivedAt,

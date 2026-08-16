@@ -110,6 +110,8 @@ public sealed class GetLogStreamQueryHandler(
         scope.Environment.LogSource!.Provider);
 
     private static LogEventResponse ToEventResponse(ApplicationLogEntry entry) => new(
+        // The stream is a tagged union on the client, so the tag travels with every item.
+        "event",
         entry.Id,
         entry.OccurredAtUtc,
         entry.ReceivedAtUtc,

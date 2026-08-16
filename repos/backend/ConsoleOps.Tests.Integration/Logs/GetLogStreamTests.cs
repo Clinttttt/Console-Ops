@@ -48,6 +48,10 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         Assert.Equal(2, stream.Items.Count);
 
         LogEventResponse first = stream.Items[0];
+        // The client selects on this discriminator, so every item must carry it. Without it the screen
+        // recognizes nothing and renders an empty stream over a perfectly good response.
+        Assert.Equal("event", first.Kind);
+        Assert.All(stream.Items, item => Assert.Equal("event", item.Kind));
         Assert.Equal("information", first.Level);
         // Console output carries no severity column, so a parsed level is reported as derived.
         Assert.True(first.LevelIsDerived);
