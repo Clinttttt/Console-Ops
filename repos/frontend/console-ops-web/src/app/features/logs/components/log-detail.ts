@@ -5,14 +5,16 @@ import { LogEvent, LogStreamScope } from '../../../core/contracts/log-stream';
 import { EnvironmentTag } from '../../../core/ui/environment-tag';
 import { Icon } from '../../../core/ui/icon';
 
-type CopyField = 'trace' | 'request';
-
 /**
  * Everything about one event that the stream deliberately withheld.
  *
  * Opened by selection and dismissable: the stream is the workspace, and a panel describing a line nobody
  * chose would be describing something arbitrary. A stack trace stays collapsed, because the moment it is
  * expanded by default this panel becomes a wall.
+ *
+ * What it shows is bounded by what a console line can carry. Severity and category are parsed from the text
+ * and labelled as derived; trace ids and structured properties are absent rather than empty, because the
+ * provider has none to give.
  */
 @Component({
   selector: 'co-log-detail',
@@ -27,19 +29,42 @@ export class LogDetail {
 
   readonly dismiss = output<void>();
 
-  protected readonly copied = signal<CopyField | null>(null);
+  protected readonly copied = signal(false);
   protected readonly stackTraceOpen = signal(false);
 
   protected readonly levelLabel = computed(() => {
     switch (this.event()?.level) {
-      case 'error':
-        return 'Error';
+      case 'trace':
+        return 'Trace';
+      case 'debug':
+        return 'Debug';
+      case 'information':
+        return 'Info';
       case 'warning':
         return 'Warning';
-      case 'info':
-        return 'Info';
+      case 'error':
+        return 'Error';
+      case 'critical':
+        return 'Critical';
+      case 'unknown':
+        return 'Log';
       default:
         return null;
+    }
+  });
+
+  /** Groups the seven contract levels onto the three tones the design system uses. */
+  protected readonly levelTone = computed(() => {
+    switch (this.event()?.level) {
+      case 'error':
+      case 'critical':
+        return 'error';
+      case 'warning':
+        return 'warning';
+      case 'information':
+        return 'info';
+      default:
+        return 'unknown';
     }
   });
 
@@ -57,24 +82,34 @@ export class LogDetail {
     }
   });
 
-  protected readonly durationLabel = computed(() => {
-    const duration = this.event()?.outcome?.durationMs ?? null;
-    if (duration === null) {
+  /**
+   * How long the provider took to ingest the line. Worth showing because the stream orders by the emitter's
+   * clock: a large gap explains why something appears later than it happened.
+   */
+  protected readonly ingestionDelay = computed(() => {
+    const event = this.event();
+    if (event === null || event.receivedAt === null) {
       return null;
     }
 
-    return duration < 1000
-      ? `${Math.round(duration)} ms`
-      : `${(duration / 1000).toFixed(duration < 10_000 ? 2 : 1)} s`;
+    const delay = Date.parse(event.receivedAt) - Date.parse(event.occurredAt);
+    if (Number.isNaN(delay) || delay < 0) {
+      return null;
+    }
+
+    return delay < 1000 ? `${delay} ms` : `${(delay / 1000).toFixed(1)} s`;
   });
 
-  protected async copy(field: CopyField, value: string | null): Promise<void> {
-    if (value === null || !navigator.clipboard) {
+  protected async copyMessage(): Promise<void> {
+    const event = this.event();
+    if (event === null || !navigator.clipboard) {
       return;
     }
 
-    await navigator.clipboard.writeText(value);
-    this.copied.set(field);
+    const text =
+      event.stackTrace === null ? event.message : `${event.message}\n${event.stackTrace}`;
+    await navigator.clipboard.writeText(text);
+    this.copied.set(true);
   }
 
   protected toggleStackTrace(): void {

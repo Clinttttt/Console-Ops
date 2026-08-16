@@ -75,7 +75,7 @@ internal static partial class AzureConsoleLogNormalizer
             return;
         }
 
-        DateTimeOffset occurredAt = row.TimeGenerated ?? lastTimestamp;
+        DateTimeOffset occurredAt = row.EmittedAt ?? row.ReceivedAt ?? lastTimestamp;
         ordinalWithinTimestamp = occurredAt == lastTimestamp ? ordinalWithinTimestamp + 1 : 0;
         lastTimestamp = occurredAt;
 
@@ -95,6 +95,7 @@ internal static partial class AzureConsoleLogNormalizer
         entries.Add(new ApplicationLogEntry(
             ComposeId(occurredAt, ordinalWithinTimestamp, row.ContainerGroupName, stream, message),
             occurredAt,
+            row.ReceivedAt,
             level,
             derived,
             prefix?.Category,
@@ -229,9 +230,15 @@ internal static partial class AzureConsoleLogNormalizer
     private sealed record ParsedPrefix(ApplicationLogLevel Level, string? Category, string Message);
 }
 
-/// <summary>One row of <c>ContainerAppConsoleLogs</c>, as the adapter reads it.</summary>
+/// <summary>One row of container console output, as the adapter reads it.</summary>
+/// <param name="EmittedAt">
+/// The container's own timestamp. Ordering and display use this, because ingestion time is shared across a
+/// whole batch and would scramble the lines within it.
+/// </param>
+/// <param name="ReceivedAt">When Azure ingested the row, kept so clock skew stays visible.</param>
 internal sealed record AzureConsoleLogRow(
-    DateTimeOffset? TimeGenerated,
+    DateTimeOffset? EmittedAt,
+    DateTimeOffset? ReceivedAt,
     string? Log,
     string? Stream,
     string? RevisionName,

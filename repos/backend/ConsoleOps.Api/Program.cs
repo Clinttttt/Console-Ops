@@ -4,6 +4,7 @@ using ConsoleOps.Api.Features.Azure;
 using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.Deployments;
 using ConsoleOps.Api.Features.GitHub;
+using ConsoleOps.Api.Features.Logs;
 using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Api.Middleware;
 using ConsoleOps.Api.Security;
@@ -29,6 +30,14 @@ builder.Services.AddRateLimiter(options =>
     options.AddFixedWindowLimiter(VerifyProjectEndpointsEndpoint.RateLimitPolicy, limiter =>
     {
         limiter.PermitLimit = 10;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueLimit = 0;
+    });
+
+    // Reading logs asks Azure during the request, so it is bounded per client as well as per query.
+    options.AddFixedWindowLimiter(LogEndpoints.RateLimitPolicy, limiter =>
+    {
+        limiter.PermitLimit = 60;
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
     });
@@ -79,6 +88,7 @@ app.MapDashboardEndpoints();
 app.MapAzureEndpoints();
 app.MapDeploymentEndpoints();
 app.MapGitHubEndpoints();
+app.MapLogEndpoints();
 app.MapProjectEndpoints();
 
 app.Run();

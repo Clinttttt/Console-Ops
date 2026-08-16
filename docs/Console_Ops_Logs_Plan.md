@@ -56,17 +56,50 @@ honest about what Azure can actually provide.
 
 ## What Azure actually gives us
 
-Verified against the `ContainerAppConsoleLogs` table reference (Azure Monitor, retrieved 2026-08-16).
-Two corrections to assumptions worth recording, because they change the design:
+Verified against the `ContainerAppConsoleLogs` table reference (Azure Monitor, retrieved 2026-08-16) and
+then **against the operator's own workspace on 2026-08-16**, which corrected two assumptions.
 
-- The documented table is **`ContainerAppConsoleLogs`** with plain column names. `_CL` / `_s` suffixes
-  belong to the legacy custom-table form and must not be hardcoded from memory.
-- Columns available: `TimeGenerated`, `Log`, `Stream` (stdout/stderr), `ContainerAppName`,
-  `RevisionName`, `ContainerName`, `ContainerImage`, `ContainerGroupName` (the replica),
-  `ContainerGroupId`, `EnvironmentName`, `Location`, `_ResourceId`.
+### Correction: this tenant's logs are in the legacy table
 
-What is **not** there: no level, no category, no message template, no trace id, no properties, no
-exception object. The row is a line of stdout or stderr plus runtime identity.
+The documented reference table is `ContainerAppConsoleLogs` with plain column names. The operator's
+Container Apps environments write to **`ContainerAppConsoleLogs_CL`** with `_s`-suffixed columns instead -
+the legacy custom-table form. Both exist in the wild, and querying only the documented one returns nothing
+here even though the environment is configured correctly (`appLogsConfiguration.destination` is
+`log-analytics` and the workspace id matches).
+
+Measured in the Spinner staging workspace: **702,893 rows in 30 days**, latest within the hour. The
+adapter must therefore read both shapes - `union isfuzzy=true` over the two tables, projecting them to one
+column set - rather than assume either.
+
+| Legacy (`_CL`) | Modern |
+|---|---|
+| `Log_s` | `Log` |
+| `Stream_s` | `Stream` |
+| `RevisionName_s` | `RevisionName` |
+| `ContainerAppName_s` | `ContainerAppName` |
+| `ContainerGroupName_s` | `ContainerGroupName` |
+| `time_t` | *(no equivalent; use `TimeGenerated`)* |
+
+### Correction: `TimeGenerated` is the received time, not the emit time
+
+In the legacy table every row of one ingestion batch shares a single `TimeGenerated`, so ordering by it
+**scrambles the lines within a batch** - an observed `info:` prefix line appeared in the middle of its own
+SQL block. The container's own emit timestamp is `time_t`, with sub-microsecond precision, and ordering by
+it restores exact line order.
+
+So the plan's two-clock rule maps onto real columns: `time_t` is the emitter's clock and what the stream
+orders and displays by; `TimeGenerated` is when Azure received it. Continuation folding only works when
+ordered by `time_t`.
+
+### What the rows contain
+
+Confirmed from real output: the .NET console convention is used
+(`info: Microsoft.EntityFrameworkCore.Database.Command[20101]` followed by indented lines), so prefix
+parsing and the category anchor hold. The volume is dominated by EF Core SQL, which is exactly the noise
+the severity filter and continuation folding exist to tame.
+
+What is still **not** there: no level column, no category column, no message template, no trace id, no
+properties, no exception object.
 
 Consequences that shape everything below:
 

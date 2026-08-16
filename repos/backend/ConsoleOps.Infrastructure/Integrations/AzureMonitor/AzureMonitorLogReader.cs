@@ -93,11 +93,12 @@ internal sealed class AzureMonitorLogReader(
     }
 
     private static AzureConsoleLogRow ReadRow(LogsTableRow row) => new(
-        ReadOptionalDateTimeOffset(row, "TimeGenerated"),
-        ReadOptionalString(row, "Log"),
-        ReadOptionalString(row, "Stream"),
-        ReadOptionalString(row, "RevisionName"),
-        ReadOptionalString(row, "ContainerGroupName"));
+        ReadOptionalDateTimeOffset(row, "EmittedAt"),
+        ReadOptionalDateTimeOffset(row, "ReceivedAt"),
+        ReadOptionalString(row, "Message"),
+        ReadOptionalString(row, "StreamName"),
+        ReadOptionalString(row, "Revision"),
+        ReadOptionalString(row, "Replica"));
 
     private static string? ReadOptionalString(LogsTableRow row, string column)
     {

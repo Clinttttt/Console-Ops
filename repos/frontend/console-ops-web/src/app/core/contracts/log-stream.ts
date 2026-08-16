@@ -1,93 +1,73 @@
 /**
- * Typed contract for the Logs screen.
+ * Typed contract for `GET /api/logs`.
  *
- * Design stage, and ahead of V1: Console Ops has no log ingestion yet, so nothing on this screen has a
- * real source. This file records the intended shape for when ingestion arrives; it is not a request to
- * build ingestion now. Until then the screen stays fixture-backed and must not be wired to the API,
- * because wiring it early would mean inventing events.
+ * Console Ops pulls logs from the environment's provider during the request; the browser never talks to a
+ * provider. What arrives is container console output, so the shape is honest about what that can carry:
+ * severity and category are parsed from the line and marked as derived, and structure a console line cannot
+ * hold - trace ids, properties, exception objects - is absent until a richer source exists.
  *
- * The Logs screen answers one question the other screens cannot: what did the application and its
- * runtime actually say around the time something happened. It therefore carries no project
- * configuration, no deployment history, and no health summaries - those have homes. Deployment and
- * revision markers appear only as lightweight context in the stream.
- *
- * Structured logging is the point. An event carries its message template and its properties separately,
- * so `Payment failed for order {OrderId}` keeps `OrderId = 2048` as a value rather than a formatted
- * string. Presentation stays out of this file: the UI composes the trailing context line, the wording of
- * each level, and the marker labels.
+ * Same rules as every other contract: plain JSON, camel case, ISO-8601 UTC instants, and `null` when a fact
+ * could not be established. Presentation stays out of this file: the UI composes the trailing context line,
+ * the wording of each level, and the marker labels.
  *
  * CI/CD execution logs are deliberately absent. A workflow run's output belongs to that run on the
- * Deployments screen; this stream is application, runtime, and platform events.
+ * Deployments screen; this stream is application, and later runtime and platform, events.
  */
 
-import { EnvironmentKind, ProjectEnvironmentRef } from './dashboard-overview';
+import { EnvironmentKind } from './dashboard-overview';
 
-export type { EnvironmentKind, ProjectEnvironmentRef };
+export type { EnvironmentKind };
 
-/** Severity as the emitter reported it. */
-export type LogLevel = 'info' | 'warning' | 'error';
+/**
+ * Severity as parsed from the line.
+ *
+ * `unknown` is the honest answer for a plain line of output: console logs carry no severity column, so a
+ * line without a recognizable prefix is not evidence of information.
+ */
+export type LogLevel =
+  'trace' | 'debug' | 'information' | 'warning' | 'error' | 'critical' | 'unknown';
 
 /**
  * Where an event came from.
  *
- * - `application`: the ASP.NET application's own logger.
+ * - `application`: the application's own console output.
  * - `runtime`: container or process lifecycle.
- * - `platform`: the hosting platform, once Console Ops is aware of one.
+ * - `platform`: the hosting platform.
+ *
+ * V1 reads application output only; the other two need the platform's system log table.
  */
 export type LogSourceKind = 'application' | 'runtime' | 'platform';
 
-/** One structured property carried by an event. Values arrive already stringified. */
-export interface LogProperty {
-  readonly name: string;
-  readonly value: string;
-}
-
-/** Correlation identifiers, when the emitter provided them. */
-export interface LogCorrelation {
-  readonly traceId: string | null;
-  readonly requestId: string | null;
-}
-
-/** Exception detail. The stack trace is separate so the stream never has to show it. */
-export interface LogException {
-  readonly type: string;
-  readonly message: string;
-  readonly stackTrace: string | null;
-}
-
-/**
- * A request or operation outcome, when the event describes one. The UI composes the trailing context
- * from these rather than the contract sending a rendered `200 · 91 ms`.
- */
-export interface LogOutcome {
-  readonly statusCode: number | null;
-  readonly durationMs: number | null;
-}
+/** Which stream the line was written to. `unknown` when the provider did not say. */
+export type LogStreamName = 'stdout' | 'stderr' | 'unknown';
 
 export interface LogEvent {
   readonly kind: 'event';
   readonly id: string;
-  /** ISO-8601 UTC with milliseconds. */
+  /** The emitter's own timestamp. ISO-8601 UTC with milliseconds. */
   readonly occurredAt: string;
+  /** When the provider ingested the line, or `null`. Kept so ingestion delay stays visible. */
+  readonly receivedAt: string | null;
   readonly level: LogLevel;
-  /** Emitter category such as `HTTP`, `Payments`, `Database`, `Runtime`. */
-  readonly source: string;
+  /** `true` when Console Ops parsed the level rather than the emitter declaring it. */
+  readonly levelIsDerived: boolean;
+  /** Emitter category such as `Spinner.Payments`, or `null` when the line carried none. */
+  readonly source: string | null;
   readonly sourceKind: LogSourceKind;
-  /** Rendered message. Keep it one line; detail belongs in properties. */
+  /** One line. Detail belongs in the stack trace or behind selection. */
   readonly message: string;
-  /** Message template when the emitter used structured logging, otherwise `null`. */
-  readonly messageTemplate: string | null;
-  readonly outcome: LogOutcome | null;
-  readonly correlation: LogCorrelation;
-  readonly exception: LogException | null;
-  readonly properties: readonly LogProperty[];
-  /** Host or replica that emitted the event, or `null` when unknown. */
+  /** Continuation lines that belonged to this event, or `null`. */
+  readonly stackTrace: string | null;
+  readonly stream: LogStreamName;
+  /** Runtime revision that emitted the line, or `null`. */
+  readonly revision: string | null;
+  /** Host or replica that emitted the line, or `null`. */
   readonly host: string | null;
 }
 
 /**
- * Something that happened to the deployment or the runtime, shown inline as context rather than as a
- * card. It explains a change in the stream: errors that begin right after a release are the point.
+ * Something that happened to the deployment or the runtime, shown inline as context rather than as a card.
+ * Derived from what Console Ops already recorded, never from the log store.
  */
 export type LogMarkerKind = 'deployment' | 'revision' | 'containerRestart';
 
@@ -96,31 +76,50 @@ export interface LogMarker {
   readonly id: string;
   readonly occurredAt: string;
   readonly markerKind: LogMarkerKind;
-  /** Commit the release carried, for a `deployment` marker. */
   readonly commitShortSha: string | null;
-  /** Runtime revision, once a platform reports one. */
   readonly revision: string | null;
-  /** Deployment record this marker refers to, so the UI can link to it. */
   readonly deploymentId: string | null;
 }
 
 /** The stream is one ordered sequence, so markers keep their position among the events. */
 export type LogStreamItem = LogEvent | LogMarker;
 
+export interface LogStreamEnvironmentRef {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: EnvironmentKind;
+}
+
+/** A project environment with a log source Console Ops can read. */
 export interface LogStreamScope {
   readonly projectId: string;
   readonly projectName: string;
-  readonly environment: ProjectEnvironmentRef;
+  readonly environment: LogStreamEnvironmentRef;
+  readonly provider: string;
+}
+
+/**
+ * The range that was actually queried. Logs are retained by the provider, not by Console Ops, so the
+ * screen states its window rather than implying complete history.
+ */
+export interface LogStreamWindow {
+  readonly from: string;
+  readonly to: string;
+  readonly hours: number;
+  /** `true` when the row cap cut the result, so the window holds more than is shown. */
+  readonly truncated: boolean;
 }
 
 export interface LogStream {
   /**
-   * ISO-8601 UTC response-composition time. Relative times and the day grouping are measured against
-   * it, so the screen reads the same whenever it is rendered.
+   * ISO-8601 UTC response-composition time. Relative times and the day grouping are measured against it.
    */
   readonly observedAt: string;
-  /** Scopes the operator can inspect. A stream always belongs to one project and environment. */
+  /** Scopes the operator can inspect. An environment without a log source is not among them. */
   readonly scopes: readonly LogStreamScope[];
-  /** Newest last, so the stream reads like a terminal and live tail appends at the bottom. */
+  /** The scope this stream belongs to, or `null` when none could be read. */
+  readonly scope: LogStreamScope | null;
+  readonly window: LogStreamWindow;
+  /** Newest first, as the provider returns them. */
   readonly items: readonly LogStreamItem[];
 }

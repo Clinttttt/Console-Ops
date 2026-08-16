@@ -8,17 +8,20 @@ namespace ConsoleOps.Tests.Integration.AzureMonitor;
 public sealed class AzureConsoleLogQueryTests
 {
     [Fact]
-    public void Build_ProducesABoundedQueryOverTheDocumentedTable()
+    public void Build_ReadsBothTableShapesOrderedByTheEmitterClock()
     {
         string query = AzureConsoleLogQuery.Build("spinner-api", 200, null);
 
-        Assert.StartsWith("ContainerAppConsoleLogs", query, StringComparison.Ordinal);
-        Assert.Contains("where ContainerAppName == \"spinner-api\"", query, StringComparison.Ordinal);
-        Assert.Contains("order by TimeGenerated desc", query, StringComparison.Ordinal);
+        // Two table shapes exist in the wild; reading only one returns an empty stream on the other.
+        Assert.Contains("union isfuzzy=true", query, StringComparison.Ordinal);
+        Assert.Contains($"({AzureConsoleLogQuery.TableName}", query, StringComparison.Ordinal);
+        Assert.Contains($"({AzureConsoleLogQuery.LegacyTableName}", query, StringComparison.Ordinal);
+        Assert.Contains("ContainerAppName =~ \"spinner-api\"", query, StringComparison.Ordinal);
+        Assert.Contains("ContainerAppName_s =~ \"spinner-api\"", query, StringComparison.Ordinal);
+        // Ingestion time is shared across a batch, so ordering by it would scramble a stack trace.
+        Assert.Contains("EmittedAt = coalesce(time_t, TimeGenerated)", query, StringComparison.Ordinal);
+        Assert.Contains("order by EmittedAt desc", query, StringComparison.Ordinal);
         Assert.Contains("take 200", query, StringComparison.Ordinal);
-        // Basic-tier tables restrict the operator set, so the query stays inside it.
-        Assert.DoesNotContain("join", query, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("summarize", query, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -26,7 +29,7 @@ public sealed class AzureConsoleLogQueryTests
     {
         string query = AzureConsoleLogQuery.Build("spinner-api", 50, "   ");
 
-        Assert.DoesNotContain("Log contains", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("Message contains", query, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -34,7 +37,7 @@ public sealed class AzureConsoleLogQueryTests
     {
         string query = AzureConsoleLogQuery.Build("spinner-api", 50, " order 2048 ");
 
-        Assert.Contains("| where Log contains \"order 2048\"", query, StringComparison.Ordinal);
+        Assert.Contains("| where Message contains \"order 2048\"", query, StringComparison.Ordinal);
     }
 
     [Theory]

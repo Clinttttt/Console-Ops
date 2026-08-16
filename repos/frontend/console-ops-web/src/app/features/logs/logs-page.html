@@ -5,20 +5,35 @@
 
   @case ('unavailable') {
     <div class="notice">
-      <p>The log stream could not be read.</p>
+      @switch (failureReason()) {
+        @case ('notConfigured') {
+          <p>
+            No environment has a log source configured yet. Add a Log Analytics workspace and
+            container app to a project environment, and its logs appear here.
+          </p>
+        }
+        @case ('credential') {
+          <p>
+            Azure rejected the identity Console Ops is using, or the workspace is not visible to it.
+            Sign in with <span class="co-mono">az login</span>, or grant it read access to the
+            workspace.
+          </p>
+        }
+        @case ('apiUnavailable') {
+          <p>The Console Ops API is unavailable, so the log window could not be read.</p>
+        }
+        @default {
+          <p>
+            The log window could not be read. This is not the same as no events: nothing was
+            returned.
+          </p>
+        }
+      }
       <button type="button" class="retry" (click)="retry()">Try again</button>
     </div>
   }
 
   @default {
-    <aside class="preview-notice" role="note">
-      <span class="preview-badge">Sample data</span>
-      <span class="preview-text">
-        This screen is a design preview. Console Ops does not ingest logs yet, so nothing here was
-        emitted by your applications.
-      </span>
-    </aside>
-
     <co-log-filters
       [scopes]="scopes()"
       [scopeId]="scopeId()"
@@ -28,6 +43,7 @@
       [live]="live()"
       (scopeChange)="setScope($event)"
       (queryChange)="setQuery($event)"
+      (querySubmit)="submitQuery()"
       (levelChange)="setLevel($event)"
       (sourceChange)="setSource($event)"
       (liveChange)="setLive($event)"
@@ -42,6 +58,7 @@
           [selectedId]="selected()?.id ?? null"
           [observedAt]="observedAt()"
           [live]="live()"
+          [window]="window()"
           (selectEvent)="select($event)"
           (clearFilters)="clearFilters()"
         />

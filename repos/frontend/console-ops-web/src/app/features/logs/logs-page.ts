@@ -1,6 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 
 import { LogEvent, LogStreamItem, LogStreamScope } from '../../core/contracts/log-stream';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { LogStreamStore } from '../../core/state/log-stream.store';
 import { LogFilters, LogLevelFilter, LogSourceFilter } from './components/log-filters';
 import { LogDetail } from './components/log-detail';
@@ -11,11 +20,13 @@ import { LogStreamView } from './components/log-stream';
  *
  * It answers what the application and its runtime actually said around the time something happened, and
  * deliberately carries none of the state that already has a home. Project configuration, release history,
- * environment configuration, and health belong to their own screens; the only cross-screen material here
- * is the lightweight markers that explain a change in the stream.
+ * environment configuration, and health belong to their own screens; the only cross-screen material here is
+ * the lightweight markers that explain a change in the stream.
  *
- * Design stage: Console Ops has no log ingestion, so the screen is fixture-backed and says so. Nothing
- * here was observed from a real application.
+ * The scope and the free-text search are pushed down to the provider, because a 24-hour window can hold far
+ * more lines than one page: filtering locally would quietly hide matches further back in the window.
+ * Severity and source-kind narrow what is already on screen, which is honest because they are properties of
+ * the fetched lines.
  */
 @Component({
   selector: 'co-logs-page',
@@ -28,39 +39,61 @@ export class LogsPage {
   private readonly store = inject(LogStreamStore);
 
   protected readonly loadState = this.store.loadState;
+  protected readonly failureReason = this.store.failureReason;
   protected readonly observedAt = this.store.observedAt;
   protected readonly scopes = this.store.scopes;
+  protected readonly scope = this.store.scope;
+  protected readonly window = this.store.window;
 
   protected readonly query = signal('');
   protected readonly level = signal<LogLevelFilter>(null);
   protected readonly source = signal<LogSourceFilter>(null);
   protected readonly live = signal(true);
   private readonly requestedScopeId = signal<string | null>(null);
+  private readonly submittedQuery = signal('');
 
   /** Nothing is selected until an event is chosen: a panel nobody opened describes an arbitrary line. */
   private readonly selectedId = signal<string | null>(null);
 
-  /** Falls back to the first scope, because a stream always belongs to one project and environment. */
   protected readonly scopeId = computed<string | null>(() => {
     const requested = this.requestedScopeId();
-    const scopes = this.scopes();
-    if (requested !== null && scopes.some((scope) => keyFor(scope) === requested)) {
+    if (requested !== null) {
       return requested;
     }
 
-    const first = scopes[0];
-    return first === undefined ? null : keyFor(first);
+    const current = this.scope();
+    return current === null ? null : keyFor(current);
   });
 
-  protected readonly scope = computed<LogStreamScope | null>(
-    () => this.scopes().find((scope) => keyFor(scope) === this.scopeId()) ?? null,
-  );
+  constructor() {
+    // A scope or a search is a different question for the provider, so it is asked again.
+    effect(() => {
+      const scopeId = this.requestedScopeId();
+      const search = this.submittedQuery();
+      const [projectId, environmentId] = scopeId === null ? [null, null] : scopeId.split(':');
+
+      // Untracked: the store writes its own load-state signals, and reading them here would make this
+      // effect depend on its own output and re-run forever.
+      untracked(() =>
+        this.store.read({
+          projectId: projectId ?? null,
+          environmentId: environmentId ?? null,
+          search: search === '' ? null : search,
+        }),
+      );
+    });
+
+    // Re-reads the window while the screen is being looked at; the API holds the provider credential.
+    autoRefresh(() => {
+      if (this.live()) {
+        this.store.refresh();
+      }
+    });
+  }
 
   /**
-   * The stream in view.
-   *
-   * A marker is kept only while it still explains something: filtering to errors should not leave a
-   * deployment rule floating with nothing under it.
+   * The stream in view. Severity and source narrow the fetched lines; a marker is kept only while it still
+   * explains something under it.
    */
   protected readonly items = computed<readonly LogStreamItem[]>(() => {
     const events = this.store
@@ -71,12 +104,7 @@ export class LogsPage {
       return [];
     }
 
-    const hasFilter = this.query().trim() !== '' || this.level() !== null || this.source() !== null;
-    if (hasFilter) {
-      return events;
-    }
-
-    return this.store.items();
+    return this.level() === null && this.source() === null ? this.store.items() : events;
   });
 
   protected readonly totalCount = computed(
@@ -84,7 +112,10 @@ export class LogsPage {
   );
 
   protected readonly errorCount = computed(
-    () => this.items().filter((item) => item.kind === 'event' && item.level === 'error').length,
+    () =>
+      this.items().filter(
+        (item) => item.kind === 'event' && (item.level === 'error' || item.level === 'critical'),
+      ).length,
   );
 
   protected readonly selected = computed<LogEvent | null>(() => {
@@ -113,8 +144,14 @@ export class LogsPage {
     this.selectedId.set(null);
   }
 
+  /** Typing filters nothing on its own: the search is a provider query, so it is submitted. */
   protected setQuery(query: string): void {
     this.query.set(query);
+  }
+
+  protected submitQuery(): void {
+    this.submittedQuery.set(this.query().trim());
+    this.selectedId.set(null);
   }
 
   protected setLevel(level: LogLevelFilter): void {
@@ -131,6 +168,7 @@ export class LogsPage {
 
   protected clearFilters(): void {
     this.query.set('');
+    this.submittedQuery.set('');
     this.level.set(null);
     this.source.set(null);
   }
@@ -139,36 +177,27 @@ export class LogsPage {
     this.store.refresh();
   }
 
+  /**
+   * Severity buckets: the toolbar offers three, and the contract carries seven. `INF` covers the
+   * informational levels, `ERR` covers error and critical, and an unparsed line appears only under `All`.
+   */
   private matches(event: LogEvent): boolean {
     const level = this.level();
-    if (level !== null && event.level !== level) {
+    if (level === 'information' && !['information', 'debug', 'trace'].includes(event.level)) {
+      return false;
+    }
+    if (level === 'warning' && event.level !== 'warning') {
+      return false;
+    }
+    if (level === 'error' && !['error', 'critical'].includes(event.level)) {
       return false;
     }
 
     const source = this.source();
-    if (source !== null && event.sourceKind !== source) {
-      return false;
-    }
-
-    const query = this.query().trim().toLowerCase();
-    return query === '' || matchesQuery(event, query);
+    return source === null || event.sourceKind === source;
   }
 }
 
 function keyFor(scope: LogStreamScope): string {
   return `${scope.projectId}:${scope.environment.id}`;
-}
-
-function matchesQuery(event: LogEvent, query: string): boolean {
-  return (
-    event.message.toLowerCase().includes(query) ||
-    event.source.toLowerCase().includes(query) ||
-    (event.correlation.traceId?.toLowerCase().includes(query) ?? false) ||
-    (event.correlation.requestId?.toLowerCase().includes(query) ?? false) ||
-    (event.exception?.type.toLowerCase().includes(query) ?? false) ||
-    event.properties.some(
-      (property) =>
-        property.name.toLowerCase().includes(query) || property.value.toLowerCase().includes(query),
-    )
-  );
 }

@@ -4,35 +4,6 @@
   padding: 0 var(--co-space-6) var(--co-space-7);
 }
 
-/* Says plainly that this screen is not observed state, so it cannot be mistaken for one. */
-.preview-notice {
-  display: flex;
-  align-items: center;
-  gap: var(--co-space-3);
-  margin-bottom: var(--co-space-5);
-  padding: var(--co-space-3) var(--co-space-4);
-  background: rgba(201, 138, 8, 0.08);
-  border: 1px solid rgba(201, 138, 8, 0.28);
-  border-radius: var(--co-radius-md);
-}
-
-.preview-badge {
-  padding: 2px 8px;
-  border-radius: var(--co-radius-sm);
-  background: var(--co-status-warning);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.preview-text {
-  font-size: 12px;
-  color: var(--co-ink);
-}
-
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;

@@ -135,5 +135,12 @@ public sealed class AzureConsoleLogNormalizerTests
         DateTimeOffset occurredAt,
         string log,
         string stream = "stdout") =>
-        new(occurredAt, log, stream, "spinner-api--000021", "spinner-api-7d8c9f6b5c-xk2pz");
+        new(
+            occurredAt,
+            // Ingestion time is shared across a batch, which is why it never drives ordering.
+            occurredAt.AddSeconds(1),
+            log,
+            stream,
+            "spinner-api--000021",
+            "spinner-api-7d8c9f6b5c-xk2pz");
 }

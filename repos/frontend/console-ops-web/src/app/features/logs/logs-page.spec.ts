@@ -1,23 +1,104 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 
-import { LogStreamDataSource } from '../../core/data/log-stream.data-source';
-import { LOG_STREAM_FIXTURE } from '../../core/data/mock/log-stream.fixture';
+import { LogEvent, LogStream, LogStreamScope } from '../../core/contracts/log-stream';
+import { LogStreamDataSource, LogStreamRequest } from '../../core/data/log-stream.data-source';
 import { LogsPage } from './logs-page';
+
+const OBSERVED_AT = '2026-08-16T10:30:00.000Z';
+
+const SPINNER: LogStreamScope = {
+  projectId: 'project-spinner',
+  projectName: 'Spinner',
+  environment: { id: 'env-production', name: 'Production', kind: 'production' },
+  provider: 'azureContainerApps',
+};
+
+const STALLTRACK: LogStreamScope = {
+  projectId: 'project-stalltrack',
+  projectName: 'StallTrack',
+  environment: { id: 'env-staging', name: 'Staging', kind: 'staging' },
+  provider: 'azureContainerApps',
+};
+
+function event(overrides: Partial<LogEvent>): LogEvent {
+  return {
+    kind: 'event',
+    id: 'event-1',
+    occurredAt: '2026-08-16T10:25:05.930Z',
+    receivedAt: '2026-08-16T10:25:06.930Z',
+    level: 'information',
+    levelIsDerived: true,
+    source: 'Microsoft.EntityFrameworkCore.Database.Command',
+    sourceKind: 'application',
+    message: 'Executed DbCommand (3ms)',
+    stackTrace: null,
+    stream: 'stdout',
+    revision: 'spinner-api-stg--0000043',
+    host: 'spinner-api-stg-abc123',
+    ...overrides,
+  };
+}
+
+const STREAM: LogStream = {
+  observedAt: OBSERVED_AT,
+  scopes: [SPINNER, STALLTRACK],
+  scope: SPINNER,
+  window: { from: '2026-08-15T10:30:00.000Z', to: OBSERVED_AT, hours: 24, truncated: false },
+  items: [
+    event({}),
+    event({
+      id: 'event-2',
+      occurredAt: '2026-08-16T10:26:11.100Z',
+      level: 'warning',
+      message: 'Provider request required a retry',
+      source: 'Spinner.Payments',
+    }),
+    event({
+      id: 'event-3',
+      occurredAt: '2026-08-16T10:27:02.500Z',
+      level: 'error',
+      message: 'Payment provider returned an error',
+      source: 'Spinner.Payments',
+      stream: 'stderr',
+      stackTrace: 'at Spinner.Payments.ProviderClient.ChargeAsync()',
+    }),
+    // A plain line of output: no prefix, so no level and no category were established.
+    event({
+      id: 'event-4',
+      occurredAt: '2026-08-16T10:28:00.000Z',
+      level: 'unknown',
+      levelIsDerived: false,
+      source: null,
+      message: 'Now listening on: http://[::]:8080',
+      receivedAt: null,
+    }),
+  ],
+};
 
 describe('LogsPage', () => {
   let fixture: ComponentFixture<LogsPage>;
   let host: HTMLElement;
+  let requests: LogStreamRequest[];
 
-  beforeEach(async () => {
+  async function render(
+    load: (request: LogStreamRequest) => Observable<LogStream> = () => of(STREAM),
+  ): Promise<void> {
+    requests = [];
+    TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [LogsPage],
       providers: [
         provideRouter([]),
         {
           provide: LogStreamDataSource,
-          useValue: { load: () => of(LOG_STREAM_FIXTURE) },
+          useValue: {
+            load: (request: LogStreamRequest) => {
+              requests.push(request);
+              return load(request);
+            },
+          },
         },
       ],
     }).compileComponents();
@@ -25,7 +106,7 @@ describe('LogsPage', () => {
     fixture = TestBed.createComponent(LogsPage);
     await fixture.whenStable();
     host = fixture.nativeElement as HTMLElement;
-  });
+  }
 
   function lines(): HTMLElement[] {
     return Array.from(host.querySelectorAll('co-log-stream .line'));
@@ -33,12 +114,6 @@ describe('LogsPage', () => {
 
   function lineFor(text: string): HTMLElement | undefined {
     return lines().find((line) => line.textContent?.includes(text));
-  }
-
-  function markers(): string[] {
-    return Array.from(host.querySelectorAll('co-log-marker')).map(
-      (marker) => marker.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-    );
   }
 
   function detail(): string {
@@ -51,227 +126,156 @@ describe('LogsPage', () => {
       ?.click();
   }
 
-  it('says plainly that the screen is not observed state', () => {
-    expect(host.querySelector('.preview-notice')).not.toBeNull();
-    expect(host.textContent).toContain('Sample data');
-    expect(host.textContent).toContain('does not ingest logs yet');
+  it('reads real logs and no longer claims to be sample data', async () => {
+    await render();
+
+    expect(host.querySelector('.preview-notice')).toBeNull();
+    expect(host.textContent).not.toContain('Sample data');
+    expect(lines().length).toBe(4);
   });
 
-  it('reads chronologically, oldest first, like a terminal', () => {
-    const times = lines().map((line) => line.querySelector('.time')?.textContent?.trim());
+  it('states the window it read, because the provider keeps the logs', async () => {
+    await render();
 
-    expect(times[0]).toBe('23:52:11.997');
-    expect(times.at(-1)).toBe('23:54:51.006');
-    expect(host.querySelector('.day-label')?.textContent).toContain('Aug 15, 2026');
+    expect(host.textContent).toContain('last 24h');
+    expect(host.textContent).toContain('Showing 4 of 4 events');
+    expect(host.textContent).toContain('1 error');
   });
 
-  it('keeps a line scannable: time, severity, source, message, and a short outcome', () => {
-    const line = lineFor('GET /health completed');
+  it('says the window holds more when the row cap cut the result', async () => {
+    await render(() => of({ ...STREAM, window: { ...STREAM.window, truncated: true } }));
 
-    expect(line?.querySelector('.level')?.textContent?.trim()).toBe('INF');
-    expect(line?.querySelector('.source')?.textContent?.trim()).toBe('HTTP');
-    expect(line?.querySelector('.outcome')?.textContent?.trim()).toBe('200 · 7 ms');
-    // Detail belongs behind selection, never in the stream.
-    expect(line?.textContent).not.toContain('req_01HX7V5P4C6Q7R2S8T9U1V0X2');
-    expect(line?.textContent).not.toContain('HttpRequestException');
+    expect(host.textContent).toContain('window holds more');
   });
 
-  it('falls back to the most telling property when nothing else was reported', () => {
-    expect(lineFor('Container initialized')?.querySelector('.outcome')?.textContent).toContain(
-      'Image spinner-api:1.23.4',
+  it('labels each severity, and leaves an unparsed line unclaimed', async () => {
+    await render();
+
+    expect(lineFor('Executed DbCommand')?.querySelector('.level')?.textContent?.trim()).toBe('INF');
+    expect(lineFor('required a retry')?.querySelector('.level')?.textContent?.trim()).toBe('WRN');
+    expect(lineFor('returned an error')?.querySelector('.level')?.textContent?.trim()).toBe('ERR');
+    // A plain line of output is not information: it reads as a log line with no severity.
+    const plain = lineFor('Now listening on');
+    expect(plain?.querySelector('.level')?.textContent?.trim()).toBe('LOG');
+    expect(plain?.querySelector('.co-dot')?.getAttribute('data-level')).toBe('unknown');
+    expect(plain?.querySelector('.source')?.classList.contains('co-unavailable')).toBe(true);
+  });
+
+  it('marks a line written to standard error', async () => {
+    await render();
+
+    expect(lineFor('returned an error')?.querySelector('.outcome')?.textContent?.trim()).toBe(
+      'stderr',
     );
-    // An event with neither an outcome nor properties reads as nothing rather than a zero.
-    expect(
-      lineFor('Starting initialization')
-        ?.querySelector('.outcome')
-        ?.classList.contains('co-unavailable'),
-    ).toBe(true);
   });
 
-  it('shows deployment and revision markers as context, linked to the release', () => {
-    expect(markers()[0]).toContain('Revision started 8a17c2f');
-    expect(markers()[0]).toContain('spinner-api--000021');
+  it('opens no detail until an event is chosen', async () => {
+    await render();
 
-    const deployment = markers()[1];
-    expect(deployment).toContain('Deployment 9047c89');
-    expect(deployment).toContain('View release');
-    const link = host.querySelector<HTMLAnchorElement>('co-log-marker a');
-    expect(link?.getAttribute('href')).toBe('/deployments');
-  });
-
-  it('opens no detail until an event is chosen', () => {
     expect(detail()).toContain('Select an event to inspect it');
-    expect(host.querySelector('co-log-stream .line.is-selected')).toBeNull();
   });
 
-  it('describes the chosen event, including correlation and structured properties', async () => {
-    lineFor('Provider request required a retry')!.click();
+  it('says a parsed severity was read from the line rather than declared', async () => {
+    await render();
+    lineFor('required a retry')!.click();
     await fixture.whenStable();
 
     expect(detail()).toContain('Warning');
-    expect(detail()).toContain('Payments');
-    expect(detail()).toContain('Provider request required a retry');
-    expect(detail()).toContain('4f2b9c7e6d1a4c7bb8e2f9a1d3b6c8e0');
-    expect(detail()).toContain('req_01HX7V5P4C6Q7R2S8T9U1V0WZ');
-    // Structured logging is the point: the template and its values are both shown.
-    expect(detail()).toContain('Provider request required a retry, attempt {Attempt}');
-    expect(detail()).toContain('Attempt');
-    expect(detail()).toContain('1.84 s');
+    expect(detail()).toContain('read from the line');
+    expect(detail()).toContain('spinner-api-stg--0000043');
+    // Console output has no correlation ids, and the rail says so instead of showing empty fields.
+    expect(detail()).toContain('no trace or request id');
   });
 
-  it('keeps a stack trace collapsed until asked for, and never in the stream', async () => {
-    lineFor('Payment provider returned an error')!.click();
+  it('keeps folded continuation lines collapsed until asked for', async () => {
+    await render();
+    lineFor('returned an error')!.click();
     await fixture.whenStable();
 
-    expect(detail()).toContain('HttpRequestException');
     expect(host.querySelector('.stack-trace')).toBeNull();
-
     host.querySelector<HTMLButtonElement>('.trace-toggle')!.click();
     await fixture.whenStable();
 
-    expect(host.querySelector('.stack-trace')?.textContent).toContain(
-      'at Spinner.Payments.ProviderClient.ChargeAsync',
-    );
+    expect(host.querySelector('.stack-trace')?.textContent).toContain('ProviderClient.ChargeAsync');
   });
 
-  it('says when no stack trace was captured rather than showing an empty block', async () => {
-    lineFor('Connection attempt timed out')!.click();
+  it('reports facts the line did not carry as unknown', async () => {
+    await render();
+    lineFor('Now listening on')!.click();
     await fixture.whenStable();
 
-    expect(detail()).toContain('NpgsqlException');
-    expect(detail()).toContain('No stack trace was captured');
-    expect(host.querySelector('.trace-toggle')).toBeNull();
-  });
-
-  it('reports facts the event did not carry as unknown', async () => {
-    lineFor('Starting initialization')!.click();
-    await fixture.whenStable();
-
-    expect(detail()).toContain('Not provided');
+    expect(detail()).toContain('No category in the line');
     expect(detail()).toContain('Not reported');
   });
 
-  it('dismisses the detail without changing the stream', async () => {
-    const before = lines().length;
-    lineFor('Charge authorized')!.click();
-    await fixture.whenStable();
-    host.querySelector<HTMLButtonElement>('.dismiss')!.click();
-    await fixture.whenStable();
+  it('narrows severity over the fetched lines, without asking the provider again', async () => {
+    await render();
+    const before = requests.length;
 
-    expect(detail()).toContain('Select an event to inspect it');
-    expect(lines().length).toBe(before);
-  });
-
-  it('narrows by severity and drops markers that would explain nothing', async () => {
     clickLevel('ERR');
     await fixture.whenStable();
 
-    expect(lines().length).toBe(2);
-    expect(
-      Array.from(host.querySelectorAll('.line-item')).every(
-        (item) => item.getAttribute('data-level') === 'error',
-      ),
-    ).toBe(true);
-    expect(markers().length).toBe(0);
-    expect(host.textContent).toContain('2 errors');
+    expect(lines().length).toBe(1);
+    expect(lines()[0].textContent).toContain('returned an error');
+    // Severity is a property of lines already on screen, so no new provider read is needed.
+    expect(requests.length).toBe(before);
   });
 
-  it('colours each dot with the shared status level rather than the log level', () => {
-    const dotFor = (text: string): string | null =>
-      lineFor(text)?.querySelector('.co-dot')?.getAttribute('data-level') ?? null;
+  it('pushes the search down to the provider on submit, not on every keystroke', async () => {
+    await render();
+    const search = host.querySelector<HTMLInputElement>('#co-log-search')!;
 
-    // `.co-dot` speaks in operational levels, so an untranslated `info` would render as unknown grey.
-    expect(dotFor('GET /health completed')).toBe('healthy');
-    expect(dotFor('Provider request required a retry')).toBe('warning');
-    expect(dotFor('Payment provider returned an error')).toBe('down');
-  });
+    search.value = 'payment';
+    search.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    // Typing must not query: a window can hold far more lines than one page.
+    expect(requests.at(-1)?.search).toBeNull();
 
-  it('narrows by source kind', async () => {
-    const select = host.querySelector<HTMLSelectElement>('#co-log-source');
-    select!.value = 'runtime';
-    select!.dispatchEvent(new Event('change'));
+    search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await fixture.whenStable();
 
-    expect(lines().length).toBe(4);
-    expect(lines().every((line) => line.textContent?.includes('Runtime'))).toBe(true);
+    expect(requests.at(-1)?.search).toBe('payment');
   });
 
-  it('searches messages, correlation ids, and property values', async () => {
-    const search = host.querySelector<HTMLInputElement>('#co-log-search');
-    search!.value = '2048';
-    search!.dispatchEvent(new Event('input'));
+  it('asks the provider again when the scope changes', async () => {
+    await render();
+    const scope = host.querySelector<HTMLSelectElement>('#co-log-scope')!;
+
+    scope.value = 'project-stalltrack:env-staging';
+    scope.dispatchEvent(new Event('change'));
     await fixture.whenStable();
 
-    // Reaches events whose only mention of the order is a structured property.
-    expect(lines().length).toBe(3);
-    expect(host.textContent).toContain('Showing 3 of 12 events');
+    expect(requests.at(-1)?.projectId).toBe('project-stalltrack');
+    expect(requests.at(-1)?.environmentId).toBe('env-staging');
   });
 
-  it('offers an empty view a way back rather than a dead end', async () => {
-    const search = host.querySelector<HTMLInputElement>('#co-log-search');
-    search!.value = 'nothing matches this';
-    search!.dispatchEvent(new Event('input'));
-    await fixture.whenStable();
+  it('explains a missing log source instead of showing an empty stream', async () => {
+    await render(() =>
+      throwError(() => ({ status: 404, error: { code: 'Logs.NoLogSourceConfigured' } })),
+    );
 
-    expect(host.textContent).toContain('No events match this view');
-    host.querySelector<HTMLButtonElement>('.reset')!.click();
-    await fixture.whenStable();
-
-    expect(lines().length).toBeGreaterThan(0);
+    expect(host.textContent).toContain('No environment has a log source configured');
+    expect(lines().length).toBe(0);
   });
 
-  it('pauses the stream so a line can be read without it moving', async () => {
-    expect(host.textContent).toContain('Following new events');
+  it('names a rejected Azure identity rather than blaming the window', async () => {
+    await render(() => throwError(() => ({ status: 500, error: { code: 'Logs.Unauthorized' } })));
 
-    host.querySelector<HTMLButtonElement>('.live')!.click();
-    await fixture.whenStable();
-
-    expect(host.textContent).toContain('Paused');
-    expect(host.textContent).not.toContain('Following new events');
+    expect(host.textContent).toContain('Azure rejected the identity');
+    expect(host.textContent).toContain('az login');
   });
 
-  it('scopes the stream from one field with one dropdown', () => {
-    const scope = host.querySelector('.scope');
-    const selects = scope!.querySelectorAll('select');
+  it('distinguishes a failed read from a window that held nothing', async () => {
+    await render(() => throwError(() => ({ status: 500, error: { code: 'Logs.Unavailable' } })));
 
-    // One choice, made once: a second dropdown in the same field would ask for it twice.
-    expect(selects.length).toBe(1);
-    expect(selects[0].id).toBe('co-log-scope');
-    expect(scope?.querySelector('.project')?.textContent?.trim()).toBe('Spinner API');
-    expect(scope?.querySelector('co-environment-tag')?.textContent?.trim()).toBe('Production');
+    expect(host.textContent).toContain('This is not the same as no events');
   });
 
-  it('lists the project and environment pairs, and reads back the chosen one', async () => {
-    const scope = host.querySelector<HTMLSelectElement>('#co-log-scope');
-    expect(Array.from(scope!.options).map((option) => option.textContent?.trim())).toEqual([
-      'Spinner API / Production',
-      'Spinner API / Staging',
-      'StallTrack / Production',
-    ]);
+  it('carries none of the state that already has a home', async () => {
+    await render();
 
-    scope!.value = 'project-spinner:env-staging';
-    scope!.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-
-    expect(host.querySelector('.project')?.textContent?.trim()).toBe('Spinner API');
-    expect(host.querySelector('co-environment-tag')?.textContent?.trim()).toBe('Staging');
-  });
-
-  it('follows a change of project as well as environment', async () => {
-    const scope = host.querySelector<HTMLSelectElement>('#co-log-scope');
-    scope!.value = 'project-stalltrack:env-stalltrack-production';
-    scope!.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-
-    expect(host.querySelector('.project')?.textContent?.trim()).toBe('StallTrack');
-    expect(host.querySelector('co-environment-tag')?.textContent?.trim()).toBe('Production');
-  });
-
-  it('carries none of the state that already has a home', () => {
-    // No release history, no health summary, no version sync, no uptime on this screen.
     expect(host.textContent).not.toContain('Version sync');
     expect(host.textContent).not.toContain('Uptime');
-    expect(host.textContent).not.toContain('In Sync');
     expect(host.querySelector('co-deployment-timeline')).toBeNull();
   });
 });

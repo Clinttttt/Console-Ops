@@ -2,10 +2,15 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 
 import { EnvironmentTag } from '../../../core/ui/environment-tag';
 import { Icon } from '../../../core/ui/icon';
-import { LogLevel, LogSourceKind, LogStreamScope } from '../../../core/contracts/log-stream';
+import { LogSourceKind, LogStreamScope } from '../../../core/contracts/log-stream';
 
-/** `null` means every level, so the filter has one control rather than three checkboxes. */
-export type LogLevelFilter = LogLevel | null;
+/**
+ * `null` means every level, so the filter has one control rather than three checkboxes.
+ *
+ * The three buckets are wider than the values they carry: `information` covers the informational levels,
+ * `error` covers error and critical, and a line whose level could not be read appears only under `All`.
+ */
+export type LogLevelFilter = 'information' | 'warning' | 'error' | null;
 
 /** `null` means every source kind. */
 export type LogSourceFilter = LogSourceKind | null;
@@ -19,7 +24,7 @@ interface LevelOption {
 
 const LEVELS: readonly LevelOption[] = [
   { value: null, label: 'All', level: null },
-  { value: 'info', label: 'INF', level: 'healthy' },
+  { value: 'information', label: 'INF', level: 'healthy' },
   { value: 'warning', label: 'WRN', level: 'warning' },
   { value: 'error', label: 'ERR', level: 'down' },
 ];
@@ -55,6 +60,8 @@ export class LogFilters {
 
   readonly scopeChange = output<string>();
   readonly queryChange = output<string>();
+  /** The search is a provider query, so it is submitted rather than applied on every keystroke. */
+  readonly querySubmit = output<void>();
   readonly levelChange = output<LogLevelFilter>();
   readonly sourceChange = output<LogSourceFilter>();
   readonly liveChange = output<boolean>();

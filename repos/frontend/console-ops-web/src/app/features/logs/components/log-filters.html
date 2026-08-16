@@ -29,13 +29,16 @@
 
 <div class="search">
   <co-icon name="search" [size]="15" />
-  <label class="co-sr-only" for="co-log-search">Search messages, trace IDs, request IDs</label>
+  <label class="co-sr-only" for="co-log-search">Search messages</label>
+  <!-- Submitted rather than applied per keystroke: this search is a provider query over the whole window. -->
   <input
     id="co-log-search"
     type="search"
-    placeholder="Search messages, trace ID, request ID..."
+    placeholder="Search the window, then press Enter..."
     [value]="query()"
     (input)="queryChange.emit($any($event.target).value)"
+    (keydown.enter)="querySubmit.emit()"
+    (search)="querySubmit.emit()"
   />
 </div>
 

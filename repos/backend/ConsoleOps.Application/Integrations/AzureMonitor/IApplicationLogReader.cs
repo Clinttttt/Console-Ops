@@ -91,9 +91,15 @@ public enum ApplicationLogReadFailure
 /// <param name="Level">Severity as parsed, or <see cref="ApplicationLogLevel.Unknown"/>.</param>
 /// <param name="Category">Emitter category such as <c>Spinner.Payments</c>, or <c>null</c>.</param>
 /// <param name="StackTrace">Continuation lines that belonged to this entry, or <c>null</c>.</param>
+/// <param name="ReceivedAtUtc">
+/// When the provider ingested the line, or <c>null</c> when it did not say. Kept beside
+/// <paramref name="OccurredAtUtc"/> so clock skew and ingestion delay stay visible instead of being
+/// smoothed away.
+/// </param>
 public sealed record ApplicationLogEntry(
     string Id,
     DateTimeOffset OccurredAtUtc,
+    DateTimeOffset? ReceivedAtUtc,
     ApplicationLogLevel Level,
     bool LevelIsDerived,
     string? Category,
