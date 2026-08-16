@@ -48,13 +48,31 @@
                     <span class="identity-text">
                       <span class="project-name">{{ deployment.projectName }}</span>
                       <span class="identity-tags">
-                        <co-environment-tag
-                          [name]="deployment.environment.name"
-                          [kind]="deployment.environment.kind"
-                        />
-                        @if (deployment.isCurrent) {
-                          <span class="current" title="Currently active in this environment">
-                            Current
+                        @for (
+                          observation of environmentsFor(deployment);
+                          track observation.environment.id
+                        ) {
+                          <co-environment-tag
+                            [name]="observation.environment.name"
+                            [kind]="observation.environment.kind"
+                          />
+                          @if (observation.isCurrent) {
+                            <span
+                              class="current"
+                              [title]="
+                                observation.environment.name +
+                                ' still reports this commit, so this is what it is serving'
+                              "
+                            >
+                              Current
+                            </span>
+                          }
+                        } @empty {
+                          <span
+                            class="co-unavailable"
+                            title="No environment has reported this commit, so Console Ops cannot say where it is running"
+                          >
+                            Not observed running
                           </span>
                         }
                       </span>
@@ -144,10 +162,11 @@
                     </button>
                   </span>
                   <span class="meta-divider" aria-hidden="true"></span>
-                  @if (deployment.revision === null) {
-                    <span class="meta-item co-unavailable">No runtime revision</span>
+                  @let run = runLabel(deployment);
+                  @if (run === null) {
+                    <span class="meta-item co-unavailable">No workflow configured</span>
                   } @else {
-                    <span class="meta-item co-mono">{{ deployment.revision }}</span>
+                    <span class="meta-item co-mono">{{ run }}</span>
                   }
                 </div>
               </article>
@@ -161,7 +180,7 @@
   <footer class="timeline-footer">
     <span
       class="co-inline-link is-unavailable"
-      title="Older history arrives with the deployment-history phase"
+      title="Console Ops keeps the releases it has recorded; paging further back arrives with continuous collection"
     >
       <co-icon name="archive" [size]="15" />
       View older deployments
@@ -169,7 +188,7 @@
 
     <p class="count">
       Showing {{ deployments().length }} of {{ totalCount() }}
-      {{ totalCount() === 1 ? 'deployment' : 'deployments' }}
+      {{ totalCount() === 1 ? 'release' : 'releases' }}
     </p>
   </footer>
 }

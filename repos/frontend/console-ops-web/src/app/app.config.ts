@@ -8,10 +8,10 @@ import { DeploymentRegistryDataSource } from './core/data/deployment-registry.da
 import { EndpointVerificationDataSource } from './core/data/endpoint-verification.data-source';
 import { GitHubDiscoveryDataSource } from './core/data/github-discovery.data-source';
 import { HttpDashboardOverviewDataSource } from './core/data/http-dashboard-overview.data-source';
+import { HttpDeploymentRegistryDataSource } from './core/data/http-deployment-registry.data-source';
 import { HttpEndpointVerificationDataSource } from './core/data/http-endpoint-verification.data-source';
 import { HttpGitHubDiscoveryDataSource } from './core/data/http-github-discovery.data-source';
 import { HttpProjectRegistryDataSource } from './core/data/http-project-registry.data-source';
-import { MockDeploymentRegistryDataSource } from './core/data/mock/mock-deployment-registry.data-source';
 import { ProjectRegistryDataSource } from './core/data/project-registry.data-source';
 
 export const appConfig: ApplicationConfig = {
@@ -31,9 +31,7 @@ export const appConfig: ApplicationConfig = {
     { provide: GitHubDiscoveryDataSource, useClass: HttpGitHubDiscoveryDataSource },
     { provide: EndpointVerificationDataSource, useClass: HttpEndpointVerificationDataSource },
 
-    // Design stage: the Deployments screen runs on a fixture because deployment history is a later
-    // product phase. Replace this provider with an HTTP adapter when that phase lands, then delete
-    // the mock.
-    { provide: DeploymentRegistryDataSource, useClass: MockDeploymentRegistryDataSource },
+    // Release history recorded from GitHub Actions runs during project refreshes.
+    { provide: DeploymentRegistryDataSource, useClass: HttpDeploymentRegistryDataSource },
   ],
 };

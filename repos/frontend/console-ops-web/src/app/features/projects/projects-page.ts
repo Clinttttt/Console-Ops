@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 import { ProjectListItem } from '../../core/contracts/project-registry';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { ProjectFilters, RegistryView } from './components/project-filters';
@@ -27,6 +28,10 @@ export class ProjectsPage {
 
   protected readonly loadState = this.store.loadState;
   protected readonly recentlyAdded = this.store.recentlyAdded;
+
+  constructor() {
+    autoRefresh(() => this.store.refresh());
+  }
 
   protected readonly query = signal('');
 

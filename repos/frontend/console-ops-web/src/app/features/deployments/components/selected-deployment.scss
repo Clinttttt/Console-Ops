@@ -82,6 +82,58 @@ dd {
   color: var(--co-ink);
 }
 
+.evidence {
+  margin-top: var(--co-space-4);
+  padding-top: var(--co-space-4);
+  border-top: 1px solid var(--co-line);
+}
+
+.evidence > .co-eyebrow {
+  padding-bottom: var(--co-space-3);
+}
+
+.evidence > .co-unavailable {
+  font-size: 12.5px;
+}
+
+.environment + .environment {
+  margin-top: var(--co-space-3);
+  padding-top: var(--co-space-3);
+  border-top: 1px dashed var(--co-line);
+}
+
+.environment-head {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+}
+
+.seen {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--co-ink-faint);
+}
+
+.current {
+  padding: 2px 6px;
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--co-ink-muted);
+}
+
+.rows.is-compact {
+  margin-top: var(--co-space-2);
+}
+
+.rows.is-compact .row {
+  grid-template-columns: 96px minmax(0, 1fr);
+  padding: 3px 0;
+}
+
 .actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -2,7 +2,10 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 
 import { StatusCell } from '../../../core/contracts/dashboard-overview';
-import { DeploymentListItem } from '../../../core/contracts/deployment-registry';
+import {
+  DeploymentEnvironmentObservation,
+  DeploymentListItem,
+} from '../../../core/contracts/deployment-registry';
 import { deploymentVerdict } from '../../../core/ui/deployment-verdict';
 import { DurationPipe } from '../../../core/ui/duration.pipe';
 import { EnvironmentTag } from '../../../core/ui/environment-tag';
@@ -27,9 +30,9 @@ interface DeploymentDay {
 /**
  * Release history as a timeline of cards, newest first.
  *
- * A wide table forced every fact into its own column and became unreadable. Each deployment is now one
- * card: the scannable line carries project, environment, verdict, timing, and actions, while source
- * detail sits on a quieter second line.
+ * A wide table forced every fact into its own column and became unreadable. Each release is now one
+ * card: the scannable line carries project, the environments it was observed running in, the verdict,
+ * timing, and actions, while source detail sits on a quieter second line.
  */
 @Component({
   selector: 'co-deployment-timeline',
@@ -81,6 +84,25 @@ export class DeploymentTimeline {
 
   protected toneFor(projectId: string): ProjectMarkTone {
     return toneForProject(projectId);
+  }
+
+  /** Environments sorted so the ones still serving the release are named first. */
+  protected environmentsFor(
+    deployment: DeploymentListItem,
+  ): readonly DeploymentEnvironmentObservation[] {
+    return [...deployment.environments].sort(
+      (left, right) => Number(right.isCurrent) - Number(left.isCurrent),
+    );
+  }
+
+  /** Workflow file plus run number, which is how a run is identified in GitHub. */
+  protected runLabel(deployment: DeploymentListItem): string | null {
+    const file = deployment.workflowFile ?? deployment.workflowName;
+    if (file === null) {
+      return null;
+    }
+
+    return deployment.runNumber === null ? file : `${file} #${deployment.runNumber}`;
   }
 
   protected async copyCommit(deployment: DeploymentListItem): Promise<void> {

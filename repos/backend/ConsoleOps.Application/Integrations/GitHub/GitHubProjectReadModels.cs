@@ -9,7 +9,35 @@ public sealed record GitHubProjectReference(
 public sealed record GitHubProjectReadResult(
     GitHubFactResult<GitHubSourceObservation> Source,
     GitHubFactResult<GitHubWorkflowObservation> Workflow,
-    IReadOnlyList<GitHubCommitComparison> CommitComparisons);
+    IReadOnlyList<GitHubCommitComparison> CommitComparisons,
+    IReadOnlyList<GitHubWorkflowRun> WorkflowRuns);
+
+/// <summary>
+/// One completed or in-flight run of the project's configured workflow.
+/// <para>
+/// This is the release history Console Ops can actually establish: GitHub reports the run, its commit,
+/// and its outcome. Which environment the run reached is deliberately absent, because a V1 project
+/// configures one workflow for the whole project and GitHub does not tell us where the artifact landed.
+/// That link is established later from runtime version observations, never guessed here.
+/// </para>
+/// </summary>
+/// <param name="TriggeredBy">
+/// Login of the account that started the run, or <c>null</c> when GitHub omitted it.
+/// </param>
+/// <param name="RunUrl">Absolute GitHub run URL, or <c>null</c> when it could not be trusted.</param>
+public sealed record GitHubWorkflowRun(
+    long RunId,
+    int? RunNumber,
+    string? WorkflowFile,
+    string? WorkflowName,
+    string Branch,
+    string CommitSha,
+    GitHubWorkflowState State,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc,
+    string? TriggeredBy,
+    string? RunUrl,
+    DateTimeOffset ObservedAtUtc);
 
 public sealed record GitHubCommitComparison(
     string DeployedCommitSha,

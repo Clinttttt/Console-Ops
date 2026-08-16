@@ -399,25 +399,70 @@ no observation reads `Not observed yet` rather than borrowing another environmen
 offered as a link to the project, because V1 edits environments through project configuration
 replacement rather than an environment resource.
 
-### Deployments screen: design mock ahead of the deployment phase
+### Deployments screen: release history recorded from GitHub Actions runs
 
-Decided 2026-08-14. The Deployments screen exists as a fixture-backed design mock at `/deployments`. It
-is not connected to the API and must not be: deployment history is a later product phase and deployment
-triggering is later still, so no column on this screen has a V1 source.
+Decided 2026-08-15, replacing the fixture-backed design mock of 2026-08-14. The screen reads
+`GET /api/deployments`; the fixture, its mock adapter, and the SAMPLE DATA banner are deleted.
 
-It follows the same rules as the Environments mock, plus two of its own:
+A deployment record is **one run of a project's configured workflow**. That is the honest unit: GitHub
+proves a commit was built and how the run ended, not where the artifact landed. There is deliberately no
+environment column on the `deployments` table.
+
+The environment link is **evidence, not attribution**. An environment appears under a release because its
+own `/version` endpoint reported that release's commit, and the release is `isCurrent` there while that
+is still the latest thing the environment reported. This reuses the deterministic commit match already
+behind version sync. A release with no environments was built but never seen running: the screen says
+`Not observed running` rather than claiming or hiding a destination, and such a release drops out of an
+environment-scoped view instead of being assumed into it.
+
+Health before and after are the health observations bracketing the first sighting of the commit in that
+environment. This is only possible because the observation tables are append-only, and it is what makes
+a bad release visible: `Healthy` before, `Unhealthy` after, same environment, recorded times shown.
+
+Collection is bounded and idempotent. Refresh reads the last `WorkflowRunPageSize` (20) runs from the
+same workflow-runs request that already answers "what is the workflow doing", so history costs no extra
+GitHub call. Records are upserted on `(project_id, external_run_id)`: `recorded_at_utc` keeps the first
+sighting, `observed_at_utc` the last confirmation, so an in-flight run completing updates one row.
+History therefore starts at the first refresh and fills in as refreshes continue; continuous collection
+needs a background worker and is a later phase.
+
+Two rules carried over from the mock still hold:
 
 - The verification verdict is derived, not stored. `core/ui/deployment-verdict.ts` computes it from the
-  three facts a provider and the probes actually report - result, post-deployment health, version sync -
-  in severity order. A missing version endpoint yields `notConfigured` and never downgrades an otherwise
-  passing deployment; an unknown fact yields `Unverified` rather than a guess. This is the deterministic
-  correlation rule applied to one deployment.
+  run outcome, the health observed after the release was seen, and version sync, in severity order. Drift
+  is only reported for an environment the release still serves, because a superseded release is expected
+  to be behind. An unknown fact yields `Unverified` rather than a pass.
 - Every figure in the verification summary is counted from the records in view, never estimated. When a
-  figure has no basis - no durations reported, no records in the window - it reads as unavailable rather
-  than zero, and it recounts when the view narrows.
+  figure has no basis it reads as unavailable rather than zero, and it recounts when the view narrows.
 
-Triggering, redeploying, rolling back, and log access are disabled controls that name the phase they
-belong to. A recorded workflow run is a real outbound link; a missing one is explicitly unavailable.
+Still absent, because V1 has no source: the runtime revision (`spinner-api--000021`) and the runtime
+target, both of which need Azure awareness. Triggering, redeploying, rolling back, and log access remain
+disabled controls that name the phase they belong to.
+
+### Collection is scheduled; the browser only re-reads
+
+Decided 2026-08-15. Console Ops collects observations on its own so the screens are current without the
+operator pressing anything. Two halves, deliberately separated:
+
+- **The API collects.** `ProjectRefreshWorker` sweeps active projects on an interval (`Monitoring:Refresh`,
+  default every 300s) and sends the same `RefreshProjectCommand` the manual endpoint sends. There is no
+  second collection path that could record different facts or emit different activity. A project that
+  fails is logged and skipped; the sweep continues and the worker survives. Registration is conditional
+  on `Enabled`, so collection can be turned off entirely, and integration tests turn it off so they
+  assert only the refreshes they perform.
+- **The browser re-reads.** `core/state/auto-refresh.ts` re-reads a screen's stored data every 30s while
+  it is being looked at. It never asks the API to contact a provider. A hidden tab is not polled, and
+  returning to one reads immediately rather than showing state from minutes ago.
+
+The manual refresh action stays. Its meaning changes from "the only way to get data" to "check now",
+which is worth having when a deploy is in flight.
+
+This also matters for release history: with only manual refreshes, a workflow run that starts and ends
+between two visits is never recorded. A steady sweep is what makes the Deployments timeline continuous
+and gives health-before and health-after something to compare.
+
+Freshness is still not asserted. No stale threshold is invented; every screen shows each fact's own
+observation time and lets the reader judge.
 
 ### Add Project: import-first direction
 

@@ -70,6 +70,10 @@ contract (core/contracts) -> port (core/data) -> adapter (mock or http) -> store
   (`loading` / `loaded` / `unavailable`) so the UI can distinguish waiting from unknown.
 - Fixtures live in `core/data/mock/` and must include honest gaps: a project without a version
   endpoint, a component that is not applicable, a measurement with no samples.
+- Screens keep themselves current by calling `autoRefresh(...)` from `core/state/auto-refresh.ts` in the
+  constructor. That re-reads stored data only. The browser never polls a provider and never triggers
+  collection: the API collects on a schedule, and a manual refresh action means "check now". A hidden tab
+  is not polled.
 
 ## Rendering rules
 
@@ -150,8 +154,8 @@ When a record carries more facts than a row can hold, switch to a card per recor
 
 - one scannable line for identity, verdict, and timing, aligned across cards with a grid so the eye can
   run down a column;
-- a quieter second line, separated by a hairline rule, for source detail such as branch, commit, and
-  revision;
+- a quieter second line, separated by a hairline rule, for source detail such as branch, commit, and the
+  workflow run;
 - actions grouped at the end of the scannable line, labelled rather than icon-only when there is room;
 - group cards under a date or category heading on a timeline rail instead of repeating a header row.
 

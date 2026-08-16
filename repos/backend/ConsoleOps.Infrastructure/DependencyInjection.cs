@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using ConsoleOps.Application.Abstractions.Persistence;
 using ConsoleOps.Application.Features.Dashboard.GetOverview;
+using ConsoleOps.Application.Features.Deployments.GetHistory;
 using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
@@ -30,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IProjectReadStore, ProjectReadStore>();
         services.AddScoped<IProjectRefreshStore, ProjectRefreshStore>();
         services.AddScoped<IDashboardOverviewReadStore, DashboardOverviewReadStore>();
+        services.AddScoped<IDeploymentHistoryReadStore, DeploymentHistoryReadStore>();
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
             ConfigureGitHubClient(client, configuration));
         services.AddHttpClient<IGitHubRepositoryCatalog, GitHubRepositoryCatalog>(client =>

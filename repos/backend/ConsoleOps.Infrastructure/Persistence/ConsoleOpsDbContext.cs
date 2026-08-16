@@ -1,4 +1,5 @@
 using ConsoleOps.Domain.Projects;
+using ConsoleOps.Infrastructure.Persistence.Deployments;
 using ConsoleOps.Infrastructure.Persistence.Monitoring;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +26,8 @@ public sealed class ConsoleOpsDbContext(DbContextOptions<ConsoleOpsDbContext> op
         Set<VersionSyncObservationEntity>();
 
     public DbSet<MonitoringActivityEntity> MonitoringActivities => Set<MonitoringActivityEntity>();
+
+    public DbSet<DeploymentEntity> Deployments => Set<DeploymentEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

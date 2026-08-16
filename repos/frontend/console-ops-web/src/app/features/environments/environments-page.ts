@@ -5,6 +5,7 @@ import {
   ProjectSurface,
   StatusCell,
 } from '../../core/contracts/dashboard-overview';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
@@ -51,6 +52,14 @@ export class EnvironmentsPage {
   protected readonly query = signal('');
   protected readonly projectId = signal<string | null>(null);
   private readonly selectedId = signal<string | null>(null);
+
+  constructor() {
+    // Configuration and observations are read together, because this screen pairs them.
+    autoRefresh(() => {
+      this.projects.refresh();
+      this.dashboard.refresh();
+    });
+  }
 
   /** The registry decides whether this screen has anything to show; observations are additive. */
   protected readonly loadState = this.projects.loadState;

@@ -25,11 +25,15 @@ V1 supports:
 - application health and version probes;
 - deterministic source-to-deployed version comparison;
 - stored observations and transition-based activity;
-- the read-only Overview query.
+- the read-only Overview query;
+- release history recorded from GitHub Actions workflow runs.
 
-V1 does not claim Azure revision state, deployment history, restart/migration/container events,
-configuration completeness, logs, rollback, uptime percentages, or Docker state. Those facts must
+V1 does not claim Azure revision state, restart/migration/container events, configuration
+completeness, logs, rollback, uptime percentages, or Docker state. Those facts must
 be omitted or reported as unavailable until their product phase is implemented.
+
+Deployment history was added on 2026-08-15, limited to what GitHub Actions proves: workflow runs and
+their outcomes, reconciled against runtime version observations. Runtime revisions remain absent.
 
 ## Exposure and the optional API key
 
@@ -249,15 +253,22 @@ Unequal short SHAs alone never prove `behind`.
 
 - External facts are persisted as timestamped observations; they are not permanent truth.
 - `POST /api/projects/{projectId}/refresh` is implemented before background polling and uses the same
-  application use case the later worker will call.
-- GitHub is read once per project refresh; health/version are read per configured environment.
+  application use case the later worker will call.- GitHub is read once per project refresh; health/version are read per configured environment.
 - One provider failure must not discard successful facts from the same refresh.
 - The dashboard reads stored observations and never contacts GitHub or application endpoints during
   the dashboard request.
 - Every dashboard signal carries its own observation time. The top-level `observedAt` is response
   composition time, not a claim that every fact was sampled simultaneously.
-- A background interval and stale threshold remain configurable Phase 5 decisions. Phase 0 does not
-  invent fixed freshness guarantees before the worker exists.
+- A background sweep keeps observations current so the screens are useful without the operator pressing
+  anything. It is configured under `Monitoring:Refresh`: `Enabled` (default `true`), `IntervalSeconds`
+  (default 300, clamped to 30..3600), `StartupDelaySeconds` (default 10), and
+  `ProjectSpacingMilliseconds` (default 500, spacing projects within one sweep). The sweep sends the same
+  `RefreshProjectCommand` as the endpoint, so scheduled and manual collection cannot diverge.
+- One project failing a sweep must not end the sweep, and a failed sweep must not stop the worker.
+  Provider failures are recorded as observations; Console Ops is more useful stale than dead.
+- Manual refresh remains: it is how an operator says "check now" rather than the only way to get data.
+- A stale threshold is still not invented. Screens show each fact's observation time and let the reader
+  judge.
 - The refresh response returns the facts persisted by that attempt: project-level source/workflow,
   per-environment health/version/version-sync, and activities emitted by deterministic transitions.
   It never returns raw provider failures or payloads.
@@ -265,6 +276,66 @@ Unequal short SHAs alone never prove `behind`.
   project's configuration version under a short database lock; if configuration changed while
   providers were being read, the attempt returns `409 Conflict` instead of attaching observations
   to stale endpoints.
+
+## Deployment history contract
+
+Added 2026-08-15. `GET /api/deployments?limit=` returns recorded release history, newest first. `limit`
+is clamped to 1..200 and defaults to 100. Like the dashboard it reads stored records only and never
+contacts GitHub during the request.
+
+A deployment record is one run of a project's configured workflow. GitHub proves that a commit was built
+and how the run ended; it does not say where the artifact landed, so no record carries an environment of
+its own.
+
+Per record: `id`, `projectId`, `projectName`, `provider` (`githubActions`), `repository`, `branch`,
+`commitSha`, `commitShortSha`, `result`, `workflowFile`, `workflowName`, `workflowUrl`, `runNumber`,
+`triggeredBy`, `startedAt`, `completedAt`, `deployedAt`, `durationSeconds`, `recordedAt`, and
+`environments`.
+
+- `result` uses the same vocabulary as workflow state elsewhere: `queued`, `inProgress`, `passed`,
+  `failed`, `cancelled`, `unknown`. One run must never read as `Passed` on one screen and `Succeeded` on
+  another.
+- `deployedAt` is completion when known, otherwise start, otherwise the moment Console Ops first recorded
+  the run. It is the instant the timeline orders and groups by.
+- `durationSeconds` is present only when both ends are known and ordered; a negative or partial interval
+  is `null`, never clamped to zero.
+- `workflowUrl` is `null` unless the provider link is absolute HTTPS on a `github.com` host with no
+  embedded credentials. The browser renders it as an outbound link.
+- `triggeredBy` is the account login that started the run. Never a token, email, or other credential.
+
+`environments` is evidence of where the release was observed running, not attribution:
+
+- an entry exists because that environment's own version endpoint reported this release's commit;
+- `isCurrent` is `true` while the environment's latest version observation still reports it;
+- `firstObservedAt` is the first sighting, which Console Ops treats as when the release became live there
+  because it is the first evidence it has;
+- `healthBefore` and `healthAfter` are the health observations either side of that sighting, with their
+  own observation times, and read `unknown` when no such check exists;
+- `versionCheck` is the version-sync state observed once the release was seen.
+
+An empty `environments` array means the run was recorded but the commit was never seen running anywhere.
+That is a fact, not a failure, and it must not be presented as either a successful or a failed
+deployment.
+
+Collection rules:
+
+- Records are written during `POST /api/projects/{projectId}/refresh`, inside the same transaction as
+  that refresh's observations.
+- The workflow-runs request that establishes workflow state reads the most recent 20 runs, so history
+  costs no additional GitHub call.
+- Records are upserted on `(projectId, providerRunId)`. `recordedAt` keeps the first sighting and the
+  observation time keeps the last confirmation, so a run that completes between refreshes updates one row
+  rather than creating a second.
+- History therefore begins at the first refresh and fills in over successive refreshes. V1 makes no
+  claim of gap-free history; continuous collection needs the Phase 5 worker.
+- Archived projects are excluded, and an environment removed from a project stops appearing under past
+  releases, because current configuration is what the operator manages.
+
+Also collected on a schedule: it also fills release history, which is the difference between a journal
+with gaps and one that records runs nobody was watching. See the collection rules above.
+
+Not in this contract, because V1 has no source: runtime revision, runtime target, log links, and any
+control that triggers, redeploys, or rolls back a release.
 
 ## Transition activity
 

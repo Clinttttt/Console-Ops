@@ -57,9 +57,18 @@ Deep reference lives in on-demand skills, not here:
 ## Product phase discipline
 
 V1 is read-only: register/edit/archive projects, GitHub source + workflow state, health and version
-probes, deterministic version sync, dashboard query, transition-based activity. Deployment
+probes, deterministic version sync, dashboard query, transition-based activity, release history
+recorded from GitHub Actions workflow runs, and scheduled collection of all of the above. Deployment
 triggering, restart, rollback, Docker agents, and log ingestion are later phases — do not build them
 early.
+
+Collection is server side and scheduled (`Monitoring:Refresh`), sending the same command as the manual
+refresh endpoint so the two can never record different facts. The browser only re-reads stored data; it
+never polls a provider, and no screen invents a staleness verdict.
+
+Release history records what GitHub proves — a run built a commit and ended a certain way — and links it
+to an environment only through that environment's own version observation. Never store or infer which
+environment a run deployed to, and never claim a runtime revision until Azure awareness exists.
 
 ## CI provider
 

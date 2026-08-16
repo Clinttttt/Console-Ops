@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 
 import { StatusLevel } from '../../../core/contracts/dashboard-overview';
 import { DeploymentListItem } from '../../../core/contracts/deployment-registry';
-import { deploymentVerdict } from '../../../core/ui/deployment-verdict';
+import { deploymentVerdict, isCurrentRelease } from '../../../core/ui/deployment-verdict';
 
 interface VerificationStat {
   readonly label: string;
@@ -34,7 +34,7 @@ export class DeploymentVerification {
   readonly observedAt = input<string | null>(null);
 
   private readonly currentCount = computed(
-    () => this.deployments().filter((deployment) => deployment.isCurrent).length,
+    () => this.deployments().filter(isCurrentRelease).length,
   );
 
   private readonly failedToday = computed(() => {
@@ -96,7 +96,7 @@ export class DeploymentVerification {
     const lastSevenDays = this.lastSevenDays();
 
     return [
-      { label: 'Current deployments', value: `${this.currentCount()}`, level: 'running' },
+      { label: 'Current releases', value: `${this.currentCount()}`, level: 'running' },
       {
         label: 'Failed today',
         value: failedToday === null ? 'Unknown' : `${failedToday}`,
@@ -110,14 +110,14 @@ export class DeploymentVerification {
         unavailable: passed === null,
       },
       {
-        label: 'Average deployment time',
+        label: 'Average run time',
         value: average ?? 'Not reported',
         level: null,
         unavailable: average === null,
         wide: true,
       },
       {
-        label: 'Deployments (7d)',
+        label: 'Releases (7d)',
         value: lastSevenDays === null ? 'Unknown' : `${lastSevenDays}`,
         level: null,
         unavailable: lastSevenDays === null,

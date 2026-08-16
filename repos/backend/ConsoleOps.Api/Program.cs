@@ -1,5 +1,7 @@
 using System.Threading.RateLimiting;
+using ConsoleOps.Api.BackgroundServices;
 using ConsoleOps.Api.Features.Dashboard;
+using ConsoleOps.Api.Features.Deployments;
 using ConsoleOps.Api.Features.GitHub;
 using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Api.Middleware;
@@ -31,6 +33,19 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
+// Collect observations on a schedule so the screens are current without the operator pressing refresh.
+// The worker sends the same command the manual endpoint does; it is registered only when enabled, so a
+// deployment that wants collection strictly on demand simply turns it off.
+builder.Services.Configure<ProjectRefreshOptions>(
+    builder.Configuration.GetSection(ProjectRefreshOptions.SectionName));
+ProjectRefreshOptions refreshOptions = new();
+builder.Configuration.GetSection(ProjectRefreshOptions.SectionName).Bind(refreshOptions);
+
+if (refreshOptions.Enabled)
+{
+    builder.Services.AddHostedService<ProjectRefreshWorker>();
+}
+
 WebApplication app = builder.Build();
 
 // Console Ops has no user accounts by design, which is safe only while it answers on loopback. If it is
@@ -60,6 +75,7 @@ app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.UseRateLimiter();
 app.MapDashboardEndpoints();
+app.MapDeploymentEndpoints();
 app.MapGitHubEndpoints();
 app.MapProjectEndpoints();
 

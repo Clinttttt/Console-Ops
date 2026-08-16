@@ -35,8 +35,18 @@ export class ProjectRegistryStore {
     this.refresh();
   }
 
+  /**
+   * Reads the registry.
+   *
+   * Only the first read shows a loading state, so a scheduled re-read cannot blank the screen, and a
+   * failed re-read leaves the last known projects in place rather than emptying the list.
+   */
   refresh(): void {
-    this.state.set('loading');
+    const isFirstRead = this.state() !== 'loaded';
+    if (isFirstRead) {
+      this.state.set('loading');
+    }
+
     this.dataSource
       .load()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -46,8 +56,10 @@ export class ProjectRegistryStore {
           this.state.set('loaded');
         },
         error: () => {
-          this.current.set([]);
-          this.state.set('unavailable');
+          if (isFirstRead) {
+            this.current.set([]);
+            this.state.set('unavailable');
+          }
         },
       });
   }

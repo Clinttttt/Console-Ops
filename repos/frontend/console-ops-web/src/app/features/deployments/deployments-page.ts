@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 
 import { DeploymentListItem } from '../../core/contracts/deployment-registry';
 import { DeploymentRegistryStore } from '../../core/state/deployment-registry.store';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
 import { deploymentVerdict } from '../../core/ui/deployment-verdict';
 import {
@@ -14,10 +15,13 @@ import { DeploymentVerification } from './components/deployment-verification';
 import { SelectedDeployment } from './components/selected-deployment';
 
 /**
- * Deployments screen: release history and post-deployment verification.
+ * Deployments screen: release history and post-release verification.
  *
  * Read-only. Environment quick views write to the shared `EnvironmentScopeStore` so this screen agrees
  * with the shell selector, while the failed view is a verification filter held locally.
+ *
+ * Scoping by environment keeps only releases observed running in that environment. A release nobody
+ * reported cannot be claimed for Production, so it drops out of that view rather than being assumed in.
  */
 @Component({
   selector: 'co-deployments-page',
@@ -32,6 +36,11 @@ export class DeploymentsPage {
 
   protected readonly loadState = this.store.loadState;
   protected readonly observedAt = this.store.observedAt;
+
+  constructor() {
+    // Releases are recorded by the API's scheduled sweeps; the timeline re-reads them as they arrive.
+    autoRefresh(() => this.store.refresh());
+  }
 
   protected readonly query = signal('');
   protected readonly projectId = signal<string | null>(null);
@@ -69,7 +78,10 @@ export class DeploymentsPage {
     const failedOnly = this.failedOnly();
 
     return this.store.deployments().filter((deployment) => {
-      if (scope !== null && deployment.environment.kind !== scope) {
+      if (
+        scope !== null &&
+        !deployment.environments.some((observation) => observation.environment.kind === scope)
+      ) {
         return false;
       }
 
@@ -133,10 +145,13 @@ export class DeploymentsPage {
 function matchesQuery(deployment: DeploymentListItem, query: string): boolean {
   return (
     deployment.projectName.toLowerCase().includes(query) ||
-    deployment.environment.name.toLowerCase().includes(query) ||
+    deployment.repository.toLowerCase().includes(query) ||
     deployment.branch.toLowerCase().includes(query) ||
     deployment.commitShortSha.toLowerCase().includes(query) ||
-    (deployment.revision?.toLowerCase().includes(query) ?? false) ||
-    (deployment.triggeredBy?.toLowerCase().includes(query) ?? false)
+    (deployment.workflowFile?.toLowerCase().includes(query) ?? false) ||
+    (deployment.triggeredBy?.toLowerCase().includes(query) ?? false) ||
+    deployment.environments.some((observation) =>
+      observation.environment.name.toLowerCase().includes(query),
+    )
   );
 }

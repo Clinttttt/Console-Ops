@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 
 import { SystemStateMatrix } from '../../core/contracts/dashboard-overview';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
 import { EnvironmentScopeStore } from '../../core/state/environment-scope.store';
 import { PipelineFlowSection } from './components/pipeline-flow';
@@ -27,6 +28,11 @@ export class OverviewPage {
 
   protected readonly loadState = this.store.loadState;
   protected readonly overview = this.store.overview;
+
+  constructor() {
+    // The API collects observations on a schedule; the screen re-reads them so it stays current.
+    autoRefresh(() => this.store.refresh());
+  }
   protected readonly scopeLabel = computed(() =>
     this.environmentScope.labelFor(this.environmentScope.scope()),
   );

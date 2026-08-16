@@ -15,6 +15,7 @@ import { map } from 'rxjs';
 import { ProjectSurface } from '../../core/contracts/dashboard-overview';
 import { ProjectEnvironmentRef, ProjectListItem } from '../../core/contracts/project-registry';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { DashboardOverviewStore } from '../../core/state/dashboard-overview.store';
 import { ProjectMark, ProjectMarkTone } from '../../core/ui/project-mark';
 import { toneForProject } from '../../core/ui/project-tone';
@@ -108,6 +109,11 @@ export class ProjectDetailPage {
   protected readonly sourceSurface = computed<ProjectSurface | null>(
     () => this.environments().find((view) => view.observed !== null)?.observed ?? null,
   );
+
+  constructor() {
+    // Re-reads what has been recorded. "Refresh observations" below is the way to collect right now.
+    autoRefresh(() => this.dashboard.refresh());
+  }
 
   protected refresh(): void {
     if (this.refreshing()) {

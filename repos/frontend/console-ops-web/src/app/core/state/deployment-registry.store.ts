@@ -28,8 +28,19 @@ export class DeploymentRegistryStore {
     this.refresh();
   }
 
+  /**
+   * Reads release history.
+   *
+   * Only the first read shows a loading state. A scheduled re-read leaves the timeline and the selected
+   * release in place while it happens, and a failed re-read keeps the last history rather than clearing
+   * it.
+   */
   refresh(): void {
-    this.state.set('loading');
+    const isFirstRead = this.state() !== 'loaded';
+    if (isFirstRead) {
+      this.state.set('loading');
+    }
+
     this.dataSource
       .load()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -39,8 +50,10 @@ export class DeploymentRegistryStore {
           this.state.set('loaded');
         },
         error: () => {
-          this.current.set(null);
-          this.state.set('unavailable');
+          if (isFirstRead) {
+            this.current.set(null);
+            this.state.set('unavailable');
+          }
         },
       });
   }
