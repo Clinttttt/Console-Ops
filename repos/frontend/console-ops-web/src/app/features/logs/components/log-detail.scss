@@ -29,6 +29,9 @@
 .identity {
   display: flex;
   align-items: center;
+  /* A category is a namespace of any length; it wraps rather than pushing the rail past the viewport. */
+  flex-wrap: wrap;
+  min-width: 0;
   gap: var(--co-space-3);
 }
 
@@ -60,6 +63,8 @@
 .source {
   font-size: 12px;
   color: var(--co-ink-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .message {

@@ -132,6 +132,11 @@
   font-size: 11.5px;
 }
 
+/* Kept in the DOM so the scroll sentinel is stable, but says nothing before a first page exists. */
+.older.is-idle {
+  display: none;
+}
+
 .line:hover {
   background: var(--co-surface-sunken);
 }

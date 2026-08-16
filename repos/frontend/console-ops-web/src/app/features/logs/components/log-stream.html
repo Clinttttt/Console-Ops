@@ -5,29 +5,26 @@
   </div>
 } @else {
   <!--
-    Older lines sit above, because the stream reads oldest first. The trigger is a button so the keyboard
-    reaches it, and it doubles as the scroll sentinel: reaching the top of the stream reads the window before
-    it.
+    Older lines sit above, because the stream reads oldest first. The row is always in the DOM so the scroll
+    sentinel is stable; it is hidden until a first page exists rather than created on demand, because a
+    sentinel that is destroyed and rebuilt reports "visible" again on every rebuild and pages backwards
+    without stopping.
   -->
-  @switch (olderPages()) {
-    @case ('available') {
-      <div class="older">
-        <button #olderTrigger type="button" class="older-action" (click)="loadOlder.emit()">
+  <div class="older" #olderTrigger [class.is-idle]="olderPages() === 'unknown'">
+    @switch (olderPages()) {
+      @case ('available') {
+        <button type="button" class="older-action" (click)="loadOlder.emit()">
           Load older lines
         </button>
-      </div>
-    }
-    @case ('reading') {
-      <div class="older">
+      }
+      @case ('reading') {
         <p class="older-status co-unavailable">Reading the window before this one&hellip;</p>
-      </div>
-    }
-    @case ('exhausted') {
-      <div class="older">
+      }
+      @case ('exhausted') {
         <p class="older-status co-unavailable">Nothing older in the day before this point.</p>
-      </div>
+      }
     }
-  }
+  </div>
 
   @for (day of days(); track day.key) {
     <section class="day">

@@ -2,9 +2,11 @@ import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
-  afterRenderEffect,
+  afterNextRender,
   computed,
+  inject,
   input,
   output,
   viewChild,
@@ -65,17 +67,20 @@ export class LogStreamView {
   readonly loadOlder = output<void>();
 
   /**
-   * The affordance for paging backwards, watched so that scrolling to the top of the stream loads the
-   * previous window without a click.
+   * The row that offers the previous window, watched so that scrolling to the top of the stream reads it
+   * without a click.
    *
-   * It stays a real button rather than a bare scroll trigger: an observer-only affordance is invisible to
-   * the keyboard, and the browser's own scroll anchoring keeps the view steady when lines are prepended, so
-   * nothing has to fight the scroll position.
+   * The observer is created **once**. Rebuilding it whenever the row changed re-reported "visible" on every
+   * rebuild, which paged backwards in a loop: reading a page changed the row, the row rebuilt the observer,
+   * and the observer asked for another page. The row is a real button as well, because an observer-only
+   * affordance cannot be reached from the keyboard, and the browser's own scroll anchoring keeps the view
+   * steady when lines are added above.
    */
   private readonly olderTrigger = viewChild<ElementRef<HTMLElement>>('olderTrigger');
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
-    afterRenderEffect((onCleanup) => {
+    afterNextRender(() => {
       const trigger = this.olderTrigger()?.nativeElement;
       if (trigger === undefined || typeof IntersectionObserver === 'undefined') {
         return;
@@ -87,7 +92,7 @@ export class LogStreamView {
         }
       });
       observer.observe(trigger);
-      onCleanup(() => observer.disconnect());
+      this.destroyRef.onDestroy(() => observer.disconnect());
     });
   }
 
