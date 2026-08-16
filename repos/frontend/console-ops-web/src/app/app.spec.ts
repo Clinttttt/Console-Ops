@@ -53,4 +53,42 @@ describe('App shell', () => {
     expect(host.textContent).toContain('Not recorded yet');
     expect(host.textContent).not.toContain('All Systems Operational');
   });
+
+  it('reports observed availability with what it was measured from', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        {
+          provide: DashboardOverviewDataSource,
+          useValue: {
+            load: () =>
+              of({
+                ...DASHBOARD_OVERVIEW_FIXTURE,
+                summary: {
+                  ...DASHBOARD_OVERVIEW_FIXTURE.summary,
+                  uptime: {
+                    windowHours: 24,
+                    since: '2026-08-15T09:00:00Z',
+                    percentage: 99.7,
+                    checks: 288,
+                    samples: [100, 95.5, 100],
+                  },
+                },
+              }),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const host = await render();
+
+    expect(host.textContent).toContain('99.7%');
+    // The figure names its own basis, because sampled availability is not a guarantee.
+    expect(host.textContent).toContain('last 24h');
+    expect(host.textContent).toContain('288 checks');
+    expect(host.textContent).not.toContain('Not recorded yet');
+    expect(host.querySelector('co-sparkline')).not.toBeNull();
+  });
 });

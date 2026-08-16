@@ -29,11 +29,14 @@ V1 supports:
 - release history recorded from GitHub Actions workflow runs.
 
 V1 does not claim Azure revision state, restart/migration/container events, configuration
-completeness, logs, rollback, uptime percentages, or Docker state. Those facts must
+completeness, logs, rollback, or Docker state. Those facts must
 be omitted or reported as unavailable until their product phase is implemented.
 
 Deployment history was added on 2026-08-15, limited to what GitHub Actions proves: workflow runs and
 their outcomes, reconciled against runtime version observations. Runtime revisions remain absent.
+
+Observed availability was added on 2026-08-16, once scheduled collection made health history continuous.
+It is sampled availability with its own sample count attached, not an uptime guarantee.
 
 ## Exposure and the optional API key
 
@@ -381,8 +384,21 @@ The V1 system-state matrix can contain only supported rows:
 - CI;
 - version sync.
 
-Configuration and revisions are later-phase rows. Uptime is `null` until health history supports the
-chosen window and calculation.
+Configuration and revisions are later-phase rows.
+
+`summary.uptime` reports availability as Console Ops sampled it, not a provider's guarantee:
+
+- window: the last 24 hours, sent as `windowHours` and `since` so the UI supplies the wording;
+- `percentage`: share of measured checks that were acceptable, to one decimal, never rounded up to a
+  flattering 100;
+- `checks`: how many measured checks the figure rests on, so the screen can say what it is based on;
+- `samples`: availability per hour, oldest first, only for hours containing checks. An hour with no check
+  is absent rather than drawn as zero or as full availability.
+
+A check that established nothing - unknown state, or no health endpoint configured - counts on neither
+side of the ratio. Below 12 measured checks the whole window is `null`: three checks in a day can produce
+a confident-looking 100%, which would be the most misleading number on the screen. Availability is
+therefore a consequence of scheduled collection, and it appears roughly an hour after collection starts.
 
 The top pipeline represents `GitHub Source -> GitHub Actions -> Application Health/Version` in V1.
 It must not claim Azure runtime verification before the Azure integration exists.

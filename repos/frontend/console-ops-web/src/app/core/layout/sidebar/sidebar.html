@@ -57,14 +57,22 @@
       @if (!collapsed()) {
         @let uptime = state.uptime;
         <div class="uptime">
-          <span class="uptime-label">Uptime</span>
+          <!-- Says what the figure rests on, because sampled availability is not a guarantee. -->
+          <span class="uptime-label">
+            @if (uptime === null) {
+              Uptime
+            } @else {
+              Uptime &middot; last {{ uptime.windowHours }}h &middot; {{ uptime.checks }}
+              {{ uptime.checks === 1 ? 'check' : 'checks' }}
+            }
+          </span>
           @if (uptime !== null) {
-            <span class="uptime-value">{{ uptime.label }}</span>
+            <span class="uptime-value">{{ uptime.percentage }}%</span>
             <co-sparkline
               [samples]="uptime.samples"
               [width]="152"
               [height]="24"
-              label="Recent availability"
+              label="Observed availability by hour"
             />
           } @else {
             <span class="uptime-value co-unavailable">Not recorded yet</span>

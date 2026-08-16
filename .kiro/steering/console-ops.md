@@ -58,9 +58,9 @@ Deep reference lives in on-demand skills, not here:
 
 V1 is read-only: register/edit/archive projects, GitHub source + workflow state, health and version
 probes, deterministic version sync, dashboard query, transition-based activity, release history
-recorded from GitHub Actions workflow runs, and scheduled collection of all of the above. Deployment
-triggering, restart, rollback, Docker agents, and log ingestion are later phases — do not build them
-early.
+recorded from GitHub Actions workflow runs, observed availability computed from recorded health checks,
+and scheduled collection of all of the above. Deployment triggering, restart, rollback, Docker agents,
+and log ingestion are later phases — do not build them early.
 
 Collection is server side and scheduled (`Monitoring:Refresh`), sending the same command as the manual
 refresh endpoint so the two can never record different facts. The browser only re-reads stored data; it

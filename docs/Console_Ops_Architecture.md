@@ -464,6 +464,26 @@ and gives health-before and health-after something to compare.
 Freshness is still not asserted. No stale threshold is invented; every screen shows each fact's own
 observation time and lets the reader judge.
 
+### Observed availability, only once it has been observed
+
+Decided 2026-08-16. Uptime was previously impossible and said so: with collection driven by a button,
+health history was too sparse to mean anything. Scheduled collection changed the input, so the figure is
+now computed from the health checks already recorded — no new storage, no new provider call.
+
+The rule lives in the domain (`Uptime.Calculate`) because it is a monitoring rule, not a query detail,
+and it is deliberately conservative:
+
+- A check that established nothing counts on neither side of the ratio. An unknown state, or an
+  environment with no health endpoint, is not evidence of being available.
+- Below twelve measured checks the window reports nothing at all. Three checks producing "100%" would be
+  the most misleading number on the screen, so `Not recorded yet` stands until the evidence exists.
+- The figure carries its sample count, and the UI shows it: `Uptime · last 24h · 288 checks`. Sampled
+  availability must not be mistaken for a guarantee.
+- Hours without a check are omitted from the sparkline rather than drawn as zero or as full availability.
+
+The window is bounded in the query as well as the rule: only checks inside it are loaded, with a row cap,
+so the dashboard query cannot degrade as history grows.
+
 ### Add Project: import-first direction
 
 Decided 2026-08-14. Registration should discover whatever a provider already knows and ask the operator
