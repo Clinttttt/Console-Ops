@@ -6,7 +6,6 @@ Planning, 2026-08-16. **Phases 1, 1b (discovery), 2, and 3 are implemented**; Ph
 planned. Supersedes the ingestion-first draft, which is withdrawn.
 
 Phase 3 as built, and corrected by real data:
-
 - Markers are composed at query time from the `deployments` rows a refresh already wrote. There is no
   marker table and no second collection path, so Deployments and Logs cannot tell different stories.
 - A **deployment marker** carries the short commit, the recorded release id, and no revision: a run proves
@@ -294,6 +293,22 @@ it does not agree, we show what we observed and say nothing about the difference
 that bounds markers is the visible events rather than the requested window, and a revision marker is one
 per revision rather than one per observed change. Version observations were not needed - the recorded run
 plus the revision the rows report is the whole story - so nothing was joined that a marker did not use.
+
+## Paging backwards - built with Phase 3
+
+`before` is a time cursor, because a time is what the provider can seek on. Pages are merged **by id**: the
+window bound is inclusive and two console lines can share a millisecond, so an exclusive time cursor would
+drop every line that shared the boundary instant. Verified live - the second page reached back a further
+eight minutes with no duplicate ids.
+
+The stream keeps every page it has read, and the 30-second re-read merges rather than replaces, so paging
+back cannot be undone by a refresh. Reaching the top of the stream loads the previous window; the trigger is
+a real button as well, because an observer-only affordance cannot be reached from the keyboard. Console Ops
+reads a day at a time and stops when the day before the oldest line holds nothing, rather than walking
+backwards through empty windows.
+
+Also removed here: the store read in its own constructor, which sent a second identical provider query for
+every open of the screen. The page states which scope and search it wants and reads once for it.
 
 ## Phase 4 - Live tail
 

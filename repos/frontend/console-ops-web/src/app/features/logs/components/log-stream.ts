@@ -1,5 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  afterRenderEffect,
+  computed,
+  input,
+  output,
+  viewChild,
+} from '@angular/core';
 
 import {
   LogEvent,
@@ -7,6 +16,7 @@ import {
   LogStreamItem,
   LogStreamWindow,
 } from '../../../core/contracts/log-stream';
+import { LogStreamOlderPages } from '../../../core/state/log-stream.store';
 import { Icon } from '../../../core/ui/icon';
 import { LogMarkerRow } from './log-marker';
 
@@ -48,9 +58,38 @@ export class LogStreamView {
   readonly observedAt = input<string | null>(null);
   readonly live = input(false);
   readonly window = input<LogStreamWindow | null>(null);
+  readonly olderPages = input<LogStreamOlderPages>('unknown');
 
   readonly selectEvent = output<string>();
   readonly clearFilters = output<void>();
+  readonly loadOlder = output<void>();
+
+  /**
+   * The affordance for paging backwards, watched so that scrolling to the top of the stream loads the
+   * previous window without a click.
+   *
+   * It stays a real button rather than a bare scroll trigger: an observer-only affordance is invisible to
+   * the keyboard, and the browser's own scroll anchoring keeps the view steady when lines are prepended, so
+   * nothing has to fight the scroll position.
+   */
+  private readonly olderTrigger = viewChild<ElementRef<HTMLElement>>('olderTrigger');
+
+  constructor() {
+    afterRenderEffect((onCleanup) => {
+      const trigger = this.olderTrigger()?.nativeElement;
+      if (trigger === undefined || typeof IntersectionObserver === 'undefined') {
+        return;
+      }
+
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && this.olderPages() === 'available') {
+          this.loadOlder.emit();
+        }
+      });
+      observer.observe(trigger);
+      onCleanup(() => observer.disconnect());
+    });
+  }
 
   protected readonly days = computed<readonly StreamDay[]>(() => {
     const observedDay = this.observedAt()?.slice(0, 10) ?? null;
@@ -131,6 +170,19 @@ export class LogStreamView {
       default:
         return 'unknown';
     }
+  }
+
+  /**
+   * The readable end of an emitter category.
+   *
+   * Real categories are namespaces: `Microsoft.EntityFrameworkCore.Database.Command` renders as
+   * `Microsoft.Entit...` in a scannable column, which identifies nothing. The last two segments are what
+   * tell one emitter from another. The full value stays on the line's tooltip and in the detail rail, so
+   * nothing is hidden - only shortened.
+   */
+  protected sourceLabel(source: string): string {
+    const segments = source.split('.');
+    return segments.length <= 2 ? source : segments.slice(-2).join('.');
   }
 
   /**

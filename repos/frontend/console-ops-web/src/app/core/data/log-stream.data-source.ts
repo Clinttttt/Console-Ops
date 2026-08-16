@@ -11,6 +11,14 @@ export interface LogStreamRequest {
    * only what was already fetched would silently hide matches further back in the window.
    */
   readonly search: string | null;
+  /**
+   * Read the window ending at this instant instead of now, which is how the screen pages backwards.
+   *
+   * The cursor is a time rather than an id because that is what the provider can seek on. Lines can share
+   * an instant, so a page is merged by id rather than trusted to start cleanly after the previous one: an
+   * exclusive time cursor would drop every line that shared the boundary millisecond.
+   */
+  readonly before: string | null;
 }
 
 /**

@@ -4,6 +4,31 @@
     <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
   </div>
 } @else {
+  <!--
+    Older lines sit above, because the stream reads oldest first. The trigger is a button so the keyboard
+    reaches it, and it doubles as the scroll sentinel: reaching the top of the stream reads the window before
+    it.
+  -->
+  @switch (olderPages()) {
+    @case ('available') {
+      <div class="older">
+        <button #olderTrigger type="button" class="older-action" (click)="loadOlder.emit()">
+          Load older lines
+        </button>
+      </div>
+    }
+    @case ('reading') {
+      <div class="older">
+        <p class="older-status co-unavailable">Reading the window before this one&hellip;</p>
+      </div>
+    }
+    @case ('exhausted') {
+      <div class="older">
+        <p class="older-status co-unavailable">Nothing older in the day before this point.</p>
+      </div>
+    }
+  }
+
   @for (day of days(); track day.key) {
     <section class="day">
       <header class="day-head">
@@ -37,13 +62,11 @@
                 @if (event.source === null) {
                   <span class="source co-unavailable">&mdash;</span>
                 } @else {
-                  <span class="source">{{ event.source }}</span>
+                  <span class="source" [title]="event.source">{{ sourceLabel(event.source) }}</span>
                 }
-                <span class="message">{{ event.message }}</span>
+                <span class="message" [title]="event.message">{{ event.message }}</span>
                 @let trailingText = trailing(event);
-                @if (trailingText === null) {
-                  <span class="outcome co-unavailable" aria-hidden="true">&mdash;</span>
-                } @else {
+                @if (trailingText !== null) {
                   <span class="outcome">{{ trailingText }}</span>
                 }
               </button>

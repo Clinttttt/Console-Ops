@@ -44,6 +44,7 @@ export class LogsPage {
   protected readonly scopes = this.store.scopes;
   protected readonly scope = this.store.scope;
   protected readonly window = this.store.window;
+  protected readonly olderPages = this.store.olderPages;
 
   protected readonly query = signal('');
   protected readonly level = signal<LogLevelFilter>(null);
@@ -79,6 +80,8 @@ export class LogsPage {
           projectId: projectId ?? null,
           environmentId: environmentId ?? null,
           search: search === '' ? null : search,
+          // A fresh question always starts at now; paging backwards is a separate, explicit read.
+          before: null,
         }),
       );
     });
@@ -133,6 +136,16 @@ export class LogsPage {
 
   protected select(eventId: string): void {
     this.selectedId.update((current) => (current === eventId ? null : eventId));
+  }
+
+  /**
+   * Reads the window before the oldest line held and keeps both, which is how the screen scrolls back.
+   *
+   * The cursor is the oldest line's own instant, so paging follows what was actually read rather than a
+   * page number the provider knows nothing about.
+   */
+  protected readOlder(): void {
+    this.store.readOlder();
   }
 
   protected dismissDetail(): void {

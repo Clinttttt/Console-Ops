@@ -25,6 +25,9 @@ export class HttpLogStreamDataSource extends LogStreamDataSource {
     if (request.search !== null && request.search.trim() !== '') {
       params['search'] = request.search.trim();
     }
+    if (request.before !== null) {
+      params['before'] = request.before;
+    }
 
     return this.http.get<LogStream>('/api/logs', { params });
   }

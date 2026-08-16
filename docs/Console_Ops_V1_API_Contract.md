@@ -413,6 +413,12 @@ Rules that keep markers honest:
 - Markers are bounded by the events actually returned, not by the requested window, so a marker never sits
   below the oldest visible line.
 
+Paging backwards uses `before` as a **time cursor**, because a time is what the provider can seek on. The
+window bound is inclusive and two console lines can share a millisecond, so pages are merged **by id**: an
+exclusive time cursor would silently drop every line that shared the boundary instant. Verified against the
+real workspace - a second page reached back a further eight minutes with no duplicate ids. The screen keeps
+every page it has read, so the 30-second re-read cannot discard what was paged in.
+
 The discriminator is emitted by the serializer rather than by hand. It was once omitted while every typed
 test still passed, and a correct response with seventeen events rendered as an empty stream; a test now
 asserts it on the raw JSON.

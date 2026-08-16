@@ -59,8 +59,10 @@
           [observedAt]="observedAt()"
           [live]="live()"
           [window]="window()"
+          [olderPages]="olderPages()"
           (selectEvent)="select($event)"
           (clearFilters)="clearFilters()"
+          (loadOlder)="readOlder()"
         />
       </div>
 

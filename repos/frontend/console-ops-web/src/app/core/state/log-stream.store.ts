@@ -11,6 +11,9 @@ export type LogStreamLoadState = 'loading' | 'loaded' | 'unavailable';
 export type LogStreamFailure =
   'notConfigured' | 'credential' | 'provider' | 'apiUnavailable' | null;
 
+/** What reading further back can offer: nothing said yet, a page available, one in flight, or the end. */
+export type LogStreamOlderPages = 'unknown' | 'available' | 'reading' | 'exhausted';
+
 /**
  * Holds the log stream for the Logs screen.
  *
@@ -24,12 +27,48 @@ export class LogStreamStore {
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly current = signal<LogStream | null>(null);
+  private readonly loaded = signal<readonly LogStreamItem[]>([]);
   private readonly state = signal<LogStreamLoadState>('loading');
+  private readonly olderState = signal<'idle' | 'reading' | 'exhausted'>('idle');
   private readonly failure = signal<LogStreamFailure>(null);
 
   readonly loadState = this.state.asReadonly();
   readonly failureReason = this.failure.asReadonly();
-  readonly items = computed<readonly LogStreamItem[]>(() => this.current()?.items ?? []);
+
+  /**
+   * Every page read for the current scope, newest first, merged by id.
+   *
+   * Pages accumulate rather than replace so scrolling back does not undo itself, and so the 30-second
+   * re-read cannot discard what the operator paged in.
+   */
+  readonly items = this.loaded.asReadonly();
+
+  /** `true` while an older page is in flight, so the screen can say so without blanking the stream. */
+  readonly readingOlder = computed(() => this.olderState() === 'reading');
+
+  /**
+   * What paging backwards can offer right now, as one value rather than a pair of booleans the screen would
+   * have to reason about. `unknown` covers "no stream yet", so nothing is said about older lines before a
+   * first page exists.
+   *
+   * Console Ops reads a day at a time; once the day before the oldest line holds nothing new it reports
+   * `exhausted` rather than walking backwards through empty windows forever.
+   */
+  readonly olderPages = computed<LogStreamOlderPages>(() => {
+    if (this.state() !== 'loaded' || this.loaded().length === 0) {
+      return 'unknown';
+    }
+
+    switch (this.olderState()) {
+      case 'reading':
+        return 'reading';
+      case 'exhausted':
+        return 'exhausted';
+      default:
+        return 'available';
+    }
+  });
+
   readonly scopes = computed<readonly LogStreamScope[]>(() => this.current()?.scopes ?? []);
   readonly scope = computed<LogStreamScope | null>(() => this.current()?.scope ?? null);
   readonly window = computed<LogStreamWindow | null>(() => this.current()?.window ?? null);
@@ -37,11 +76,15 @@ export class LogStreamStore {
   /** Reference clock for relative times and the day grouping. `null` until a stream exists. */
   readonly observedAt = computed(() => this.current()?.observedAt ?? null);
 
-  private lastRequest: LogStreamRequest = { projectId: null, environmentId: null, search: null };
+  private lastRequest: LogStreamRequest = {
+    projectId: null,
+    environmentId: null,
+    search: null,
+    before: null,
+  };
 
-  constructor() {
-    this.read(this.lastRequest);
-  }
+  // No read in the constructor: the screen states which scope and search it wants and reads once for it.
+  // Reading here as well sent two identical provider queries for every open of the Logs page.
 
   /**
    * Reads a scope.
@@ -68,20 +111,77 @@ export class LogStreamStore {
       .subscribe({
         next: (stream) => {
           this.current.set(stream);
+          // A different scope or search is a different stream, so paged-in history does not carry over.
+          this.loaded.set(isSameScope ? merge(untracked(this.loaded), stream.items) : stream.items);
+          this.olderState.set(isSameScope ? untracked(this.olderState) : 'idle');
           this.failure.set(null);
           this.state.set('loaded');
         },
         error: (error: unknown) => {
           this.current.set(null);
+          this.loaded.set([]);
+          this.olderState.set('idle');
           this.failure.set(classify(error));
           this.state.set('unavailable');
         },
       });
   }
 
+  /**
+   * Reads the window before the oldest line held, and keeps both.
+   *
+   * A failed older read leaves the stream alone: the operator keeps what they were reading, and the screen
+   * offers the page again rather than claiming the history ended there.
+   */
+  readOlder(): void {
+    const held = untracked(this.loaded);
+    if (held.length === 0 || untracked(this.olderState) === 'reading') {
+      return;
+    }
+
+    this.olderState.set('reading');
+    this.dataSource
+      .load({ ...this.lastRequest, before: held[held.length - 1].occurredAt })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (stream) => {
+          const combined = merge(untracked(this.loaded), stream.items);
+          // Nothing new means the day before the oldest line held nothing, which is where paging stops.
+          this.olderState.set(
+            combined.length === untracked(this.loaded).length ? 'exhausted' : 'idle',
+          );
+          this.loaded.set(combined);
+        },
+        error: () => this.olderState.set('idle'),
+      });
+  }
+
   refresh(): void {
     this.read(this.lastRequest);
   }
+}
+
+/**
+ * Merges pages into one newest-first stream, keyed by id.
+ *
+ * Merging by id rather than by time because the provider's window bound is inclusive and two lines can
+ * share a millisecond: a boundary line would otherwise appear twice, or be dropped by an exclusive cursor.
+ */
+function merge(
+  held: readonly LogStreamItem[],
+  incoming: readonly LogStreamItem[],
+): readonly LogStreamItem[] {
+  if (held.length === 0) {
+    return incoming;
+  }
+
+  const seen = new Set(held.map((item) => item.id));
+  const added = incoming.filter((item) => !seen.has(item.id));
+  if (added.length === 0) {
+    return held;
+  }
+
+  return [...held, ...added].sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
 }
 
 /**

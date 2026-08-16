@@ -2,8 +2,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
-import { LogStream } from '../../core/contracts/log-stream';
+import { LogEvent, LogStream } from '../../core/contracts/log-stream';
 import { LogStreamDataSource } from '../../core/data/log-stream.data-source';
+import { LogStreamStore } from '../../core/state/log-stream.store';
 import { LogsPage } from './logs-page';
 
 /**
@@ -104,7 +105,10 @@ describe('LogsPage against the captured wire payload', () => {
     const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
 
     expect(lines[1].querySelector('.level')?.textContent?.trim()).toBe('INF');
-    expect(lines[1].querySelector('.source')?.textContent?.trim()).toBe(
+    // Categories are namespaces. The scannable column keeps the end, which is what tells emitters apart,
+    // and the full value stays on the line's tooltip and in the detail rail.
+    expect(lines[1].querySelector('.source')?.textContent?.trim()).toBe('Database.Command');
+    expect(lines[1].querySelector('.source')?.getAttribute('title')).toBe(
       'Microsoft.EntityFrameworkCore.Database.Command',
     );
     // A continuation line with no prefix stays unclaimed, exactly as the provider left it.
@@ -205,5 +209,113 @@ describe('LogsPage markers', () => {
     // A marker with nothing left to explain would be context without a subject.
     expect(host.querySelectorAll('co-log-marker').length).toBe(0);
     expect(host.textContent).toContain('No events match this view');
+  });
+});
+
+describe('LogsPage paging backwards', () => {
+  let fixture: ComponentFixture<LogsPage>;
+  let host: HTMLElement;
+  let requests: (string | null)[];
+
+  /** A page of two events ending at the given instant, ids derived so pages do not collide. */
+  function page(endingAt: string): LogStream {
+    const base = JSON.parse(CAPTURED_PAYLOAD) as LogStream;
+    const minute = endingAt.slice(11, 16);
+    return {
+      ...base,
+      window: { ...base.window, to: endingAt, truncated: true },
+      items: [
+        { ...(base.items[0] as LogEvent), id: `newer-${minute}`, occurredAt: endingAt },
+        {
+          ...(base.items[1] as LogEvent),
+          id: `older-${minute}`,
+          occurredAt: `${endingAt.slice(0, 14)}00:00.0000000+00:00`,
+        },
+      ],
+    };
+  }
+
+  beforeEach(async () => {
+    requests = [];
+    const pages = new Map<string | null, LogStream>([
+      [null, page('2026-08-16T11:30:00.0000000+00:00')],
+      ['2026-08-16T11:00:00.0000000+00:00', page('2026-08-16T10:30:00.0000000+00:00')],
+    ]);
+
+    await TestBed.configureTestingModule({
+      imports: [LogsPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: LogStreamDataSource,
+          useValue: {
+            load: (request: { before: string | null }) => {
+              requests.push(request.before);
+              // An unknown cursor means the window before it held nothing, which is where paging stops.
+              return of(pages.get(request.before) ?? { ...page('x'), items: [] });
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(LogsPage);
+    await fixture.whenStable();
+    host = fixture.nativeElement as HTMLElement;
+  });
+
+  function lineCount(): number {
+    return host.querySelectorAll('co-log-stream .line').length;
+  }
+
+  function loadOlder(): HTMLButtonElement | null {
+    return host.querySelector<HTMLButtonElement>('.older-action');
+  }
+
+  it('asks for the window before the oldest line it holds', async () => {
+    expect(lineCount()).toBe(2);
+    expect(requests).toEqual([null]);
+
+    loadOlder()!.click();
+    await fixture.whenStable();
+
+    // The cursor is the oldest line's own instant, not a page number the provider knows nothing about.
+    expect(requests).toEqual([null, '2026-08-16T11:00:00.0000000+00:00']);
+  });
+
+  it('keeps what was already read instead of replacing it', async () => {
+    loadOlder()!.click();
+    await fixture.whenStable();
+
+    expect(lineCount()).toBe(4);
+    const times = Array.from(host.querySelectorAll('co-log-stream .time')).map((element) =>
+      element.textContent?.trim(),
+    );
+    // Oldest first, so a page read backwards lands above what was already on screen.
+    expect(times).toEqual([...times].sort());
+  });
+
+  it('says when there is nothing older rather than offering the page again', async () => {
+    loadOlder()!.click();
+    await fixture.whenStable();
+    loadOlder()!.click();
+    await fixture.whenStable();
+
+    expect(loadOlder()).toBeNull();
+    expect(host.textContent).toContain('Nothing older in the day before this point');
+    // The empty page changed nothing that was already read.
+    expect(lineCount()).toBe(4);
+  });
+
+  it('survives a re-read of the newest window, so scrolling back is not undone', async () => {
+    loadOlder()!.click();
+    await fixture.whenStable();
+    expect(lineCount()).toBe(4);
+
+    // What the 30-second refresh does. Replacing here would throw away the pages the operator asked for.
+    TestBed.inject(LogStreamStore).refresh();
+    await fixture.whenStable();
+
+    expect(lineCount()).toBe(4);
   });
 });

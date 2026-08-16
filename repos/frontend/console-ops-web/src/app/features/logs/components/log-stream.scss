@@ -96,7 +96,7 @@
 /* One scannable line per event: a wall of detail here is what makes log views unreadable. */
 .line {
   display: grid;
-  grid-template-columns: 8px 96px 40px 84px minmax(0, 1fr) auto;
+  grid-template-columns: 8px 96px 40px 124px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--co-space-3);
   width: 100%;
@@ -104,6 +104,32 @@
   text-align: left;
   font-size: 12.5px;
   color: var(--co-ink);
+}
+
+/* Paging backwards. Centred and quiet: it is a way to read further, not an action on anything. */
+.older {
+  display: flex;
+  justify-content: center;
+  padding: var(--co-space-3) var(--co-space-5);
+  border-bottom: 1px solid var(--co-line);
+}
+
+.older-action {
+  padding: 5px var(--co-space-4);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink);
+}
+
+.older-action:hover {
+  background: var(--co-surface-sunken);
+}
+
+.older-status {
+  margin: 0;
+  font-size: 11.5px;
 }
 
 .line:hover {
