@@ -12,6 +12,8 @@ import { HttpDeploymentRegistryDataSource } from './core/data/http-deployment-re
 import { HttpEndpointVerificationDataSource } from './core/data/http-endpoint-verification.data-source';
 import { HttpGitHubDiscoveryDataSource } from './core/data/http-github-discovery.data-source';
 import { HttpProjectRegistryDataSource } from './core/data/http-project-registry.data-source';
+import { LogStreamDataSource } from './core/data/log-stream.data-source';
+import { MockLogStreamDataSource } from './core/data/mock/mock-log-stream.data-source';
 import { ProjectRegistryDataSource } from './core/data/project-registry.data-source';
 
 export const appConfig: ApplicationConfig = {
@@ -33,5 +35,9 @@ export const appConfig: ApplicationConfig = {
 
     // Release history recorded from GitHub Actions runs during project refreshes.
     { provide: DeploymentRegistryDataSource, useClass: HttpDeploymentRegistryDataSource },
+
+    // Design stage: the Logs screen runs on a fixture because Console Ops does not ingest logs yet.
+    // Replace this provider with an HTTP adapter when ingestion lands, then delete the mock.
+    { provide: LogStreamDataSource, useClass: MockLogStreamDataSource },
   ],
 };
