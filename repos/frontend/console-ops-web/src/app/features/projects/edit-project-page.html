@@ -245,6 +245,47 @@
                   <p class="error">{{ errors.versionUrl }}</p>
                 }
               </div>
+
+              <!--
+                Where Console Ops reads this environment's logs. Optional, and both parts are needed
+                together: Console Ops queries the provider, so half a source could only fail.
+              -->
+              <div class="field">
+                <label [attr.for]="'environment-log-workspace-' + index">
+                  Log Analytics workspace ID <span class="optional">(optional)</span>
+                </label>
+                <input
+                  [attr.id]="'environment-log-workspace-' + index"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  [value]="environment.logWorkspaceId"
+                  (input)="updateEnvironment(index, { logWorkspaceId: $any($event.target).value })"
+                  [attr.aria-invalid]="errors.logSource !== null"
+                />
+              </div>
+
+              <div class="field">
+                <label [attr.for]="'environment-log-app-' + index">
+                  Container app name <span class="optional">(optional)</span>
+                </label>
+                <input
+                  [attr.id]="'environment-log-app-' + index"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="spinner-api"
+                  [value]="environment.logContainerAppName"
+                  (input)="
+                    updateEnvironment(index, { logContainerAppName: $any($event.target).value })
+                  "
+                  [attr.aria-invalid]="errors.logSource !== null"
+                />
+                @if (errors.logSource !== null) {
+                  <p class="error">{{ errors.logSource }}</p>
+                }
+              </div>
             </div>
           </fieldset>
         }

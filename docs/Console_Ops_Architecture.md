@@ -484,6 +484,50 @@ and it is deliberately conservative:
 The window is bounded in the query as well as the rule: only checks inside it are loaded, with a row cap,
 so the dashboard query cannot degrade as history grows.
 
+### Logs screen: the forensic workspace, mock ahead of ingestion
+
+Decided 2026-08-16. The Logs screen exists as a fixture-backed design mock at `/logs`, labelled as sample
+data. It is not connected to the API and must not be: Console Ops has no log ingestion, so every event on
+it would otherwise be invented. Ingestion is the next decision, not a next component.
+
+The screen has one purpose that no other screen serves: what did the application and its runtime actually
+say around the time something happened. That boundary is enforced by omission. No project configuration,
+no release history, no environment configuration, no health summary, and no availability figure appears
+here, and the page spec asserts their absence so the screen cannot drift into another dashboard.
+
+Rules the mock establishes:
+
+- **A line stays scannable.** Time, severity, source, message, and one short outcome. Correlation ids,
+  properties, and stack traces wait behind selection. A wall of detail in the stream is the failure mode
+  this screen has to avoid.
+- **The trailing outcome is composed by the UI** from a status code, a duration, or the most telling
+  property. The contract sends structured values, never a rendered `200 · 91 ms`.
+- **Structured logging is the point.** An event carries its message template and its properties
+  separately, so `{OrderId}` keeps `2048` as a value that can be searched and shown.
+- **Selection opens the rail; nothing is preselected** and it can be dismissed. A stack trace is
+  collapsed, and a missing one says so rather than leaving an empty block.
+- **Markers are the only cross-screen material.** A deployment or revision rule explains a change in what
+  follows and links to that release. A marker whose events have been filtered away is dropped, so the
+  stream never shows a rule explaining nothing.
+- **CI/CD execution logs stay out.** A workflow run's output belongs to that run on the Deployments
+  screen. This stream is application, runtime, and platform events.
+- **Live tail does not fabricate.** The toggle records whether the stream would follow new events and can
+  be paused; with a fixture behind it, nothing arrives, and the footer says only what is true.
+
+Sources are modelled as `application`, `runtime`, and `platform`. Runtime and platform events need Docker
+and Azure awareness respectively, so a real stream will be application-only at first. How events arrive is
+planned in `Console_Ops_Logs_Plan.md`, and the direction is decided: Console Ops keeps pulling. The first
+source is Azure Container Apps console logs, read through Log Analytics and normalized behind a port, so
+no inbound ingestion surface, collector endpoint, or per-project ingestion key is introduced.
+Application-pushed structured telemetry is a later decision, not a prerequisite.
+
+Two consequences that plan records for whoever builds it. The Logs query will be Console Ops' first
+pass-through provider read rather than a read of stored observations - bounded windows, a short response
+cache, and a per-project rate limit are what make that acceptable, and a provider failure must surface as
+`unavailable` rather than as an empty stream. And a revision name on a log row is evidence about the line
+that emitted it, never a claim about which revision is currently serving; that claim still needs the
+Container Apps control-plane API.
+
 ### Add Project: import-first direction
 
 Decided 2026-08-14. Registration should discover whatever a provider already knows and ask the operator

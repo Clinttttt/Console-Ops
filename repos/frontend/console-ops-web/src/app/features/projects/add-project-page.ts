@@ -31,6 +31,7 @@ import { EndpointMonitoring } from './components/endpoint-monitoring';
 import { GitHubRepositoryPicker } from './components/github-repository-picker';
 import { RegistrationOutcomePanel } from './components/registration-outcome';
 import { WorkflowSelector } from './components/workflow-selector';
+import { toLogSource, validateOptionalLogSource } from './project-log-source-form';
 
 interface Option<T> {
   readonly value: T;
@@ -216,6 +217,13 @@ export class AddProjectPage {
     validateEndpoint(this.versionEndpoint().trim(), this.baseUrl().trim()),
   );
 
+  /** Optional: where this environment's container logs can be read from. */
+  protected readonly logWorkspaceId = signal('');
+  protected readonly logContainerAppName = signal('');
+  protected readonly logSourceError = computed(() =>
+    validateOptionalLogSource(this.logWorkspaceId(), this.logContainerAppName()),
+  );
+
   protected readonly isValid = computed(
     () =>
       this.nameError() === null &&
@@ -224,7 +232,8 @@ export class AddProjectPage {
       this.environmentNameError() === null &&
       this.baseUrlError() === null &&
       this.healthEndpointError() === null &&
-      this.versionEndpointError() === null,
+      this.versionEndpointError() === null &&
+      this.logSourceError() === null,
   );
 
   protected readonly request = computed<ProjectRegistrationRequest | null>(() => {
@@ -247,6 +256,7 @@ export class AddProjectPage {
           applicationUrl,
           healthUrl: resolveEndpoint(applicationUrl, this.healthEndpoint()),
           versionUrl: resolveEndpoint(applicationUrl, this.versionEndpoint()),
+          logSource: toLogSource(this.logWorkspaceId(), this.logContainerAppName()),
         },
       ],
     };

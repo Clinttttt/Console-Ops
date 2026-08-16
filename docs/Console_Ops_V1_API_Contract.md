@@ -159,12 +159,24 @@ Project
     |-- kind: production | staging | development | local
     |-- applicationUrl (optional)
     |-- healthUrl (optional)
-    `-- versionUrl (optional)
+    |-- versionUrl (optional)
+    `-- logSource (optional)
+        |-- provider: azureContainerApps      (response only)
+        |-- workspaceId                       Log Analytics workspace GUID
+        `-- containerAppName
 ```
 
 Repository owner/name/default branch are required. `workflowFile` is an explicit GitHub Actions
 workflow file name such as `ci.yml`; if absent, CI is `notConfigured`. Console Ops must not select an
 arbitrary latest workflow.
+
+`logSource` says where an environment's application logs are read from, added 2026-08-16 with Logs
+Phase 1. It is configuration, not a credential: Console Ops authenticates to Azure from its own settings,
+so no secret is ever stored on a project. Both parts are required together - half a source cannot be
+queried, so the domain refuses it and the API returns a validation problem rather than storing something
+that could only fail. `containerAppName` must be a name Azure would accept, because it reaches a provider
+query. Omitting `logSource`, or sending it as `null` on update, means the environment has no log source and
+reads as not configured.
 
 Every project must have at least one environment. Environment names must be unique inside a project.
 URLs must be absolute HTTP(S) URLs without embedded credentials. The probe implementation will add

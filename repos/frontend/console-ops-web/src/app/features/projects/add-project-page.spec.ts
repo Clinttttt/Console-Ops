@@ -273,6 +273,8 @@ describe('AddProjectPage', () => {
           applicationUrl: 'https://api.spinnerapp.com',
           healthUrl: 'https://api.spinnerapp.com/health',
           versionUrl: 'https://versions.spinnerapp.com/current',
+          // Left blank on the form, so no source is claimed.
+          logSource: null,
         },
       ],
     });

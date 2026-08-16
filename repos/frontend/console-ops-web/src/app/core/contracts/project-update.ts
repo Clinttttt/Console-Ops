@@ -9,6 +9,9 @@
  */
 
 import { EnvironmentKind } from './dashboard-overview';
+import { ProjectLogSourceInput } from './project-registration';
+
+export type { ProjectLogSourceInput };
 
 export interface ProjectRepositoryUpdate {
   readonly owner: string;
@@ -26,6 +29,8 @@ export interface ProjectEnvironmentUpdate {
   readonly applicationUrl: string | null;
   readonly healthUrl: string | null;
   readonly versionUrl: string | null;
+  /** `null` clears the source; both parts are required together when present. */
+  readonly logSource: ProjectLogSourceInput | null;
 }
 
 export interface ProjectUpdateRequest {

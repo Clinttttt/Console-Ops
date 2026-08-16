@@ -105,6 +105,7 @@ describe('EditProjectPage', () => {
           applicationUrl: project.environments[0].applicationUrl,
           healthUrl: project.environments[0].healthUrl,
           versionUrl: project.environments[0].versionUrl,
+          logSource: null,
         },
       ],
     });

@@ -20,6 +20,7 @@ import {
 } from '../../core/contracts/project-update';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
+import { toLogSource, validateOptionalLogSource } from './project-log-source-form';
 import { Icon } from '../../core/ui/icon';
 
 type LoadState = 'loading' | 'loaded' | 'notFound' | 'unavailable';
@@ -40,6 +41,10 @@ interface EnvironmentDraft {
   applicationUrl: string;
   healthUrl: string;
   versionUrl: string;
+  /** Log Analytics workspace holding this environment's container logs. Blank when not configured. */
+  logWorkspaceId: string;
+  /** Container app whose console output belongs to this environment. */
+  logContainerAppName: string;
 }
 
 const ENVIRONMENT_KINDS: readonly { value: EnvironmentKind; label: string }[] = [
@@ -139,6 +144,10 @@ export class EditProjectPage {
       applicationUrl: validateOptionalHttpUrl(environment.applicationUrl),
       healthUrl: validateOptionalHttpUrl(environment.healthUrl),
       versionUrl: validateOptionalHttpUrl(environment.versionUrl),
+      logSource: validateOptionalLogSource(
+        environment.logWorkspaceId,
+        environment.logContainerAppName,
+      ),
     }));
   });
 
@@ -158,7 +167,8 @@ export class EditProjectPage {
           errors.name === null &&
           errors.applicationUrl === null &&
           errors.healthUrl === null &&
-          errors.versionUrl === null,
+          errors.versionUrl === null &&
+          errors.logSource === null,
       ),
   );
 
@@ -191,6 +201,8 @@ export class EditProjectPage {
         applicationUrl: '',
         healthUrl: '',
         versionUrl: '',
+        logWorkspaceId: '',
+        logContainerAppName: '',
       },
     ]);
   }
@@ -296,6 +308,8 @@ export class EditProjectPage {
         applicationUrl: environment.applicationUrl ?? '',
         healthUrl: environment.healthUrl ?? '',
         versionUrl: environment.versionUrl ?? '',
+        logWorkspaceId: environment.logSource?.workspaceId ?? '',
+        logContainerAppName: environment.logSource?.containerAppName ?? '',
       })),
     );
     this.removingKey.set(null);
@@ -310,6 +324,7 @@ export class EditProjectPage {
       applicationUrl: blankToNull(environment.applicationUrl),
       healthUrl: blankToNull(environment.healthUrl),
       versionUrl: blankToNull(environment.versionUrl),
+      logSource: toLogSource(environment.logWorkspaceId, environment.logContainerAppName),
     }));
 
     return {

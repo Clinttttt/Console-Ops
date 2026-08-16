@@ -1,12 +1,17 @@
 using System.Net.Http.Headers;
+using Azure.Core;
+using Azure.Identity;
+using Azure.Monitor.Query;
 using ConsoleOps.Application.Abstractions.Persistence;
 using ConsoleOps.Application.Features.Dashboard.GetOverview;
 using ConsoleOps.Application.Features.Deployments.GetHistory;
 using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
+using ConsoleOps.Application.Integrations.AzureMonitor;
 using ConsoleOps.Application.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Integrations.ApplicationMonitoring;
+using ConsoleOps.Infrastructure.Integrations.AzureMonitor;
 using ConsoleOps.Infrastructure.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Persistence;
 using ConsoleOps.Infrastructure.Persistence.Repositories;
@@ -32,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IProjectRefreshStore, ProjectRefreshStore>();
         services.AddScoped<IDashboardOverviewReadStore, DashboardOverviewReadStore>();
         services.AddScoped<IDeploymentHistoryReadStore, DeploymentHistoryReadStore>();
+        AddAzureMonitor(services, configuration);
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
             ConfigureGitHubClient(client, configuration));
         services.AddHttpClient<IGitHubRepositoryCatalog, GitHubRepositoryCatalog>(client =>
@@ -43,6 +49,39 @@ public static class DependencyInjection
                 ProbeHttpMessageHandlerFactory.Create(allowedPrivateHosts));
 
         return services;
+    }
+
+    /// <summary>
+    /// One place that decides how Console Ops reads Azure logs.
+    /// <para>
+    /// Read-only by construction: a Log Analytics query client and nothing else. The credential comes from
+    /// Console Ops' own configuration - a service principal when all three keys are present, otherwise the
+    /// ambient Azure identity - so no project row ever carries a secret. A missing or unauthorized
+    /// credential surfaces later as a read failure, which the screens already render as unavailable rather
+    /// than as an empty stream.
+    /// </para>
+    /// </summary>
+    private static void AddAzureMonitor(IServiceCollection services, IConfiguration configuration)
+    {
+        AzureMonitorOptions options = new();
+        configuration.GetSection(AzureMonitorOptions.SectionName).Bind(options);
+        services.AddSingleton(options);
+
+        services.AddSingleton(_ => new LogsQueryClient(ResolveAzureCredential(configuration)));
+        services.AddScoped<IApplicationLogReader, AzureMonitorLogReader>();
+    }
+
+    private static TokenCredential ResolveAzureCredential(IConfiguration configuration)
+    {
+        string? tenantId = configuration["Azure:TenantId"];
+        string? clientId = configuration["Azure:ClientId"];
+        string? clientSecret = configuration["Azure:ClientSecret"];
+
+        return string.IsNullOrWhiteSpace(tenantId)
+            || string.IsNullOrWhiteSpace(clientId)
+            || string.IsNullOrWhiteSpace(clientSecret)
+            ? new DefaultAzureCredential()
+            : new ClientSecretCredential(tenantId.Trim(), clientId.Trim(), clientSecret.Trim());
     }
 
     /// <summary>

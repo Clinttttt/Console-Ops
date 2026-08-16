@@ -22,6 +22,8 @@ Deep reference lives in on-demand skills, not here:
 - `console-ops-backend-slice` — vertical slice + CQRS + result/error recipe.
 - `console-ops-frontend` — Angular structure, contracts, and design system.
 
+Remaining work, blockers, and what must not be built yet are tracked in `docs/Console_Ops_Backlog.md`.
+
 ## Non-negotiables
 
 - Modular monolith. Vertical Slice Architecture, CQRS via MediatR, focused DDD. One end-to-end use

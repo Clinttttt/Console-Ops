@@ -297,6 +297,47 @@
           </div>
         </div>
 
+        <!--
+          Where Console Ops reads this environment's logs. Optional: Console Ops queries the provider, so
+          both parts are needed together and neither is a credential.
+        -->
+        <div class="grid">
+          <div class="field">
+            <label for="log-workspace-id"
+              >Log Analytics Workspace ID <span class="optional">(optional)</span></label
+            >
+            <input
+              id="log-workspace-id"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="00000000-0000-0000-0000-000000000000"
+              [value]="logWorkspaceId()"
+              (input)="logWorkspaceId.set($any($event.target).value)"
+              [attr.aria-invalid]="logSourceError() !== null"
+            />
+          </div>
+
+          <div class="field">
+            <label for="log-container-app"
+              >Container App Name <span class="optional">(optional)</span></label
+            >
+            <input
+              id="log-container-app"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="spinner-api"
+              [value]="logContainerAppName()"
+              (input)="logContainerAppName.set($any($event.target).value)"
+              [attr.aria-invalid]="logSourceError() !== null"
+            />
+            @if (logSourceError() !== null) {
+              <p class="error">{{ logSourceError() }}</p>
+            }
+          </div>
+        </div>
+
         <co-endpoint-monitoring
           [healthEndpoint]="healthEndpoint()"
           [versionEndpoint]="versionEndpoint()"

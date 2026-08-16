@@ -12,7 +12,8 @@ public sealed class ProjectEnvironment
         EnvironmentKind kind,
         string? applicationUrl,
         string? healthUrl,
-        string? versionUrl)
+        string? versionUrl,
+        AzureLogSource? logSource)
     {
         Id = id;
         Name = name;
@@ -21,6 +22,7 @@ public sealed class ProjectEnvironment
         ApplicationUrl = applicationUrl;
         HealthUrl = healthUrl;
         VersionUrl = versionUrl;
+        LogSource = logSource;
     }
 
     public Guid Id { get; private set; }
@@ -39,13 +41,17 @@ public sealed class ProjectEnvironment
 
     public string? VersionUrl { get; private set; }
 
+    /// <summary>Where this environment's application logs are read from, or <c>null</c> when unknown.</summary>
+    public AzureLogSource? LogSource { get; private set; }
+
     public static ProjectEnvironment Create(
         Guid id,
         string name,
         EnvironmentKind kind,
         string? applicationUrl,
         string? healthUrl,
-        string? versionUrl)
+        string? versionUrl,
+        AzureLogSource? logSource = null)
     {
         ArgumentOutOfRangeException.ThrowIfEqual(id, Guid.Empty);
 
@@ -65,7 +71,8 @@ public sealed class ProjectEnvironment
             kind,
             trimmedApplicationUrl,
             trimmedHealthUrl,
-            trimmedVersionUrl);
+            trimmedVersionUrl,
+            logSource);
     }
 
     internal void Apply(ProjectEnvironment replacement)
@@ -83,6 +90,7 @@ public sealed class ProjectEnvironment
         ApplicationUrl = replacement.ApplicationUrl;
         HealthUrl = replacement.HealthUrl;
         VersionUrl = replacement.VersionUrl;
+        LogSource = replacement.LogSource;
     }
 
     private static string? ValidateUrl(string? value, string parameterName)

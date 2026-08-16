@@ -24,4 +24,5 @@ public sealed record UpdateProjectEnvironment(
     string Kind,
     string? ApplicationUrl,
     string? HealthUrl,
-    string? VersionUrl);
+    string? VersionUrl,
+    ProjectLogSource? LogSource = null);
