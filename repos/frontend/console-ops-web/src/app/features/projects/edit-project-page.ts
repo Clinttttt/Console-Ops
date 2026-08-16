@@ -18,8 +18,10 @@ import {
   ProjectEnvironmentUpdate,
   ProjectUpdateRequest,
 } from '../../core/contracts/project-update';
+import { AzureLogSource } from '../../core/contracts/azure-discovery';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
+import { AzureLogSourcePicker } from './components/azure-log-source-picker';
 import { toLogSource, validateOptionalLogSource } from './project-log-source-form';
 import { Icon } from '../../core/ui/icon';
 
@@ -65,7 +67,7 @@ const ENVIRONMENT_KINDS: readonly { value: EnvironmentKind; label: string }[] = 
 @Component({
   selector: 'co-edit-project-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RouterLink],
+  imports: [AzureLogSourcePicker, Icon, RouterLink],
   templateUrl: './edit-project-page.html',
   styleUrl: './edit-project-page.scss',
 })
@@ -153,6 +155,14 @@ export class EditProjectPage {
 
   /** Key of the environment whose removal is awaiting confirmation. */
   protected readonly removingKey = signal<string | null>(null);
+
+  /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
+  protected applyLogSource(index: number, source: AzureLogSource): void {
+    this.updateEnvironment(index, {
+      logContainerAppName: source.containerAppName,
+      logWorkspaceId: source.workspaceId ?? '',
+    });
+  }
 
   /** V1 requires every project to keep at least one environment. */
   protected readonly canRemoveEnvironment = computed(() => this.environments().length > 1);

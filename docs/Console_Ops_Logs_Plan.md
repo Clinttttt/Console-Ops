@@ -2,8 +2,19 @@
 
 ## Status
 
-Planning, 2026-08-16. **Phase 1 is implemented**; Phases 2 to 5 remain planned. Supersedes the
-ingestion-first draft, which is withdrawn.
+Planning, 2026-08-16. **Phase 1 is implemented, plus discovery (1b)**; Phases 2 to 5 remain planned.
+Supersedes the ingestion-first draft, which is withdrawn.
+
+Phase 1b as built - the operator picks instead of typing:
+
+- `GET /api/azure/log-sources` lists container apps the configured Azure identity can see, each carrying
+  the Log Analytics workspace its Container Apps environment logs to, so one pick fills both fields.
+- `IAzureLogSourceCatalog` is the port; `AzureResourceGraphCatalog` implements it with one read-only
+  Resource Graph query, bounded to 200 rows, with filter text escaped as a literal.
+- An app whose environment has no workspace is shown as unavailable rather than offered, and a rejected
+  credential is reported as `Azure.Unauthorized` rather than as an empty tenant.
+- The picker owns its own trigger and only calls Azure when opened. The two fields stay editable
+  afterwards: discovery may prefill but never decide.
 
 Phase 1 as built:
 

@@ -7,6 +7,7 @@ import { Observable, of, throwError } from 'rxjs';
 
 import { ProjectListItem } from '../../core/contracts/project-registry';
 import { ProjectUpdateRequest } from '../../core/contracts/project-update';
+import { AzureDiscoveryDataSource } from '../../core/data/azure-discovery.data-source';
 import { PROJECT_REGISTRY_FIXTURE } from '../../core/data/mock/project-registry.fixture';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { EditProjectPage } from './edit-project-page';
@@ -32,6 +33,12 @@ describe('EditProjectPage', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        // The form renders the log-source picker, which asks Console Ops for Azure inventory only when
+        // it is opened. A stub keeps these tests about the form.
+        {
+          provide: AzureDiscoveryDataSource,
+          useValue: { listLogSources: () => of({ containerApps: [], hasMore: false }) },
+        },
         provideRouter([
           { path: 'projects/:projectId/edit', component: EditProjectPage },
           { path: 'projects/:projectId', component: Destination },

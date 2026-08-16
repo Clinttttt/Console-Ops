@@ -28,6 +28,8 @@ import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { Icon } from '../../core/ui/icon';
 import { AddProjectSummary } from './components/add-project-summary';
 import { EndpointMonitoring } from './components/endpoint-monitoring';
+import { AzureLogSource } from '../../core/contracts/azure-discovery';
+import { AzureLogSourcePicker } from './components/azure-log-source-picker';
 import { GitHubRepositoryPicker } from './components/github-repository-picker';
 import { RegistrationOutcomePanel } from './components/registration-outcome';
 import { WorkflowSelector } from './components/workflow-selector';
@@ -59,6 +61,7 @@ const ENVIRONMENT_KINDS: readonly Option<EnvironmentKind>[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     AddProjectSummary,
+    AzureLogSourcePicker,
     EndpointMonitoring,
     GitHubRepositoryPicker,
     Icon,
@@ -223,6 +226,12 @@ export class AddProjectPage {
   protected readonly logSourceError = computed(() =>
     validateOptionalLogSource(this.logWorkspaceId(), this.logContainerAppName()),
   );
+
+  /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
+  protected applyLogSource(source: AzureLogSource): void {
+    this.logContainerAppName.set(source.containerAppName);
+    this.logWorkspaceId.set(source.workspaceId ?? '');
+  }
 
   protected readonly isValid = computed(
     () =>

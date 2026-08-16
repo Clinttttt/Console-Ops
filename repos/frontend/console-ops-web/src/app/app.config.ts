@@ -3,6 +3,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
 import { routes } from './app.routes';
+import {
+  AzureDiscoveryDataSource,
+  HttpAzureDiscoveryDataSource,
+} from './core/data/azure-discovery.data-source';
 import { DashboardOverviewDataSource } from './core/data/dashboard-overview.data-source';
 import { DeploymentRegistryDataSource } from './core/data/deployment-registry.data-source';
 import { EndpointVerificationDataSource } from './core/data/endpoint-verification.data-source';
@@ -32,6 +36,9 @@ export const appConfig: ApplicationConfig = {
     // candidate endpoints before registration. All three are implemented in the API.
     { provide: GitHubDiscoveryDataSource, useClass: HttpGitHubDiscoveryDataSource },
     { provide: EndpointVerificationDataSource, useClass: HttpEndpointVerificationDataSource },
+
+    // Azure discovery for the log-source picker: read-only listing of container apps and their workspace.
+    { provide: AzureDiscoveryDataSource, useClass: HttpAzureDiscoveryDataSource },
 
     // Release history recorded from GitHub Actions runs during project refreshes.
     { provide: DeploymentRegistryDataSource, useClass: HttpDeploymentRegistryDataSource },

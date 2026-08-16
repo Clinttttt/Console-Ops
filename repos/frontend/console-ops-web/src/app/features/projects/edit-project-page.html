@@ -286,6 +286,11 @@
                   <p class="error">{{ errors.logSource }}</p>
                 }
               </div>
+
+              <!-- Discovery is asked for deliberately, and it fills the two fields rather than deciding. -->
+              <div class="field is-wide">
+                <co-azure-log-source-picker (choose)="applyLogSource(index, $event)" />
+              </div>
             </div>
           </fieldset>
         }

@@ -338,6 +338,9 @@
           </div>
         </div>
 
+        <!-- Discovery is asked for deliberately, and it fills the two fields above rather than deciding. -->
+        <co-azure-log-source-picker (choose)="applyLogSource($event)" />
+
         <co-endpoint-monitoring
           [healthEndpoint]="healthEndpoint()"
           [versionEndpoint]="versionEndpoint()"

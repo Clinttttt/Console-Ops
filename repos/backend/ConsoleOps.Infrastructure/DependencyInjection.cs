@@ -67,8 +67,17 @@ public static class DependencyInjection
         configuration.GetSection(AzureMonitorOptions.SectionName).Bind(options);
         services.AddSingleton(options);
 
-        services.AddSingleton(_ => new LogsQueryClient(ResolveAzureCredential(configuration)));
+        TokenCredential credential = ResolveAzureCredential(configuration);
+        services.AddSingleton(credential);
+        services.AddSingleton(_ => new LogsQueryClient(credential));
         services.AddScoped<IApplicationLogReader, AzureMonitorLogReader>();
+
+        // Resource inventory for the log-source picker. Read-only: it lists resources and changes nothing.
+        services.AddHttpClient<IAzureLogSourceCatalog, AzureResourceGraphCatalog>(client =>
+        {
+            client.BaseAddress = new Uri("https://management.azure.com/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
     }
 
     private static TokenCredential ResolveAzureCredential(IConfiguration configuration)

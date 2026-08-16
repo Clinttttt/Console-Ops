@@ -113,9 +113,43 @@ The detection is deliberately narrow, because a wrong suggestion is worse than n
   a literal; both yield nothing rather than a path at the wrong address.
 - `inspectedFileCount` lets a caller distinguish "nothing found" from "nothing read".
 
-## Transport rules
+## Azure discovery API
 
-- Use JSON with camel-case property names.
+Added 2026-08-16 with Logs Phase 1b, so an operator picks a log source instead of typing a workspace GUID.
+
+```text
+GET /api/azure/log-sources?query=
+```
+
+Returns the container apps the configured Azure identity can see, each with the Log Analytics workspace its
+Container Apps environment sends console logs to:
+
+```text
+containerApps[]
+|-- provider: azureContainerApps
+|-- containerAppName
+|-- resourceGroup
+|-- subscriptionId
+|-- location (optional)
+|-- environmentName (optional)
+`-- workspaceId (optional)     null when that environment has no log configuration
+hasMore                        true when Azure had more than the bounded page
+```
+
+Rules:
+
+- **Read-only inventory.** One Resource Graph query listing resources. Console Ops never creates, changes,
+  or deletes an Azure resource, and needs only read access to see them.
+- **Bounded.** One page of 200, ordered by name, with `hasMore` so the UI can say the list is not
+  everything rather than implying it is.
+- **`workspaceId` may be null**, and such an app must be shown as unavailable rather than offered: without a
+  workspace there is nothing to read.
+- **Failure is not emptiness.** A rejected credential returns `Azure.Unauthorized`, and the UI names the
+  cause. An empty list means the identity genuinely sees no container apps.
+- **Filter text is escaped** into the query as a literal, never concatenated, because it arrives from a form.
+- Discovery may prefill but never decide: the two configuration fields stay editable after a pick.
+
+## Transport rules
 - Use ISO-8601 UTC strings for instants and `DateTimeOffset` in .NET.
 - Use `null` when a fact could not be established. Do not use zero, an empty SHA, or the current time
   as a substitute.

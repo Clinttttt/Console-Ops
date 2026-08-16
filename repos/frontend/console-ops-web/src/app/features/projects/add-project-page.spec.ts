@@ -19,6 +19,7 @@ import {
 } from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
 import { ProjectListItem } from '../../core/contracts/project-registry';
+import { AzureDiscoveryDataSource } from '../../core/data/azure-discovery.data-source';
 import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
 import { EndpointVerificationDataSource } from '../../core/data/endpoint-verification.data-source';
 import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
@@ -106,6 +107,12 @@ describe('AddProjectPage', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        // The form renders the log-source picker, which asks Console Ops for Azure inventory only when
+        // it is opened. A stub keeps these tests about the form.
+        {
+          provide: AzureDiscoveryDataSource,
+          useValue: { listLogSources: () => of({ containerApps: [], hasMore: false }) },
+        },
         provideRouter([
           { path: 'projects/new', component: AddProjectPage },
           { path: 'projects', component: ProjectsDestination },

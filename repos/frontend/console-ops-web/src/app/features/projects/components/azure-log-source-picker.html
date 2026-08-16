@@ -1,0 +1,91 @@
+<!-- Discovery is asked for deliberately: closed, this component never calls Azure. -->
+<button type="button" class="trigger" [attr.aria-expanded]="open()" (click)="toggle()">
+  <co-icon name="azure" [size]="15" />
+  {{ open() ? 'Hide container apps' : 'Find in Azure' }}
+</button>
+
+@if (open()) {
+  <div class="panel">
+    <div class="search">
+      <co-icon name="search" [size]="15" />
+      <label class="co-sr-only" for="azure-log-source-search">Search container apps</label>
+      <input
+        id="azure-log-source-search"
+        type="search"
+        placeholder="Search by app or resource group..."
+        [value]="query()"
+        (input)="setQuery($any($event.target).value)"
+      />
+    </div>
+
+    @if (isLoading()) {
+      <p class="state">
+        <span class="co-spinner" aria-hidden="true"></span>
+        Reading your Azure resources...
+      </p>
+    } @else if (failed()) {
+      <div class="state">
+        @switch (failureReason()) {
+          @case ('credential') {
+            <p>
+              Azure rejected the identity Console Ops is using. Sign in with
+              <span class="co-mono">az login</span>, or configure a service principal with read
+              access.
+            </p>
+          }
+          @case ('rateLimited') {
+            <p>Azure rate limited the request. Try again shortly.</p>
+          }
+          @case ('apiUnavailable') {
+            <p>The Console Ops API is unavailable, so Azure could not be asked.</p>
+          }
+          @default {
+            <p>Azure could not be read. The fields above still accept values typed by hand.</p>
+          }
+        }
+        <button type="button" class="retry" (click)="retry()">Try again</button>
+      </div>
+    } @else {
+      @let result = page();
+      @if (result === null || result.containerApps.length === 0) {
+        <p class="state co-unavailable">No container apps are visible to this Azure identity.</p>
+      } @else {
+        <ul class="apps">
+          @for (app of result.containerApps; track app.containerAppName + app.resourceGroup) {
+            <li>
+              @if (app.workspaceId === null) {
+                <!-- Its environment has no workspace, so Console Ops could not read it. Not offered. -->
+                <span
+                  class="app is-unavailable"
+                  title="This app's environment has no Log Analytics workspace"
+                >
+                  <span class="app-name co-mono">{{ app.containerAppName }}</span>
+                  <span class="app-meta">{{ app.resourceGroup }}</span>
+                  <span class="app-note co-unavailable">No log workspace</span>
+                </span>
+              } @else {
+                <button type="button" class="app" (click)="select(app)">
+                  <span class="app-name co-mono">{{ app.containerAppName }}</span>
+                  <span class="app-meta">
+                    {{ app.resourceGroup }}
+                    @if (app.environmentName !== null) {
+                      <span class="co-meta-dot" aria-hidden="true"></span>
+                      {{ app.environmentName }}
+                    }
+                  </span>
+                  <span class="app-note">Use</span>
+                </button>
+              }
+            </li>
+          }
+        </ul>
+
+        @if (result.hasMore) {
+          <p class="state co-unavailable">
+            More apps exist than are listed. Search to narrow the list.
+          </p>
+        }
+      }
+    }
+  </div>
+}

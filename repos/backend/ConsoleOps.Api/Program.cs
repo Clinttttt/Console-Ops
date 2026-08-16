@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using ConsoleOps.Api.BackgroundServices;
+using ConsoleOps.Api.Features.Azure;
 using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.Deployments;
 using ConsoleOps.Api.Features.GitHub;
@@ -75,6 +76,7 @@ app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.UseRateLimiter();
 app.MapDashboardEndpoints();
+app.MapAzureEndpoints();
 app.MapDeploymentEndpoints();
 app.MapGitHubEndpoints();
 app.MapProjectEndpoints();
