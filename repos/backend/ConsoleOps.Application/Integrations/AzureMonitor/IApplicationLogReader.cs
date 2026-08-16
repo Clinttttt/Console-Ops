@@ -52,12 +52,17 @@ public sealed record ApplicationLogQuery(
 /// How many entries were left out as framework chatter. Reported so the screen can say why a window looks
 /// quiet instead of appearing to have found nothing.
 /// </param>
+/// <param name="NoiseByCategory">
+/// The categories behind that count, largest first. An operator whose window held nothing but chatter still
+/// learns what the service was doing, which is the difference between an idle service and a broken read.
+/// </param>
 public sealed record ApplicationLogReadResult(
     IReadOnlyList<ApplicationLogEntry> Entries,
     bool Truncated,
     ApplicationLogReadFailure? Failure,
     DateTimeOffset ObservedAtUtc,
-    int NoiseHidden = 0)
+    int NoiseHidden = 0,
+    IReadOnlyList<ApplicationLogNoiseCount>? NoiseByCategory = null)
 {
     public bool IsSuccess => Failure is null;
 
@@ -65,14 +70,20 @@ public sealed record ApplicationLogReadResult(
         IReadOnlyList<ApplicationLogEntry> entries,
         bool truncated,
         DateTimeOffset observedAtUtc,
-        int noiseHidden = 0) =>
-        new(entries, truncated, null, observedAtUtc, noiseHidden);
+        int noiseHidden = 0,
+        IReadOnlyList<ApplicationLogNoiseCount>? noiseByCategory = null) =>
+        new(entries, truncated, null, observedAtUtc, noiseHidden, noiseByCategory);
 
     public static ApplicationLogReadResult Failed(
         ApplicationLogReadFailure failure,
         DateTimeOffset observedAtUtc) =>
         new([], false, failure, observedAtUtc);
 }
+
+/// <summary>
+/// How many lines one category contributed to what was left out.
+/// </summary>
+public sealed record ApplicationLogNoiseCount(string Category, int Count);
 
 /// <summary>
 /// Why a read did not produce entries. Mirrors the GitHub reader's failure vocabulary so the API can

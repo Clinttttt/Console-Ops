@@ -99,7 +99,13 @@ public sealed class GetLogStreamQueryHandler(
             ToScopeResponse(selected),
             window with { Truncated = result.Truncated },
             Merge(events, runs),
-            new LogStreamNoiseResponse(!request.IncludeNoise, result.NoiseHidden)));
+            new LogStreamNoiseResponse(
+                !request.IncludeNoise,
+                result.NoiseHidden,
+                [
+                    .. (result.NoiseByCategory ?? [])
+                        .Select(count => new LogStreamNoiseCategoryResponse(count.Category, count.Count))
+                ])));
     }
 
     /// <summary>

@@ -28,6 +28,11 @@ internal sealed class AzureMonitorLogReader(
     /// logs several infrastructure lines for every line of its own, and a folded entry spans several rows.
     /// </summary>
     private const int NoiseScanFactor = 5;
+
+    /// <summary>
+    /// How many hidden categories to name. Enough to explain a quiet window, not a second report.
+    /// </summary>
+    private const int MaximumNoiseCategories = 4;
     public async Task<ApplicationLogReadResult> ReadAsync(
         ApplicationLogQuery query,
         CancellationToken cancellationToken)
@@ -86,12 +91,21 @@ internal sealed class AzureMonitorLogReader(
 
             ApplicationLogEntry[] kept = normalized.Where(entry => !ApplicationLogNoise.IsNoise(entry)).ToArray();
             ApplicationLogEntry[] page = kept.Length > wanted ? [.. kept.Take(wanted)] : kept;
+            ApplicationLogNoiseCount[] byCategory = normalized
+                .Where(ApplicationLogNoise.IsNoise)
+                .GroupBy(entry => entry.Category!, StringComparer.Ordinal)
+                .Select(group => new ApplicationLogNoiseCount(group.Key, group.Count()))
+                .OrderByDescending(count => count.Count)
+                .ThenBy(count => count.Category, StringComparer.Ordinal)
+                .Take(MaximumNoiseCategories)
+                .ToArray();
 
             return ApplicationLogReadResult.Success(
                 page,
                 scanTruncated || kept.Length > wanted,
                 timeProvider.GetUtcNow(),
-                normalized.Count - kept.Length);
+                normalized.Count - kept.Length,
+                byCategory);
         }
         catch (RequestFailedException failure)
         {

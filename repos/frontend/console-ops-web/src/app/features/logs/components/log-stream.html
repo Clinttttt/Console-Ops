@@ -5,12 +5,25 @@
     @if (hidden !== null && hidden.excluded && hidden.hiddenCount > 0) {
       <!--
         The important case for a quiet service: the window was not empty, everything in it was framework
-        chatter. Saying so is the difference between "nothing happened" and "nothing was worth showing".
+        chatter. Saying so, and naming what produced it, is the difference between an idle service and a
+        broken log source.
       -->
       <p class="co-unavailable">
         {{ hidden.hiddenCount }} framework
         {{ hidden.hiddenCount === 1 ? 'line was' : 'lines were' }} left out of this window.
       </p>
+      @if (hidden.categories.length > 0) {
+        <ul class="noise-breakdown">
+          @for (category of hidden.categories; track category.category) {
+            <li>
+              <span class="noise-count co-mono">{{ category.count }}</span>
+              <span class="noise-category" [title]="category.category">
+                {{ sourceLabel(category.category) }}
+              </span>
+            </li>
+          }
+        </ul>
+      }
       <button type="button" class="reset" (click)="toggleNoise.emit()">Show framework lines</button>
     } @else {
       <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>

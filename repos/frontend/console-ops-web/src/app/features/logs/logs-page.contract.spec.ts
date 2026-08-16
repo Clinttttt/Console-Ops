@@ -37,7 +37,7 @@ const CAPTURED_PAYLOAD = `{
     "hours": 24,
     "truncated": true
   },
-  "noise": { "excluded": true, "hiddenCount": 41 },
+  "noise": { "excluded": true, "hiddenCount": 41, "categories": [{ "category": "Microsoft.EntityFrameworkCore.Database.Command", "count": 41 }] },
   "items": [
     {
       "kind": "event",
@@ -235,7 +235,7 @@ describe('LogsPage noise', () => {
               requests.push(request.includeNoise);
               return of(
                 request.includeNoise
-                  ? { ...stream, noise: { excluded: false, hiddenCount: 0 } }
+                  ? { ...stream, noise: { excluded: false, hiddenCount: 0, categories: [] } }
                   : stream,
               );
             },
@@ -273,11 +273,21 @@ describe('LogsPage noise', () => {
     const { host } = await render({
       ...base,
       items: [],
-      noise: { excluded: true, hiddenCount: 263 },
+      noise: {
+        excluded: true,
+        hiddenCount: 263,
+        categories: [
+          { category: 'Microsoft.EntityFrameworkCore.Database.Command', count: 261 },
+          { category: 'System.Net.Http.HttpClient.IProbe.LogicalHandler', count: 2 },
+        ],
+      },
     });
 
     // Without this an operator cannot tell an idle service from a broken log source.
     expect(host.textContent).toContain('263 framework lines were left out of this window');
+    // And what produced them, so the window still says what the service was doing.
+    expect(host.textContent).toContain('261');
+    expect(host.textContent).toContain('Database.Command');
     expect(host.querySelector('.reset')?.textContent?.trim()).toBe('Show framework lines');
   });
 });

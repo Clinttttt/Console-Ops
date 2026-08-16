@@ -350,6 +350,12 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         Assert.True(stream.Noise.Excluded);
         // Nothing is dropped silently: the count is why a quiet window is quiet.
         Assert.Equal(2, stream.Noise.HiddenCount);
+        // And what produced it, so a window of nothing but chatter still says what the service was doing.
+        Assert.Equal(2, stream.Noise.Categories.Count);
+        Assert.Contains(
+            stream.Noise.Categories,
+            category => category.Category == "Microsoft.EntityFrameworkCore.Database.Command"
+                && category.Count == 1);
         LogEventResponse kept = Assert.Single(stream.Items.OfType<LogEventResponse>());
         Assert.Equal("Spinner.Orders", kept.Source);
     }
@@ -467,11 +473,19 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
 
             // Stands in for the real adapter, which filters after folding continuation lines.
             ApplicationLogEntry[] kept = Entries.Where(entry => !ApplicationLogNoise.IsNoise(entry)).ToArray();
+            ApplicationLogNoiseCount[] byCategory = Entries
+                .Where(ApplicationLogNoise.IsNoise)
+                .GroupBy(entry => entry.Category!, StringComparer.Ordinal)
+                .Select(group => new ApplicationLogNoiseCount(group.Key, group.Count()))
+                .OrderByDescending(count => count.Count)
+                .ToArray();
+
             return Task.FromResult(ApplicationLogReadResult.Success(
                 kept,
                 false,
                 DateTimeOffset.UtcNow,
-                Entries.Count - kept.Length));
+                Entries.Count - kept.Length,
+                byCategory));
         }
     }
 }

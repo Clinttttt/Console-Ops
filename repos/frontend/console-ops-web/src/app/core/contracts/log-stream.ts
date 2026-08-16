@@ -120,6 +120,13 @@ export interface LogStreamWindow {
 export interface LogStreamNoise {
   readonly excluded: boolean;
   readonly hiddenCount: number;
+  /** What produced the hidden lines, largest first, so a quiet window still says what the service did. */
+  readonly categories: readonly LogStreamNoiseCategory[];
+}
+
+export interface LogStreamNoiseCategory {
+  readonly category: string;
+  readonly count: number;
 }
 
 export interface LogStream {

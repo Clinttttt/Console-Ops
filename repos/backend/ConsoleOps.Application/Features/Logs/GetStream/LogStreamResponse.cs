@@ -34,7 +34,16 @@ public sealed record LogStreamResponse(
 /// How many lines were removed. This is why a quiet window is quiet, and without it an operator cannot tell
 /// "nothing happened" from "everything that happened was noise".
 /// </param>
-public sealed record LogStreamNoiseResponse(bool Excluded, int HiddenCount);
+/// <param name="Categories">
+/// What produced those lines, largest first. A window with nothing but chatter still tells the operator what
+/// the service was busy with.
+/// </param>
+public sealed record LogStreamNoiseResponse(
+    bool Excluded,
+    int HiddenCount,
+    IReadOnlyList<LogStreamNoiseCategoryResponse> Categories);
+
+public sealed record LogStreamNoiseCategoryResponse(string Category, int Count);
 
 public sealed record LogStreamScopeResponse(
     Guid ProjectId,

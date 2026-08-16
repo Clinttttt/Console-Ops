@@ -20,6 +20,31 @@
   color: var(--co-ink);
 }
 
+/* What was in the window, when what was in the window was all chatter. */
+.noise-breakdown {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: var(--co-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.noise-breakdown li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--co-space-3);
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.noise-count {
+  min-width: 34px;
+  text-align: right;
+  color: var(--co-ink);
+}
+
 .reset:hover {
   background: var(--co-surface-sunken);
 }
