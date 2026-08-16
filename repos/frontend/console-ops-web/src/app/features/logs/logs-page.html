@@ -1,0 +1,55 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading events...</p>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>The log stream could not be read.</p>
+      <button type="button" class="retry" (click)="retry()">Try again</button>
+    </div>
+  }
+
+  @default {
+    <aside class="preview-notice" role="note">
+      <span class="preview-badge">Sample data</span>
+      <span class="preview-text">
+        This screen is a design preview. Console Ops does not ingest logs yet, so nothing here was
+        emitted by your applications.
+      </span>
+    </aside>
+
+    <co-log-filters
+      [scopes]="scopes()"
+      [scopeId]="scopeId()"
+      [query]="query()"
+      [level]="level()"
+      [source]="source()"
+      [live]="live()"
+      (scopeChange)="setScope($event)"
+      (queryChange)="setQuery($event)"
+      (levelChange)="setLevel($event)"
+      (sourceChange)="setSource($event)"
+      (liveChange)="setLive($event)"
+    />
+
+    <div class="layout">
+      <div class="primary">
+        <co-log-stream
+          [items]="items()"
+          [totalCount]="totalCount()"
+          [errorCount]="errorCount()"
+          [selectedId]="selected()?.id ?? null"
+          [observedAt]="observedAt()"
+          [live]="live()"
+          (selectEvent)="select($event)"
+          (clearFilters)="clearFilters()"
+        />
+      </div>
+
+      <aside class="rail" aria-label="Event detail">
+        <co-log-detail [event]="selected()" [scope]="scope()" (dismiss)="dismissDetail()" />
+      </aside>
+    </div>
+  }
+}

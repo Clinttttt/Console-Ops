@@ -49,7 +49,9 @@ export type IconName =
   | 'check'
   | 'checkCircle'
   | 'copy'
-  | 'externalLink';
+  | 'externalLink'
+  | 'pause'
+  | 'close';
 
 interface IconDefinition {
   readonly paths: readonly string[];
@@ -216,6 +218,12 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
       'M9.4 9.4h9.2v9.2H9.4Z',
       'M15 9.4V6.2a.8.8 0 0 0-.8-.8H6.2a.8.8 0 0 0-.8.8v8a.8.8 0 0 0 .8.8h3.2',
     ],
+  },
+  pause: {
+    paths: ['M9.4 5.6v12.8', 'M14.6 5.6v12.8'],
+  },
+  close: {
+    paths: ['M6.4 6.4l11.2 11.2', 'M17.6 6.4 6.4 17.6'],
   },
   externalLink: {
     paths: [

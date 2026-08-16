@@ -1,0 +1,183 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Event Detail</h2>
+  @if (event() !== null) {
+    <button type="button" class="dismiss" (click)="dismiss.emit()" aria-label="Close event detail">
+      <co-icon name="close" [size]="15" />
+    </button>
+  }
+</header>
+
+@let selected = event();
+@if (selected === null) {
+  <p class="co-unavailable empty">Select an event to inspect it.</p>
+} @else {
+  <div class="identity">
+    <span class="level" [attr.data-level]="selected.level">{{ levelLabel() }}</span>
+    <span class="source">{{ selected.source }}</span>
+  </div>
+
+  <p class="message">{{ selected.message }}</p>
+
+  <dl class="rows">
+    <div class="row">
+      <dt>Timestamp</dt>
+      <dd>
+        <span class="co-mono">
+          {{ selected.occurredAt | date: 'MMM d, HH:mm:ss.SSS' : 'UTC' }}
+        </span>
+        UTC
+      </dd>
+    </div>
+
+    @let scopeValue = scope();
+    @if (scopeValue !== null) {
+      <div class="row">
+        <dt>Environment</dt>
+        <dd>
+          <co-environment-tag
+            [name]="scopeValue.environment.name"
+            [kind]="scopeValue.environment.kind"
+          />
+        </dd>
+      </div>
+    }
+
+    <div class="row">
+      <dt>Source</dt>
+      <dd>
+        {{ selected.source }}
+        @if (sourceKindLabel() !== null) {
+          <span class="co-meta-dot" aria-hidden="true"></span>
+          {{ sourceKindLabel() }}
+        }
+      </dd>
+    </div>
+
+    @let outcome = selected.outcome;
+    @if (outcome !== null && outcome.statusCode !== null) {
+      <div class="row">
+        <dt>Status</dt>
+        <dd>
+          <span class="co-mono">{{ outcome.statusCode }}</span>
+        </dd>
+      </div>
+    }
+
+    <div class="row">
+      <dt>Duration</dt>
+      <dd>
+        @if (durationLabel() === null) {
+          <span class="co-unavailable">Not reported</span>
+        } @else {
+          {{ durationLabel() }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Host</dt>
+      <dd>
+        @if (selected.host === null) {
+          <span class="co-unavailable">Unknown</span>
+        } @else {
+          <span class="co-mono host">{{ selected.host }}</span>
+        }
+      </dd>
+    </div>
+  </dl>
+
+  <section class="block">
+    <h3 class="co-eyebrow">Correlation</h3>
+    <dl class="rows">
+      <div class="row">
+        <dt>Trace ID</dt>
+        <dd>
+          @if (selected.correlation.traceId === null) {
+            <span class="co-unavailable">Not provided</span>
+          } @else {
+            <span class="co-mono id">{{ selected.correlation.traceId }}</span>
+            <button
+              type="button"
+              class="copy"
+              (click)="copy('trace', selected.correlation.traceId)"
+              aria-label="Copy trace ID"
+            >
+              <co-icon [name]="copied() === 'trace' ? 'check' : 'copy'" [size]="14" />
+            </button>
+          }
+        </dd>
+      </div>
+
+      <div class="row">
+        <dt>Request ID</dt>
+        <dd>
+          @if (selected.correlation.requestId === null) {
+            <span class="co-unavailable">Not provided</span>
+          } @else {
+            <span class="co-mono id">{{ selected.correlation.requestId }}</span>
+            <button
+              type="button"
+              class="copy"
+              (click)="copy('request', selected.correlation.requestId)"
+              aria-label="Copy request ID"
+            >
+              <co-icon [name]="copied() === 'request' ? 'check' : 'copy'" [size]="14" />
+            </button>
+          }
+        </dd>
+      </div>
+    </dl>
+
+    <span
+      class="co-inline-link is-unavailable related"
+      title="Following a trace across events arrives with log ingestion"
+    >
+      <co-icon name="externalLink" [size]="14" />
+      View related logs
+    </span>
+  </section>
+
+  @if (selected.properties.length > 0) {
+    <section class="block">
+      <h3 class="co-eyebrow">Properties</h3>
+      @if (selected.messageTemplate !== null) {
+        <p class="template co-mono">{{ selected.messageTemplate }}</p>
+      }
+      <dl class="rows">
+        @for (property of selected.properties; track property.name) {
+          <div class="row">
+            <dt>{{ property.name }}</dt>
+            <dd>
+              <span class="co-mono">{{ property.value }}</span>
+            </dd>
+          </div>
+        }
+      </dl>
+    </section>
+  }
+
+  @let exception = selected.exception;
+  @if (exception !== null) {
+    <section class="block">
+      <h3 class="co-eyebrow">Exception</h3>
+      <p class="exception-type co-mono">{{ exception.type }}</p>
+      <p class="exception-message">{{ exception.message }}</p>
+
+      @if (exception.stackTrace === null) {
+        <p class="co-unavailable">No stack trace was captured.</p>
+      } @else {
+        <button
+          type="button"
+          class="trace-toggle"
+          [attr.aria-expanded]="stackTraceOpen()"
+          (click)="toggleStackTrace()"
+        >
+          {{ stackTraceOpen() ? 'Hide stack trace' : 'View stack trace' }}
+        </button>
+        @if (stackTraceOpen()) {
+          <pre class="stack-trace co-mono">{{ exception.stackTrace }}</pre>
+        }
+      }
+    </section>
+  }
+}

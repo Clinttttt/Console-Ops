@@ -66,6 +66,15 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/environments/environments-page').then((m) => m.EnvironmentsPage),
   },
+  {
+    path: 'logs',
+    title: 'Logs - Console Ops',
+    data: {
+      title: 'Logs',
+      subtitle: 'Application and runtime events across your environments.',
+    },
+    loadComponent: () => import('./features/logs/logs-page').then((m) => m.LogsPage),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'overview' },
   { path: '**', redirectTo: 'overview' },
 ];

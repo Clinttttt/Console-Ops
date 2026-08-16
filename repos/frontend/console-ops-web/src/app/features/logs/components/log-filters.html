@@ -1,0 +1,95 @@
+<!--
+  One control with one dropdown. The group shows the project and the environment it is scoped to, and a
+  single select covering it lists the project/environment pairs. Two dropdowns in one field would ask the
+  operator to make the same choice twice, and the pill would be a filter of its own rather than a reading
+  of the current scope.
+-->
+<div class="scope">
+  <label class="co-sr-only" for="co-log-scope">Project and environment</label>
+  <select
+    id="co-log-scope"
+    [value]="scopeId() ?? ''"
+    (change)="scopeChange.emit($any($event.target).value)"
+  >
+    @for (scope of scopes(); track keyFor(scope)) {
+      <option [value]="keyFor(scope)">
+        {{ scope.projectName }} / {{ scope.environment.name }}
+      </option>
+    }
+  </select>
+
+  @let current = selected();
+  <span class="project">{{ current?.projectName }}</span>
+  <co-icon name="chevronDown" [size]="15" />
+
+  @if (current !== null) {
+    <co-environment-tag [name]="current.environment.name" [kind]="current.environment.kind" />
+  }
+</div>
+
+<div class="search">
+  <co-icon name="search" [size]="15" />
+  <label class="co-sr-only" for="co-log-search">Search messages, trace IDs, request IDs</label>
+  <input
+    id="co-log-search"
+    type="search"
+    placeholder="Search messages, trace ID, request ID..."
+    [value]="query()"
+    (input)="queryChange.emit($any($event.target).value)"
+  />
+</div>
+
+<div class="levels" role="group" aria-label="Severity">
+  @for (option of levels; track option.label) {
+    <button
+      type="button"
+      class="level"
+      [class.is-active]="option.value === level()"
+      [attr.aria-pressed]="option.value === level()"
+      (click)="levelChange.emit(option.value)"
+    >
+      @if (option.level !== null) {
+        <span class="co-dot" [attr.data-level]="option.level"></span>
+      }
+      {{ option.label }}
+    </button>
+  }
+</div>
+
+<div class="trailing">
+  <div class="select is-source">
+    <co-icon name="sliders" [size]="15" />
+    <label class="co-sr-only" for="co-log-source">Source</label>
+    <select
+      id="co-log-source"
+      [value]="source() ?? ''"
+      (change)="onSourceSelect($any($event.target).value)"
+    >
+      @for (option of sources; track option.label) {
+        <option [value]="option.value ?? ''">{{ option.label }}</option>
+      }
+    </select>
+    <co-icon name="chevronDown" [size]="15" />
+  </div>
+
+  <button
+    type="button"
+    class="live"
+    [class.is-on]="live()"
+    [attr.aria-pressed]="live()"
+    (click)="liveChange.emit(!live())"
+    [title]="
+      live()
+        ? 'Following new events. Pause to read without the stream moving.'
+        : 'Paused. New events will not be appended.'
+    "
+  >
+    @if (live()) {
+      <span class="co-dot" data-level="healthy"></span>
+      Live
+    } @else {
+      <co-icon name="pause" [size]="14" />
+      Paused
+    }
+  </button>
+</div>

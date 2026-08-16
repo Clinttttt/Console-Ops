@@ -1,0 +1,169 @@
+:host {
+  display: block;
+  padding: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-3);
+  padding-bottom: var(--co-space-4);
+}
+
+.dismiss {
+  color: var(--co-ink-faint);
+}
+
+.dismiss:hover {
+  color: var(--co-ink);
+}
+
+.empty {
+  font-size: 12.5px;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+}
+
+/* Same treatment as the stream badge: a slight border, the plain surface, and only the text coloured. */
+.level {
+  padding: 2px 7px;
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-sm);
+  background: var(--co-surface);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--co-level, 154, 161, 172));
+}
+
+.level[data-level='info'] {
+  --co-level: 26, 143, 76;
+}
+
+.level[data-level='warning'] {
+  --co-level: 201, 138, 8;
+}
+
+.level[data-level='error'] {
+  --co-level: 208, 42, 42;
+}
+
+.source {
+  font-size: 12px;
+  color: var(--co-ink-muted);
+}
+
+.message {
+  margin: var(--co-space-3) 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.rows {
+  margin: var(--co-space-3) 0 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--co-space-3);
+  padding: 4px 0;
+}
+
+dt {
+  font-size: 12px;
+  color: var(--co-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.id,
+.host {
+  font-size: 11.5px;
+}
+
+.copy {
+  color: var(--co-ink-faint);
+}
+
+.copy:hover {
+  color: var(--co-ink);
+}
+
+.block {
+  margin-top: var(--co-space-4);
+  padding-top: var(--co-space-4);
+  border-top: 1px solid var(--co-line);
+}
+
+.block > .co-unavailable {
+  font-size: 12px;
+}
+
+.related {
+  margin-top: var(--co-space-3);
+}
+
+.template {
+  margin: var(--co-space-2) 0 0;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.exception-type {
+  margin: var(--co-space-2) 0 0;
+  font-size: 12px;
+  color: var(--co-status-down);
+}
+
+.exception-message {
+  margin: 4px 0 var(--co-space-3);
+  font-size: 12.5px;
+  color: var(--co-ink);
+}
+
+.trace-toggle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-blue);
+}
+
+.trace-toggle:hover {
+  color: var(--co-navy);
+}
+
+/* Kept scrollable rather than allowed to stretch the rail to the height of a trace. */
+.stack-trace {
+  margin: var(--co-space-3) 0 0;
+  padding: var(--co-space-3);
+  max-height: 220px;
+  overflow: auto;
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-sm);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--co-ink);
+  white-space: pre;
+}

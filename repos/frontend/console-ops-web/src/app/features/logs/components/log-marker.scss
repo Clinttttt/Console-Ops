@@ -1,0 +1,50 @@
+/* Reads as a rule across the stream, not a card: it is context for the lines that follow. */
+:host {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  padding: var(--co-space-3) var(--co-space-5);
+}
+
+/* Continues the stream's rail. Geometry comes from the parent so one thread runs through the list. */
+:host::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--co-rail-left);
+  z-index: 1;
+  width: 1.5px;
+  background: rgba(154, 161, 172, 0.45);
+}
+
+/* An opaque node breaks the rail cleanly where the marker sits. */
+.marker-icon {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: -4px;
+  background: var(--co-surface);
+  color: var(--co-ink-faint);
+}
+
+.marker-text,
+.marker-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  white-space: nowrap;
+}
+
+.marker-rule {
+  flex: 1;
+  height: 0;
+  border-top: 1px dashed var(--co-line-strong);
+}

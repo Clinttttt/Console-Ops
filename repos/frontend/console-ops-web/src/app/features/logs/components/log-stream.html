@@ -1,0 +1,79 @@
+@if (items().length === 0) {
+  <div class="empty">
+    <p class="co-unavailable">No events match this view.</p>
+    <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else {
+  @for (day of days(); track day.key) {
+    <section class="day">
+      <header class="day-head">
+        <span class="day-marker" aria-hidden="true">
+          <co-icon name="calendar" [size]="15" />
+        </span>
+        @if (day.isToday) {
+          <h3 class="day-label">Today &mdash; {{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
+        } @else {
+          <h3 class="day-label">{{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
+        }
+      </header>
+
+      <ol class="lines">
+        @for (item of day.items; track item.id) {
+          @if (isEvent(item)) {
+            @let event = asEvent(item);
+            <li class="line-item" [attr.data-level]="event.level">
+              <button
+                type="button"
+                class="line"
+                [class.is-selected]="event.id === selectedId()"
+                [attr.aria-expanded]="event.id === selectedId()"
+                (click)="selectEvent.emit(event.id)"
+              >
+                <span class="co-dot" [attr.data-level]="dotLevel(event)" aria-hidden="true"></span>
+                <time class="time co-mono" [attr.datetime]="event.occurredAt">
+                  {{ event.occurredAt | date: 'HH:mm:ss.SSS' : 'UTC' }}
+                </time>
+                <span class="level">{{ levelLabel(event) }}</span>
+                <span class="source">{{ event.source }}</span>
+                <span class="message">{{ event.message }}</span>
+                @let outcome = outcomeLabel(event);
+                @if (outcome === null) {
+                  <span class="outcome co-unavailable" aria-hidden="true">&mdash;</span>
+                } @else {
+                  <span class="outcome">{{ outcome }}</span>
+                }
+              </button>
+            </li>
+          } @else {
+            <li class="marker-row">
+              <co-log-marker [marker]="asMarker(item)" />
+            </li>
+          }
+        }
+      </ol>
+    </section>
+  }
+
+  <footer class="stream-footer">
+    @if (live()) {
+      <p class="waiting">
+        <span class="co-dot" data-level="healthy"></span>
+        Following new events
+      </p>
+    } @else {
+      <p class="waiting co-unavailable">
+        <co-icon name="pause" [size]="13" />
+        Paused
+      </p>
+    }
+
+    <p class="count">
+      Showing {{ eventCount() }} of {{ totalCount() }}
+      {{ totalCount() === 1 ? 'event' : 'events' }}
+      @if (errorCount() > 0) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        {{ errorCount() }} {{ errorCount() === 1 ? 'error' : 'errors' }}
+      }
+    </p>
+  </footer>
+}
