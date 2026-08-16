@@ -2,8 +2,23 @@
 
 ## Status
 
-Planning, 2026-08-16. **Phase 1 is implemented, plus discovery (1b)**; Phases 2 to 5 remain planned.
+Planning, 2026-08-16. **Phases 1, 1b (discovery), and 2 are implemented**; Phases 3 to 5 remain planned.
 Supersedes the ingestion-first draft, which is withdrawn.
+
+Phase 2 as built, and verified against the operator's own workspace:
+
+- `GET /api/logs` reads one project environment's console output through Azure Monitor and returns the
+  screen's contract. The fixture, its mock adapter, and the SAMPLE DATA banner are deleted.
+- The adapter reads **both table shapes** with `union isfuzzy=true`, and orders by `time_t`, after the two
+  corrections recorded below.
+- Scope and free-text search are pushed down to the provider, because a 24-hour window holds far more lines
+  than a page; severity and source-kind narrow what is already on screen.
+- The response states the window and whether the row cap truncated it. Failure is never emptiness: no
+  configured source, a rejected identity, and a provider that could not be asked each get a distinct code
+  and message.
+- Measured live: 200 in about 7s on a cold credential, real revision and replica identity, ingestion delay
+  of roughly half a second visible between the two clocks, and prefix parsing recovering
+  `Microsoft.EntityFrameworkCore.Database.Command` as the category from real lines.
 
 Phase 1b as built - the operator picks instead of typing:
 
