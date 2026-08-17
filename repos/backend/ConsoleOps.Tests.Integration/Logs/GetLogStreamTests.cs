@@ -399,6 +399,46 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         Assert.Empty(stream.Items);
     }
 
+    [Fact]
+    public async Task Stream_FollowingAScope_ReadsOnlyWhatHappenedSinceTheLastRead()
+    {
+        StubLogReader reader = new();
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+        DateTimeOffset since = DateTimeOffset.UtcNow.AddSeconds(-40);
+
+        LogStreamResponse stream = await ReadAsync(
+            client,
+            project.Id,
+            $"&since={Uri.EscapeDataString(since.ToString("o"))}");
+
+        // The provider is asked for seconds rather than a day: following a scope must not re-scan the window
+        // every few seconds.
+        Assert.Equal(since, reader.LastQuery?.FromUtc);
+        Assert.Equal(since, stream.Window.From);
+        Assert.True(stream.Window.To > since);
+    }
+
+    [Fact]
+    public async Task Stream_WithACursorOlderThanTheMaximumWindow_StillReadsOnlyTheMaximumWindow()
+    {
+        StubLogReader reader = new();
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+        DateTimeOffset stale = DateTimeOffset.UtcNow.AddDays(-9);
+
+        LogStreamResponse stream = await ReadAsync(
+            client,
+            project.Id,
+            $"&since={Uri.EscapeDataString(stale.ToString("o"))}");
+
+        // A tab left open for a week, or a hand-written cursor, must not widen what is asked of the provider.
+        Assert.Equal(24, stream.Window.Hours);
+        Assert.Equal(stream.Window.To.AddHours(-24), stream.Window.From);
+    }
+
     private WebApplicationFactory<Program> CreateApplication(IApplicationLogReader reader) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {

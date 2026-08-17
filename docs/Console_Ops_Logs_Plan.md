@@ -2,8 +2,7 @@
 
 ## Status
 
-Planning, 2026-08-16. **Phases 1, 1b (discovery), 2, and 3 are implemented**; Phases 4 and 5 remain
-planned. Supersedes the ingestion-first draft, which is withdrawn.
+Planning, 2026-08-16. **Phases 1, 1b (discovery), 2, 3, and 4 are implemented**; Phase 5 remains planned. Supersedes the ingestion-first draft, which is withdrawn.
 
 Phase 3 as built, and corrected by real data:
 - Markers are composed at query time from the `deployments` rows a refresh already wrote. There is no
@@ -363,9 +362,35 @@ every open of the screen. The page states which scope and search it wants and re
 
 ## Phase 4 - Live tail
 
-Polling first, as decided: the same query with `after=<last id>` on a short interval while `Live` is on,
-appending rather than replacing. Pause stops asking. The response cache and rate limit from Phase 2 are
-what make this affordable.
+**Built.** `Live` follows the scope with `since=<cursor>` instead of re-reading the window. The cursor is the
+last response's own composition time, less a 30-second overlap, because a provider ingests a line slightly
+after it was written: advancing to exactly the last read would step over lines that were not queryable yet.
+Overlap is free because pages already merge by id.
+
+The tail preserves what the operator is looking at. Items are added, never replaced, so pages scrolled back to
+survive; the window stays the one that was read, because a tail covers seconds and reporting that as the
+window would claim the operator is looking at seconds of history; and what a tail leaves out is added to what
+the window left out, so the stated noise count stays truthful.
+
+Measured against the real workspace, which is the argument for the whole phase:
+
+| Read | Rows | Span | Time |
+|---|---|---|---|
+| Full window | 100 events | 24h | **15,982 ms** |
+| Tail | 4 events, all new | 79s | **712 ms** |
+
+Pausing stops asking entirely. Polling is every 10 seconds while the tab is visible, against a rate limit of
+60 a minute, so one operator with one tab uses a tenth of it.
+
+Two deviations from the plan, both deliberate:
+
+- The cursor is a **time**, not `after=<last id>`. Ids are synthesized by Console Ops and are not ordered, so
+  a provider cannot seek on them. A time is what Log Analytics can seek on.
+- **No response cache.** Every tail carries a different cursor, so a short-lived cache would never hit. The
+  narrow window is what makes the read cheap, and the measurement above is the evidence.
+
+The maximum window still bounds a tail: a cursor older than it, from a tab left open for a week or written by
+hand, reads the maximum window rather than widening the provider query.
 
 Azure's own log streaming or server-sent events are considered only if polling proves too slow in
 practice. No SignalR without a requirement.

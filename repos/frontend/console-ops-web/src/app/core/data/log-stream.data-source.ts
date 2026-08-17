@@ -20,6 +20,11 @@ export interface LogStreamRequest {
    */
   readonly before: string | null;
   /**
+   * Read only what has happened since this instant, which is how the screen follows a scope while `Live` is
+   * on. A tail asks for seconds instead of a day, so following a stream costs a fraction of re-reading it.
+   */
+  readonly since: string | null;
+  /**
    * Keep framework chatter in the stream. Off by default: an idle service logs almost nothing else, and the
    * lines the operator came for are buried under it. Filtering is pushed down for the same reason search is
    * - the window holds far more lines than a page, so removing noise locally would just empty the page.

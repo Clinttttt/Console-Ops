@@ -91,7 +91,15 @@ export class LogStreamStore {
     search: null,
     before: null,
     includeNoise: false,
+    since: null,
   };
+
+  /** Where the next tail starts: the last response's own composition time. 
+ull until a stream exists. */
+  private cursor: string | null = null;
+
+  /** Guards against a slow tail overlapping the next interval. */
+  private tailing = false;
 
   // No read in the constructor: the screen states which scope and search it wants and reads once for it.
   // Reading here as well sent two identical provider queries for every open of the Logs page.
@@ -123,6 +131,7 @@ export class LogStreamStore {
       .subscribe({
         next: (stream) => {
           this.current.set(stream);
+          this.cursor = stream.observedAt;
           // A different scope or search is a different stream, so paged-in history does not carry over.
           this.loaded.set(isSameScope ? merge(untracked(this.loaded), stream.items) : stream.items);
           this.olderState.set(isSameScope ? untracked(this.olderState) : 'idle');
@@ -153,7 +162,7 @@ export class LogStreamStore {
 
     this.olderState.set('reading');
     this.dataSource
-      .load({ ...this.lastRequest, before: held[held.length - 1].occurredAt })
+      .load({ ...this.lastRequest, since: null, before: held[held.length - 1].occurredAt })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (stream) => {
@@ -171,6 +180,84 @@ export class LogStreamStore {
   refresh(): void {
     this.read(this.lastRequest);
   }
+
+  /**
+   * Follows the scope: reads only what has happened since the last read and adds it to what is held.
+   *
+   * This is what `Live` does instead of re-reading the window. A tail asks the provider for seconds rather
+   * than a day, so following a stream costs a fraction of refreshing it, and nothing already on screen is
+   * disturbed - including pages the operator scrolled back to.
+   *
+   * The cursor is the last response's own composition time, less an overlap, because a provider ingests a
+   * line slightly after it was written: advancing the cursor to exactly the last read would step over lines
+   * that were not queryable yet. Overlapping re-reads a few of them, and merging by id makes that free.
+   */
+  tail(): void {
+    const cursor = this.cursor;
+    if (cursor === null || untracked(this.state) === 'unavailable' || this.tailing) {
+      return;
+    }
+
+    this.tailing = true;
+    this.dataSource
+      .load({
+        ...this.lastRequest,
+        before: null,
+        since: new Date(Date.parse(cursor) - TailOverlapMs).toISOString(),
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (stream) => {
+          this.tailing = false;
+          this.cursor = stream.observedAt;
+          // The window and the scope stay as the full read left them: a tail covers seconds, and reporting
+          // that as the window would tell the operator they are looking at seconds of history.
+          this.current.update((held) =>
+            held === null
+              ? stream
+              : {
+                  ...held,
+                  observedAt: stream.observedAt,
+                  noise: addNoise(held.noise, stream.noise),
+                },
+          );
+          this.loaded.set(merge(untracked(this.loaded), stream.items));
+        },
+        // A failed tail leaves the stream alone. The next interval tries again from the same cursor, so a
+        // dropped poll delays lines rather than losing them.
+        error: () => {
+          this.tailing = false;
+        },
+      });
+  }
+}
+
+/**
+ * How far back a tail reaches beyond the last read.
+ *
+ * Ingestion delay measured against a real workspace was under two seconds; this is slack for that plus clock
+ * skew between the emitter and the provider. Re-read lines are discarded by id.
+ */
+const TailOverlapMs = 30_000;
+
+/** Adds what a tail left out to what the window already left out, so the stated count stays truthful. */
+function addNoise(held: LogStreamNoise, incoming: LogStreamNoise): LogStreamNoise {
+  if (incoming.hiddenCount === 0) {
+    return held;
+  }
+
+  const counts = new Map(held.categories.map((entry) => [entry.category, entry.count]));
+  for (const entry of incoming.categories) {
+    counts.set(entry.category, (counts.get(entry.category) ?? 0) + entry.count);
+  }
+
+  return {
+    excluded: held.excluded,
+    hiddenCount: held.hiddenCount + incoming.hiddenCount,
+    categories: [...counts.entries()]
+      .map(([category, count]) => ({ category, count }))
+      .sort((left, right) => right.count - left.count),
+  };
 }
 
 /**

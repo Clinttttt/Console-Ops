@@ -28,6 +28,15 @@ import { LogStreamView } from './components/log-stream';
  * Severity and source-kind narrow what is already on screen, which is honest because they are properties of
  * the fetched lines.
  */
+/**
+ * How often the screen asks for new lines while Live is on.
+ *
+ * Shorter than the stored-data refresh the other screens use, because this one follows a provider in near
+ * real time and a tail costs a fraction of a window read. The provider's own ingestion delay is about a
+ * second, so asking much more often than this would mostly return nothing.
+ */
+const LIVE_TAIL_INTERVAL_MS = 10_000;
+
 @Component({
   selector: 'co-logs-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,7 +68,6 @@ export class LogsPage {
   private readonly requestedScopeId = signal<string | null>(null);
   private readonly submittedQuery = signal('');
 
-  /** Nothing is selected until an event is chosen: a panel nobody opened describes an arbitrary line. */
   private readonly selectedId = signal<string | null>(null);
 
   protected readonly scopeId = computed<string | null>(() => {
@@ -87,19 +95,22 @@ export class LogsPage {
           projectId: projectId ?? null,
           environmentId: environmentId ?? null,
           search: search === '' ? null : search,
-          // A fresh question always starts at now; paging backwards is a separate, explicit read.
+          // A fresh question always starts at now; paging and following are separate, explicit reads.
           before: null,
+          since: null,
           includeNoise,
         }),
       );
     });
 
-    // Re-reads the window while the screen is being looked at; the API holds the provider credential.
+    // While Live is on the screen follows the scope: a tail asks the provider for the seconds since the last
+    // read rather than re-reading the window, which is what makes polling this often affordable. Pausing
+    // stops asking entirely - the operator reading a window is not asking for it to move under them.
     autoRefresh(() => {
       if (this.live()) {
-        this.store.refresh();
+        this.store.tail();
       }
-    });
+    }, LIVE_TAIL_INTERVAL_MS);
   }
 
   /** `true` when the operator has narrowed the view, so an empty stream can be explained correctly. */

@@ -50,8 +50,11 @@ public sealed class GetLogStreamQueryHandler(
         LogStreamScopeResponse[] scopeResponses = scopes.Select(ToScopeResponse).ToArray();
         DateTimeOffset now = timeProvider.GetUtcNow();
         DateTimeOffset to = request.Before ?? now;
-        DateTimeOffset from = to.AddHours(-WindowHours);
-        LogStreamWindowResponse window = new(from, to, WindowHours, false);
+        DateTimeOffset earliest = to.AddHours(-WindowHours);
+        // A tail read asks only for what has happened since the last one. It is still bounded by the same
+        // maximum window, so a stale or hostile cursor cannot widen the provider query.
+        DateTimeOffset from = request.Since is { } since && since > earliest && since < to ? since : earliest;
+        LogStreamWindowResponse window = new(from, to, (int)Math.Round((to - from).TotalHours), false);
 
         if (scopes.Length == 0)
         {

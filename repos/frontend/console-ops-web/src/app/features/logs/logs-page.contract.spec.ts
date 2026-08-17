@@ -332,6 +332,77 @@ describe('LogsPage noise', () => {
   });
 });
 
+describe('LogsPage following a scope', () => {
+  /**
+   * `Live` follows the scope by asking for what has happened since the last read, rather than re-reading the
+   * window. These tests pin the two things that makes worth having: the request is a narrow one, and nothing
+   * already on screen is disturbed by it.
+   */
+  it('asks only for what happened since the last read, and adds it to what is held', async () => {
+    const base = JSON.parse(CAPTURED_PAYLOAD) as LogStream;
+    const requests: { since: string | null; before: string | null }[] = [];
+    let call = 0;
+
+    await TestBed.configureTestingModule({
+      imports: [LogsPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: LogStreamDataSource,
+          useValue: {
+            load: (request: { since: string | null; before: string | null }) => {
+              requests.push({ since: request.since, before: request.before });
+              call += 1;
+              return of(
+                call === 1
+                  ? base
+                  : {
+                      ...base,
+                      observedAt: '2026-08-16T11:17:36.0000000+00:00',
+                      noise: { excluded: true, hiddenCount: 2, categories: [] },
+                      items: [
+                        {
+                          ...(base.items[0] as LogEvent),
+                          id: 'tailed',
+                          occurredAt: '2026-08-16T11:17:20.0000000+00:00',
+                          message: 'Order created',
+                          source: 'Spinner.Orders',
+                        },
+                      ],
+                    },
+              );
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(LogsPage);
+    await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('co-log-stream .line').length).toBe(3);
+
+    TestBed.inject(LogStreamStore).tail();
+    await fixture.whenStable();
+
+    // A cursor, not a window: following a stream must not re-scan a day every few seconds.
+    expect(requests[1].since).not.toBeNull();
+    expect(requests[1].before).toBeNull();
+    // The cursor reaches back past the last read, because a provider ingests a line after it is written.
+    expect(Date.parse(requests[1].since!)).toBeLessThan(Date.parse(base.observedAt));
+
+    const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
+    expect(lines.length).toBe(4);
+    // Newest first, so a followed line arrives at the top without moving what was already read.
+    expect(lines[0].textContent).toContain('Order created');
+    expect(lines[3].textContent).toContain('GET /api/bookings');
+    // The window stays the one that was read; a tail covers seconds and must not be reported as history.
+    expect(host.textContent).toContain('last 24h');
+    // What a tail left out is added to what the window left out, so the stated count stays truthful.
+    expect(host.textContent).toContain('43 framework lines hidden');
+  });
+});
+
 describe('LogsPage paging backwards', () => {
   let fixture: ComponentFixture<LogsPage>;
   let host: HTMLElement;

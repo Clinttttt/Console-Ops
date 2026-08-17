@@ -12,6 +12,10 @@ namespace ConsoleOps.Application.Features.Logs.GetStream;
 /// screen has something to show on first open.
 /// </param>
 /// <param name="Before">Read events older than this instant, which is how the stream pages backwards.</param>
+/// <param name="Since">
+/// Read only what has happened since this instant, which is how the stream follows a scope while `Live` is
+/// on. Bounded by the same maximum window as any other read, so a stale cursor cannot widen the query.
+/// </param>
 /// <param name="Limit">Clamped by the handler and again by the adapter.</param>
 /// <param name="IncludeNoise">
 /// Keep framework chatter in the stream. Off by default, because an idle service logs almost nothing else
@@ -23,5 +27,6 @@ public sealed record GetLogStreamQuery(
     string? Search = null,
     DateTimeOffset? Before = null,
     int? Limit = null,
-    bool IncludeNoise = false)
+    bool IncludeNoise = false,
+    DateTimeOffset? Since = null)
     : IRequest<Result<LogStreamResponse>>;
