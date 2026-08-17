@@ -91,4 +91,10 @@ Activity, Version Sync.
 - Build/test after each change; add a regression test for every bug fix.
 - Concurrent agents use one Git worktree + task branch each, outside `C:\dev\ConsoleOps`. Sequential
   or read-only work stays in the primary worktree. Only one agent owns EF Core migrations per batch.
+- **Check `git status -sb` before the first commit of a session.** Commit only onto your own
+  `agent/<agent>/<task>` branch, created from the integration branch. Never commit onto another
+  agent's branch, and never onto `main`: work reaches `main` through a pull request. Kiro's branches
+  are `agent/kiro/<task>`.
+- Stage explicit file paths, never a directory. Another agent's uncommitted files live in the same
+  working tree, and `git add <dir>` has swept them into a commit before.
 - Commit only when the user asks.
