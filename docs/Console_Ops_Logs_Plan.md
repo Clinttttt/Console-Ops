@@ -294,6 +294,34 @@ that bounds markers is the visible events rather than the requested window, and 
 per revision rather than one per observed change. Version observations were not needed - the recorded run
 plus the revision the rows report is the whole story - so nothing was joined that a marker did not use.
 
+## Reading order and per-line rendering - built after reading a real stream
+
+The stream reads **newest first**, between days and within a day. It was oldest first, which put the lines an
+operator opens the screen for at the bottom. Paging backwards therefore moved to the bottom of the card, which
+is also where a scroll sentinel belongs. A marker sharing an instant with an event is placed below it, so it
+reads as the explanation for everything above it.
+
+A line is its own `OnPush` component. Selection is a signal, so without that boundary every line in the stream
+re-evaluated its bindings on each click - hundreds of date formats, method calls and attribute writes once
+pages had accumulated, which made selecting a line feel slow. Now only the line that lost the selection and
+the one that gained it re-render, and each line's presentation is computed once rather than called from the
+template.
+
+Two message shapes are composed for reading, both UI-owned and both reversible by looking at the line:
+
+- A request line becomes `GET /api/bookings?page=1` with `200 · 425 ms` in the trailing column. The protocol,
+  scheme and host are identical for every line in a scope, and the method, path, status and duration were
+  buried in the middle of the text.
+- `Executed DbCommand (3ms) [Parameters=...]` becomes `Executed DbCommand` with `3 ms` trailing. The
+  parameter list is a row of `?` placeholders and the SQL is in the folded continuation.
+
+Nothing is invented and nothing is lost: every value shown is read out of the line, the provider's own text
+stays on the line's tooltip and in the detail rail, and an unrecognized message is left exactly as it arrived.
+
+A day group containing only markers is dropped, and the API no longer reads markers at all for a window that
+returned no lines. A release on its own is history, which the Deployments screen tells properly; on this
+screen it produced date headers carrying nothing else.
+
 ## Noise exclusion - built after reading a real stream
 
 An idle ASP.NET Core service emits almost nothing but infrastructure logging. Spinner staging produced 83
