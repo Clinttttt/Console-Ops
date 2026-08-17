@@ -104,6 +104,27 @@ Use the actual integration branch if it is not `main`.
 This workflow reduces filesystem collisions; it does not replace task ownership, small slices,
 review, or integration testing.
 
+## Composition root
+
+`Program.cs` composes and nothing else. Each concern it used to configure inline lives in one focused
+extension under `ConsoleOps.Api/Extensions`, so the file reads as a list of decisions and each decision has one
+place to change:
+
+| Extension | Owns |
+|---|---|
+| `AddConsoleOpsProblemDetails` | RFC 7807 responses, carrying the trace identifier |
+| `AddConsoleOpsRateLimiter` | per-client limits on endpoints that reach outside during a request |
+| `AddScheduledCollection` | `Monitoring:Refresh` options, and the worker only when enabled |
+| `EnsureSafeExposure` | refusing to start unauthenticated on a non-loopback address |
+| `UseConsoleOpsPipeline` | middleware order |
+| `MapConsoleOpsEndpoints` | the endpoint map |
+
+There is no `Web` folder and no controller layer: the API layer is already organised by feature
+(`Features/<Capability>/<UseCase>Endpoint.cs`), and these extensions are composition, not a new layer.
+
+Policy that a guard enforces belongs beside the concept, not in the wiring: `NetworkExposure.MustRefuseToStart`
+decides, and the extension only throws. A rule that runs solely when a host boots is a rule no test can reach.
+
 ## Vertical slices and CQRS
 
 Organize application behavior by capability and use case, not by broad technical folders such as

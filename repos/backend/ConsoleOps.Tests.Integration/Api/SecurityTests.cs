@@ -29,6 +29,23 @@ public sealed class NetworkExposureTests
     }
 
     [Fact]
+    public void MustRefuseToStart_WhenReachableFromElsewhereWithoutAKey()
+    {
+        // The guard that keeps an accountless tool off the network. Asserted on the decision rather than on a
+        // booted host, because a guard nobody can test is a guard nobody checks.
+        Assert.True(NetworkExposure.MustRefuseToStart(["http://0.0.0.0:5096"], null));
+        Assert.True(NetworkExposure.MustRefuseToStart(["https://console-ops.example.com"], "   "));
+    }
+
+    [Fact]
+    public void MustRefuseToStart_IsSatisfiedByLoopbackOrByAKey()
+    {
+        // Loopback needs no key, and a key makes a wider binding deliberate rather than accidental.
+        Assert.False(NetworkExposure.MustRefuseToStart(["http://localhost:5096"], null));
+        Assert.False(NetworkExposure.MustRefuseToStart(["http://0.0.0.0:5096"], "a-configured-key"));
+    }
+
+    [Fact]
     public void IsLoopbackOnly_TreatsAnUnparsableAddressAsExposed()
     {
         // Refusing is the safe default when Console Ops cannot tell what it is listening on.

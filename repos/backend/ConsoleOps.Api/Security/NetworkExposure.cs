@@ -15,6 +15,16 @@ namespace ConsoleOps.Api.Security;
 /// </remarks>
 public static class NetworkExposure
 {
+    /// <summary>
+    /// Whether Console Ops must refuse to start: reachable from another machine with no key configured.
+    /// </summary>
+    /// <remarks>
+    /// The decision lives here rather than in the startup wiring so it can be tested directly. A guard that
+    /// only runs when a host boots is a guard nobody checks.
+    /// </remarks>
+    public static bool MustRefuseToStart(IEnumerable<string> urls, string? apiKey) =>
+        !IsLoopbackOnly(urls) && string.IsNullOrWhiteSpace(apiKey);
+
     /// <summary>Marker for "Kestrel's default addresses", which are loopback.</summary>
     public static bool IsLoopbackOnly(IEnumerable<string> urls)
     {
