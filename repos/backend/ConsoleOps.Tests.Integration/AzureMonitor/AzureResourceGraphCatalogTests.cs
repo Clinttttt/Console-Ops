@@ -45,12 +45,12 @@ public sealed class AzureResourceGraphCatalogTests
             """));
         IAzureLogSourceCatalog catalog = CreateCatalog(handler);
 
-        AzureLogSourceCatalogResult result = await catalog.ListContainerAppsAsync(null, CancellationToken.None);
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.HasMore);
         Assert.Collection(
-            result.ContainerApps,
+            result.Sources,
             app =>
             {
                 Assert.Equal("spinner-api", app.Name);
@@ -74,11 +74,75 @@ public sealed class AzureResourceGraphCatalogTests
 
         string sentQuery = System.Text.Json.JsonDocument.Parse(request.Body)
             .RootElement.GetProperty("query").GetString()!;
-        // Read-only inventory over the two resource types, bounded to a page.
+        // Read-only inventory over the resource types Console Ops can name, bounded to a page.
         Assert.Contains("microsoft.app/containerapps", sentQuery, StringComparison.Ordinal);
         Assert.Contains("microsoft.app/managedenvironments", sentQuery, StringComparison.Ordinal);
+        Assert.Contains("microsoft.web/sites", sentQuery, StringComparison.Ordinal);
         Assert.Contains("limit 200", sentQuery, StringComparison.Ordinal);
         Assert.DoesNotContain("| where name contains", sentQuery, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Catalog_ListsAppServiceSitesAsWellAsContainerApps()
+    {
+        RecordingHandler handler = new(_ => JsonResponse($$"""
+            {
+              "totalRecords": 2,
+              "count": 2,
+              "resultTruncated": "false",
+              "data": [
+                {
+                  "name": "stalltrack-api",
+                  "platform": "appService",
+                  "resourceGroup": "stalltrack-prod-rg",
+                  "subscriptionId": "11111111-2222-3333-4444-555555555555",
+                  "location": "southeastasia",
+                  "environmentName": "",
+                  "workspaceId": ""
+                },
+                {
+                  "name": "spinner-api",
+                  "platform": "containerApp",
+                  "resourceGroup": "spinner-rg",
+                  "subscriptionId": "11111111-2222-3333-4444-555555555555",
+                  "location": "southeastasia",
+                  "environmentName": "spinner-env",
+                  "workspaceId": "{{Workspace}}"
+                }
+              ]
+            }
+            """));
+        IAzureLogSourceCatalog catalog = CreateCatalog(handler);
+
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
+
+        // A site is listed even though no reader exists for it: an operator who cannot find their App Service
+        // has no way to tell "Azure does not have it" from "Console Ops does not look for it".
+        Assert.Collection(
+            result.Sources,
+            site =>
+            {
+                Assert.Equal("stalltrack-api", site.Name);
+                Assert.Equal(AzureLogPlatform.AppService, site.Platform);
+                // A site's workspace lives in a diagnostic setting this query does not read.
+                Assert.Null(site.WorkspaceId);
+                Assert.Null(site.EnvironmentName);
+            },
+            app =>
+            {
+                Assert.Equal("spinner-api", app.Name);
+                Assert.Equal(AzureLogPlatform.ContainerApp, app.Platform);
+                Assert.Equal(Workspace, app.WorkspaceId);
+            });
+    }
+
+    [Fact]
+    public void Support_NamesOnlyThePlatformsAReaderExistsFor()
+    {
+        // The one place that decides whether a discovered resource can be offered as a source. App Service
+        // stays unsupported until there are real rows to verify a reader against.
+        Assert.True(AzureLogPlatformSupport.CanRead(AzureLogPlatform.ContainerApp));
+        Assert.False(AzureLogPlatformSupport.CanRead(AzureLogPlatform.AppService));
     }
 
     [Fact]
@@ -87,7 +151,7 @@ public sealed class AzureResourceGraphCatalogTests
         RecordingHandler handler = new(_ => JsonResponse("""{ "totalRecords": 0, "data": [] }"""));
         IAzureLogSourceCatalog catalog = CreateCatalog(handler);
 
-        await catalog.ListContainerAppsAsync(" spin\"ner ", CancellationToken.None);
+        await catalog.ListLogSourcesAsync(" spin\"ner ", CancellationToken.None);
 
         CapturedRequest request = Assert.Single(handler.Requests);
         // Read the query as the provider would, so JSON escaping cannot hide what was sent.
@@ -106,7 +170,7 @@ public sealed class AzureResourceGraphCatalogTests
             """));
         IAzureLogSourceCatalog catalog = CreateCatalog(handler);
 
-        AzureLogSourceCatalogResult result = await catalog.ListContainerAppsAsync(null, CancellationToken.None);
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
 
         Assert.True(result.HasMore);
     }
@@ -128,12 +192,12 @@ public sealed class AzureResourceGraphCatalogTests
         });
         IAzureLogSourceCatalog catalog = CreateCatalog(handler);
 
-        AzureLogSourceCatalogResult result = await catalog.ListContainerAppsAsync(null, CancellationToken.None);
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
 
         // Failing to ask is never an empty tenant.
         Assert.False(result.IsSuccess);
         Assert.Equal(expected, result.Failure);
-        Assert.Empty(result.ContainerApps);
+        Assert.Empty(result.Sources);
     }
 
     [Fact]
@@ -144,7 +208,7 @@ public sealed class AzureResourceGraphCatalogTests
             CreateClient(handler),
             new UnavailableCredential());
 
-        AzureLogSourceCatalogResult result = await catalog.ListContainerAppsAsync(null, CancellationToken.None);
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
 
         Assert.Equal(AzureCatalogFailure.Unauthorized, result.Failure);
         // Nothing was sent, because there was nothing to authenticate with.
@@ -157,7 +221,7 @@ public sealed class AzureResourceGraphCatalogTests
         RecordingHandler handler = new(_ => JsonResponse("{not-json"));
         IAzureLogSourceCatalog catalog = CreateCatalog(handler);
 
-        AzureLogSourceCatalogResult result = await catalog.ListContainerAppsAsync(null, CancellationToken.None);
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
 
         Assert.Equal(AzureCatalogFailure.InvalidResponse, result.Failure);
     }

@@ -23,16 +23,21 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Framework-noise exclusion with a stated count and what wrote it | Real |
 | Newest-first stream, per-line rendering, composed request lines | Real |
 | Live tail following a scope from a time cursor | Real |
+| Azure discovery across Container Apps and App Service, with per-resource status | Real |
 
 ## Next
 
-1. **An App Service log adapter.** StallTrack and EEMO run on App Service, whose console output lands in
-   different tables (`AppServiceConsoleLogs`, `AppServiceHTTPLogs`), and only when diagnostic settings send
-   them to a workspace. Until an adapter exists those environments must be reported as an unsupported
-   platform rather than silently offering nothing. This is the only remaining project on the operator's list
-   without a log source, and the first real test of whether the provider seam holds: it needs a platform
-   discriminator on the log source, a reader chosen by that platform, and discovery that returns both service
-   types grouped for the picker.
+1. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
+   discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
+   `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
+   not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in
+   the subscription, and a union over `AppServiceConsoleLogs`, `AppServiceHTTPLogs`, `AppServiceAppLogs`
+   returned **zero rows over 30 days** in both workspaces. Writing a KQL reader against documented column
+   names with nothing to verify it against is exactly how the `ContainerAppConsoleLogs_CL` mistake happened.
+   Unblocked by one operator action in Azure: create a workspace in `stalltrack-prod-rg` (or reuse one) and
+   add a diagnostic setting on the site sending `AppServiceConsoleLogs`. Console Ops has read-only Azure
+   access by rule and cannot do it. Once rows exist, the reader is a platform discriminator on the log source,
+   a reader chosen by that platform, and a KQL query verified against those rows.
 2. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.

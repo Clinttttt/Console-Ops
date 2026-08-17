@@ -121,31 +121,41 @@ Added 2026-08-16 with Logs Phase 1b, so an operator picks a log source instead o
 GET /api/azure/log-sources?query=
 ```
 
-Returns the container apps the configured Azure identity can see, each with the Log Analytics workspace its
-Container Apps environment sends console logs to:
+Returns the applications the configured Azure identity can see, across the Azure services Console Ops can
+name, each with whatever it needs to read that resource's logs:
 
 ```text
-containerApps[]
-|-- provider: azureContainerApps
-|-- containerAppName
+sources[]
+|-- provider: azure
+|-- platform: containerApp | appService
+|-- name
 |-- resourceGroup
 |-- subscriptionId
 |-- location (optional)
-|-- environmentName (optional)
-`-- workspaceId (optional)     null when that environment has no log configuration
-hasMore                        true when Azure had more than the bounded page
+|-- environmentName (optional)   the Container Apps environment; absent for services with no equivalent
+|-- workspaceId (optional)       null when Console Ops could not establish where the logs are sent
+`-- status: readable | noWorkspace | platformNotSupported
+hasMore                          true when Azure had more than the bounded page
 ```
 
 Rules:
 
 - **Read-only inventory.** One Resource Graph query listing resources. Console Ops never creates, changes,
   or deletes an Azure resource, and needs only read access to see them.
-- **Bounded.** One page of 200, ordered by name, with `hasMore` so the UI can say the list is not
-  everything rather than implying it is.
-- **`workspaceId` may be null**, and such an app must be shown as unavailable rather than offered: without a
-  workspace there is nothing to read.
+- **Bounded.** One page of 200, ordered by platform then name, with `hasMore` so the UI can say the list is
+  not everything rather than implying it is.
+- **Resources Console Ops cannot read are still listed**, with `status` saying why. An operator who cannot
+  find their App Service has no way to tell "Azure does not have it" from "Console Ops does not look for it",
+  and that question was asked twice before this existed. Such a resource must never be offered as selectable.
+- **`status` is a Console Ops fact, not an Azure one.** `platformNotSupported` means no reader exists for that
+  service yet; `noWorkspace` means nothing collects the resource's logs. The platform is checked first,
+  because a workspace is irrelevant while nothing can read the platform anyway.
+- **App Service carries no `workspaceId`.** For Container Apps the workspace is a property of the managed
+  environment and comes back in the same query. For a site it lives in a diagnostic setting that Resource
+  Graph does not expose, which would cost one ARM call per site - not worth paying for a platform that has no
+  reader yet.
 - **Failure is not emptiness.** A rejected credential returns `Azure.Unauthorized`, and the UI names the
-  cause. An empty list means the identity genuinely sees no container apps.
+  cause. An empty list means the identity genuinely sees no applications.
 - **Filter text is escaped** into the query as a literal, never concatenated, because it arrives from a form.
 - Discovery may prefill but never decide: the two configuration fields stay editable after a pick.
 

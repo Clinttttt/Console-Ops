@@ -159,7 +159,7 @@ export class EditProjectPage {
   /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
   protected applyLogSource(index: number, source: AzureLogSource): void {
     this.updateEnvironment(index, {
-      logContainerAppName: source.containerAppName,
+      logContainerAppName: source.name,
       logWorkspaceId: source.workspaceId ?? '',
     });
   }

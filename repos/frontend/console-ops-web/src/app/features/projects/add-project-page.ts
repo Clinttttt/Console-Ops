@@ -229,7 +229,7 @@ export class AddProjectPage {
 
   /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
   protected applyLogSource(source: AzureLogSource): void {
-    this.logContainerAppName.set(source.containerAppName);
+    this.logContainerAppName.set(source.name);
     this.logWorkspaceId.set(source.workspaceId ?? '');
   }
 

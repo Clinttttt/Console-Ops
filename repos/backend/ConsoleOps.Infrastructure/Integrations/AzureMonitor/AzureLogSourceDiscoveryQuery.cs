@@ -15,6 +15,7 @@ internal static class AzureLogSourceDiscoveryQuery
 {
     internal const string ContainerAppType = "microsoft.app/containerapps";
     internal const string ManagedEnvironmentType = "microsoft.app/managedenvironments";
+    internal const string AppServiceType = "microsoft.web/sites";
 
     public static string Build(string? query, int limit)
     {
@@ -27,11 +28,17 @@ internal static class AzureLogSourceDiscoveryQuery
                 | where name contains {Literal(query.Trim())} or resourceGroup contains {Literal(query.Trim())}
                 """;
 
+        // Both service types in one query, so finding an app costs one round trip whatever hosts it. App
+        // Service carries no workspace here: for Container Apps the workspace is a property of the managed
+        // environment, while for a site it lives in a diagnostic setting that Resource Graph does not expose.
+        // Resolving that would be one ARM call per site, which is not worth paying for a platform that has no
+        // reader yet - so the column is null and the screen says why.
         return $"""
             resources
-            | where type =~ '{ContainerAppType}'{filter}
+            | where type =~ '{ContainerAppType}' or type =~ '{AppServiceType}'{filter}
+            | extend platform = iff(type =~ '{AppServiceType}', 'appService', 'containerApp')
             | extend environmentKey = tolower(tostring(properties.managedEnvironmentId))
-            | project name, resourceGroup, subscriptionId, location, environmentKey
+            | project name, platform, resourceGroup, subscriptionId, location, environmentKey
             | join kind=leftouter (
                 resources
                 | where type =~ '{ManagedEnvironmentType}'
@@ -39,8 +46,8 @@ internal static class AzureLogSourceDiscoveryQuery
                           environmentName = name,
                           workspaceId = tostring(properties.appLogsConfiguration.logAnalyticsConfiguration.customerId)
             ) on environmentKey
-            | project name, resourceGroup, subscriptionId, location, environmentName, workspaceId
-            | order by name asc
+            | project name, platform, resourceGroup, subscriptionId, location, environmentName, workspaceId
+            | order by platform asc, name asc
             | limit {limit}
             """;
     }

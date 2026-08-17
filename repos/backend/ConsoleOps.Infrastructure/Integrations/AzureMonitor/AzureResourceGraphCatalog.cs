@@ -32,7 +32,7 @@ internal sealed class AzureResourceGraphCatalog(
 
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<AzureLogSourceCatalogResult> ListContainerAppsAsync(
+    public async Task<AzureLogSourceCatalogResult> ListLogSourcesAsync(
         string? query,
         CancellationToken cancellationToken)
     {
@@ -73,20 +73,21 @@ internal sealed class AzureResourceGraphCatalog(
                 return AzureLogSourceCatalogResult.Failed(AzureCatalogFailure.InvalidResponse);
             }
 
-            AzureContainerAppLogSource[] containerApps = payload.Data
+            AzureLogSourceCandidate[] sources = payload.Data
                 .Where(row => !string.IsNullOrWhiteSpace(row.Name))
-                .Select(row => new AzureContainerAppLogSource(
+                .Select(row => new AzureLogSourceCandidate(
                     row.Name!.Trim(),
+                    ParsePlatform(row.Platform),
                     row.ResourceGroup?.Trim() ?? string.Empty,
                     row.SubscriptionId?.Trim() ?? string.Empty,
                     NullIfWhiteSpace(row.Location),
                     NullIfWhiteSpace(row.EnvironmentName),
                     ParseWorkspaceId(row.WorkspaceId)))
                 .ToArray();
-            bool hasMore = payload.TotalRecords > containerApps.Length
+            bool hasMore = payload.TotalRecords > sources.Length
                 || string.Equals(payload.ResultTruncated, "true", StringComparison.OrdinalIgnoreCase);
 
-            return AzureLogSourceCatalogResult.Success(containerApps, hasMore);
+            return AzureLogSourceCatalogResult.Success(sources, hasMore);
         }
         catch (Azure.RequestFailedException failure)
         {
@@ -132,6 +133,16 @@ internal sealed class AzureResourceGraphCatalog(
     private static Guid? ParseWorkspaceId(string? value) =>
         Guid.TryParse(value, out Guid workspaceId) && workspaceId != Guid.Empty ? workspaceId : null;
 
+    /// <summary>
+    /// The platform the query labelled the row with. An unrecognized label is treated as a container app
+    /// because that is the only type this query asks for besides a site, and guessing wrong would only
+    /// mislabel a row rather than lose it.
+    /// </summary>
+    private static AzureLogPlatform ParsePlatform(string? value) =>
+        string.Equals(value?.Trim(), "appService", StringComparison.OrdinalIgnoreCase)
+            ? AzureLogPlatform.AppService
+            : AzureLogPlatform.ContainerApp;
+
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -143,13 +154,13 @@ internal sealed class AzureResourceGraphCatalog(
         [property: JsonPropertyName("$top")] int Top,
         [property: JsonPropertyName("allowPartialScopes")] bool AllowPartialScopes);
 
-    private sealed record ResourceGraphResponse(
-        ResourceGraphRow[]? Data,
+    private sealed record ResourceGraphResponse(        ResourceGraphRow[]? Data,
         long TotalRecords,
         [property: JsonPropertyName("resultTruncated")] string? ResultTruncated);
 
     private sealed record ResourceGraphRow(
         string? Name,
+        string? Platform,
         string? ResourceGroup,
         string? SubscriptionId,
         string? Location,

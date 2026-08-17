@@ -395,6 +395,36 @@ hand, reads the maximum window rather than widening the provider query.
 Azure's own log streaming or server-sent events are considered only if polling proves too slow in
 practice. No SignalR without a requirement.
 
+## Discovery beyond Container Apps - built, and what it found
+
+Discovery now lists every Azure service Console Ops can **name**, not only the ones it can **read**. One
+Resource Graph query covers `microsoft.app/containerapps` and `microsoft.web/sites`, and each result carries a
+platform and a status: `readable`, `noWorkspace`, or `platformNotSupported`. The picker groups by service and
+shows an unreadable resource with its reason rather than hiding it, because "why is StallTrack not here?" was
+asked twice and the panel could not answer it.
+
+`AzureLogPlatformSupport.CanRead` is the single place that decides what can be offered, so adding a reader is
+one edit and the screen can never offer a source nothing can read.
+
+### Why the App Service reader is not written yet
+
+Investigated read-only against the operator's own subscription before writing any query:
+
+- Neither StallTrack site has a **diagnostic setting**, so nothing routes their logs anywhere.
+- There is **no Application Insights component** in the subscription at all.
+- A union over `AppServiceConsoleLogs`, `AppServiceHTTPLogs`, and `AppServiceAppLogs` returned **zero rows
+  over 30 days** in both existing workspaces.
+
+So there is nothing for a reader to read, and nothing to verify one against. Writing KQL from documented
+column names with no rows to check is precisely how the `ContainerAppConsoleLogs_CL` error happened - the
+documented table was empty and the real one was the legacy `_CL` variant. The reader waits for rows.
+
+Unblocking it is one operator action in Azure, which Console Ops cannot perform because its Azure access is
+read-only by rule: create or reuse a Log Analytics workspace and add a diagnostic setting on the site that
+sends `AppServiceConsoleLogs` to it. Verified live afterwards, the reader is then a small slice: a platform
+discriminator on the stored log source, a reader selected by that platform, and a query checked against real
+rows.
+
 ## Phase 5 - Revisit richer telemetry
 
 Only after the provider-backed slice is stable, and only if the parsed console stream proves too thin.

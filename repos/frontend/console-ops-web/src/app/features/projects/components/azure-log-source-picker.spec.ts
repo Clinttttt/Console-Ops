@@ -14,21 +14,37 @@ const WORKSPACE = '6f5c1a2b-3d4e-5f60-7182-93a4b5c6d7e8';
 
 function app(overrides: Partial<AzureLogSource>): AzureLogSource {
   return {
-    provider: 'azureContainerApps',
-    containerAppName: 'spinner-api',
+    provider: 'azure',
+    platform: 'containerApp',
+    name: 'spinner-api',
     resourceGroup: 'spinner-rg',
     subscriptionId: '11111111-2222-3333-4444-555555555555',
     location: 'southeastasia',
     environmentName: 'spinner-env',
     workspaceId: WORKSPACE,
+    status: 'readable',
     ...overrides,
   };
 }
 
 const SOURCES: AzureLogSources = {
-  containerApps: [
+  sources: [
     app({}),
-    app({ containerAppName: 'no-logs-app', environmentName: 'bare-env', workspaceId: null }),
+    app({
+      name: 'no-logs-app',
+      environmentName: 'bare-env',
+      workspaceId: null,
+      status: 'noWorkspace',
+    }),
+    // Discovered but unreadable: Console Ops has no App Service reader yet.
+    app({
+      name: 'stalltrack-api',
+      platform: 'appService',
+      resourceGroup: 'stalltrack-prod-rg',
+      environmentName: null,
+      workspaceId: null,
+      status: 'platformNotSupported',
+    }),
   ],
   hasMore: false,
 };
@@ -80,7 +96,7 @@ describe('AzureLogSourcePicker', () => {
     await open();
 
     expect(calls).toBe(1);
-    expect(host.querySelectorAll('.app').length).toBe(2);
+    expect(host.querySelectorAll('.app').length).toBe(3);
   });
 
   it('offers an app whose environment has a workspace, and marks one that has none', async () => {
@@ -96,6 +112,25 @@ describe('AzureLogSourcePicker', () => {
     expect(unavailable.textContent).toContain('No log workspace');
   });
 
+  it('groups by service and shows a platform Console Ops cannot read yet', async () => {
+    await render(() => of(SOURCES));
+    await open();
+
+    // The question this panel has to answer: an operator who cannot find their App Service cannot tell
+    // "Azure does not have it" from "Console Ops does not look for it".
+    const heads = Array.from(host.querySelectorAll('.group-head')).map((head) =>
+      head.textContent?.trim(),
+    );
+    expect(heads).toEqual(['Container Apps', 'App Services']);
+
+    const site = Array.from(host.querySelectorAll('.app')).find((row) =>
+      row.textContent?.includes('stalltrack-api'),
+    );
+    // Listed, explained, and not selectable: offering it would promise a read that cannot happen.
+    expect(site?.tagName).toBe('SPAN');
+    expect(site?.textContent).toContain('Not supported yet');
+  });
+
   it('emits the chosen app and closes, so both fields can be filled from one pick', async () => {
     await render(() => of(SOURCES));
     await open();
@@ -106,7 +141,7 @@ describe('AzureLogSourcePicker', () => {
     await fixture.whenStable();
 
     expect(chosen.length).toBe(1);
-    expect(chosen[0].containerAppName).toBe('spinner-api');
+    expect(chosen[0].name).toBe('spinner-api');
     expect(chosen[0].workspaceId).toBe(WORKSPACE);
     expect(host.querySelector('.panel')).toBeNull();
   });
@@ -135,17 +170,17 @@ describe('AzureLogSourcePicker', () => {
   });
 
   it('says a visible-but-empty tenant is empty, without implying a failure', async () => {
-    await render(() => of({ containerApps: [], hasMore: false }));
+    await render(() => of({ sources: [], hasMore: false }));
     await open();
 
-    expect(host.textContent).toContain('No container apps are visible');
+    expect(host.textContent).toContain('No applications are visible');
   });
 
   it('says the list is not everything when Azure had more', async () => {
-    await render(() => of({ containerApps: [app({})], hasMore: true }));
+    await render(() => of({ sources: [app({})], hasMore: true }));
     await open();
 
-    expect(host.textContent).toContain('More apps exist than are listed');
+    expect(host.textContent).toContain('More applications exist than are listed');
   });
 });
 

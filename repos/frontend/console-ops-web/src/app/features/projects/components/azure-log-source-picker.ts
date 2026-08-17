@@ -9,23 +9,30 @@ import {
 } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 
-import { AzureLogSource } from '../../../core/contracts/azure-discovery';
+import { AzureLogPlatform, AzureLogSource } from '../../../core/contracts/azure-discovery';
 import { AzureDiscoveryDataSource } from '../../../core/data/azure-discovery.data-source';
 import { Icon } from '../../../core/ui/icon';
 
-/** Why the container app list could not be read. */
+/** Why the discovery list could not be read. */
 type DiscoveryFailure = 'credential' | 'rateLimited' | 'apiUnavailable' | 'unknown';
+
+/** One service's resources, so the panel can group by what hosts them. */
+interface PlatformGroup {
+  readonly platform: AzureLogPlatform;
+  readonly label: string;
+  readonly sources: readonly AzureLogSource[];
+}
 
 /**
  * Log source picker.
  *
- * Lists the container apps the configured Azure identity can see, with the workspace each one's
- * environment logs to, so the operator picks a source instead of typing a GUID. One choice fills both
- * fields, because both come from the same Azure resource.
+ * Lists the applications the configured Azure identity can see, with the workspace each one's logs are sent
+ * to, so the operator picks a source instead of typing a GUID. One choice fills both fields, because both
+ * come from the same Azure resource.
  *
- * Discovery may prefill but never decide: the fields stay editable, an app whose environment has no log
- * configuration is shown as unavailable rather than offered, and a failure says which part failed instead
- * of leaving an empty list that looks like an empty tenant.
+ * Discovery may prefill but never decide: the fields stay editable, a resource Console Ops cannot read is
+ * shown with the reason rather than offered, and a failure says which part failed instead of leaving an empty
+ * list that looks like an empty tenant.
  */
 @Component({
   selector: 'co-azure-log-source-picker',
@@ -52,6 +59,28 @@ export class AzureLogSourcePicker {
   protected readonly isLoading = computed(() => this.sources.isLoading());
   protected readonly failed = computed(() => this.sources.error() !== undefined);
   protected readonly page = computed(() => this.sources.value() ?? null);
+
+  /**
+   * Resources grouped by the service that hosts them, readable services first.
+   *
+   * The order matters: what can be used comes before what cannot, so the panel does not lead with a list of
+   * things that will not work.
+   */
+  protected readonly groups = computed<readonly PlatformGroup[]>(() => {
+    const sources = this.page()?.sources ?? [];
+    const order: readonly { platform: AzureLogPlatform; label: string }[] = [
+      { platform: 'containerApp', label: 'Container Apps' },
+      { platform: 'appService', label: 'App Services' },
+    ];
+
+    return order
+      .map(({ platform, label }) => ({
+        platform,
+        label,
+        sources: sources.filter((source) => source.platform === platform),
+      }))
+      .filter((group) => group.sources.length > 0);
+  });
 
   /**
    * Why discovery failed, in the operator's terms. The API reports a stable code, so a missing Azure
