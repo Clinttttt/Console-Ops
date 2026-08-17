@@ -84,14 +84,18 @@ public sealed class GetLogStreamQueryHandler(
         }
 
         LogEventResponse[] events = result.Entries.Select(ToEventResponse).ToArray();
-        IReadOnlyList<LogDeploymentMarker> runs = await markers.ReadDeploymentsAsync(
-            selected.Project.Id,
-            // Markers are bounded by the events on screen, not by the requested window: placing a marker
-            // below the oldest line the provider returned would put it where the operator cannot see what
-            // it explains. When the cap truncated the read, the visible range is what counts.
-            events.Length == 0 ? from : events[^1].OccurredAt,
-            to,
-            cancellationToken);
+        IReadOnlyList<LogDeploymentMarker> runs = events.Length == 0
+            // A marker explains the lines around it. With no lines there is nothing to explain, and markers
+            // on their own would be a release history the Deployments screen already tells properly.
+            ? []
+            : await markers.ReadDeploymentsAsync(
+                selected.Project.Id,
+                // Markers are bounded by the events on screen, not by the requested window: placing a marker
+                // below the oldest line the provider returned would put it where the operator cannot see what
+                // it explains.
+                events[^1].OccurredAt,
+                to,
+                cancellationToken);
 
         return Result<LogStreamResponse>.Success(new LogStreamResponse(
             now,

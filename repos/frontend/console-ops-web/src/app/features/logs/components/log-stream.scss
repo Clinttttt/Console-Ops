@@ -75,18 +75,6 @@
 }
 
 /* One scannable line per event: a wall of detail here is what makes log views unreadable. */
-.line {
-  display: grid;
-  grid-template-columns: 8px 96px 40px 124px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--co-space-3);
-  width: 100%;
-  padding: 5px var(--co-space-5);
-  text-align: left;
-  font-size: 12.5px;
-  color: var(--co-ink);
-}
-
 /* Paging backwards. Centred and quiet: it is a way to read further, not an action on anything. */
 .older {
   display: flex;
@@ -116,62 +104,6 @@
 /* Kept in the DOM so the scroll sentinel is stable, but says nothing before a first page exists. */
 .older.is-idle {
   display: none;
-}
-
-.line:hover {
-  background: var(--co-surface-sunken);
-}
-
-.line.is-selected {
-  background: var(--co-blue-wash);
-}
-
-/* The dot is a node on the rail, so it sits above the thread. */
-.line .co-dot {
-  position: relative;
-  z-index: 2;
-}
-
-.time {
-  font-size: 11.5px;
-  color: var(--co-ink-muted);
-}
-
-/* Severity: a clean badge with a slight border. Only the text is coloured; the surface stays the surface. */
-.level {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1px 0;
-  border: 1px solid var(--co-line);
-  border-radius: var(--co-radius-sm);
-  background: var(--co-surface);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: rgb(var(--co-level, 154, 161, 172));
-}
-
-.source {
-  font-size: 11.5px;
-  color: var(--co-ink-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.message {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--co-ink-strong);
-}
-
-.outcome {
-  font-size: 11.5px;
-  color: var(--co-ink-muted);
-  white-space: nowrap;
 }
 
 /* Markers style themselves; the list only has to keep them in the flow. */

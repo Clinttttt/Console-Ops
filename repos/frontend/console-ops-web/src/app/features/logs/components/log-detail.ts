@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { LogEvent, LogStreamScope } from '../../../core/contracts/log-stream';
 import { EnvironmentTag } from '../../../core/ui/environment-tag';
 import { Icon } from '../../../core/ui/icon';
+import { shortenCategory } from './log-source-label';
 
 /**
  * Everything about one event that the stream deliberately withheld.
@@ -53,20 +54,29 @@ export class LogDetail {
     }
   });
 
-  /** Groups the seven contract levels onto the three tones the design system uses. */
-  protected readonly levelTone = computed(() => {
-    switch (this.event()?.level) {
-      case 'error':
-      case 'critical':
-        return 'error';
-      case 'warning':
-        return 'warning';
-      case 'information':
-        return 'info';
-      default:
-        return 'unknown';
-    }
+  /**
+   * The category for the identity strip, shortened so it cannot wrap in the middle of a word. The Source row
+   * below carries the whole thing, so nothing is lost by shortening here.
+   */
+  protected readonly shortSource = computed(() => {
+    const source = this.event()?.source ?? null;
+    return source === null ? null : shortenCategory(source);
   });
+
+  /** Groups the seven contract levels onto the three tones the design system uses. */ protected readonly levelTone =
+    computed(() => {
+      switch (this.event()?.level) {
+        case 'error':
+        case 'critical':
+          return 'error';
+        case 'warning':
+          return 'warning';
+        case 'information':
+          return 'info';
+        default:
+          return 'unknown';
+      }
+    });
 
   /** Wording for where the event came from. The contract sends the machine value. */
   protected readonly sourceKindLabel = computed(() => {

@@ -68,6 +68,21 @@ const CAPTURED_PAYLOAD = `{
       "stream": "stdout",
       "revision": "spinner-api-stg--0000043",
       "host": "spinner-api-stg--0000043-59c74869b7-hn8m7"
+    },
+    {
+      "kind": "event",
+      "id": "9c1a77b0e4d5f6a8b2c3d4e5",
+      "occurredAt": "2026-08-16T11:07:55.3270000+00:00",
+      "receivedAt": "2026-08-16T11:07:55.6220000+00:00",
+      "level": "information",
+      "levelIsDerived": true,
+      "source": "Microsoft.AspNetCore.Hosting.Diagnostics",
+      "sourceKind": "application",
+      "message": "Request finished HTTP/1.1 GET https://api.spinlaundry.online/api/bookings?page=1&pageSize=50 - 200 - application/json;+charset=utf-8 424.8084ms",
+      "stackTrace": null,
+      "stream": "stdout",
+      "revision": "spinner-api-stg--0000044",
+      "host": "spinner-api-stg--0000044-7c94f784d8-wt9wx"
     }
   ]
 }`;
@@ -95,28 +110,51 @@ describe('LogsPage against the captured wire payload', () => {
   it('renders the events the API actually returns', () => {
     const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
 
-    expect(lines.length).toBe(2);
+    expect(lines.length).toBe(3);
     expect(host.textContent).not.toContain('Nothing here but framework logging');
-    // Oldest first, so the stream reads like a terminal and new lines land at the bottom.
-    expect(lines[0].textContent).toContain('SELECT n."Id"');
-    expect(lines[1].textContent).toContain('Executed DbCommand');
+    // Newest first: an operator opens this screen to see what just happened.
+    expect(lines[0].textContent).toContain('Executed DbCommand');
+    expect(lines[1].textContent).toContain('SELECT n."Id"');
   });
 
   it('reads the fields off the wire shape without reinterpreting them', () => {
     const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
 
-    expect(lines[1].querySelector('.level')?.textContent?.trim()).toBe('INF');
+    expect(lines[0].querySelector('.level')?.textContent?.trim()).toBe('INF');
     // Categories are namespaces. The scannable column keeps the end, which is what tells emitters apart,
     // and the full value stays on the line's tooltip and in the detail rail.
-    expect(lines[1].querySelector('.source')?.textContent?.trim()).toBe('Database.Command');
-    expect(lines[1].querySelector('.source')?.getAttribute('title')).toBe(
+    expect(lines[0].querySelector('.source')?.textContent?.trim()).toBe('Database.Command');
+    expect(lines[0].querySelector('.source')?.getAttribute('title')).toBe(
       'Microsoft.EntityFrameworkCore.Database.Command',
     );
     // A continuation line with no prefix stays unclaimed, exactly as the provider left it.
-    expect(lines[0].querySelector('.level')?.textContent?.trim()).toBe('LOG');
-    expect(lines[0].querySelector('.source')?.classList.contains('co-unavailable')).toBe(true);
+    expect(lines[1].querySelector('.level')?.textContent?.trim()).toBe('LOG');
+    expect(lines[1].querySelector('.source')?.classList.contains('co-unavailable')).toBe(true);
     expect(host.textContent).toContain('last 24h');
     expect(host.textContent).toContain('window holds more');
+  });
+
+  it('composes a request line down to what tells it apart, keeping the original', () => {
+    const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
+    const request = lines.find((line) => line.textContent?.includes('GET /api/bookings'));
+
+    // The protocol, scheme and host repeat on every line in a scope; the method, path, status and duration
+    // are what distinguish one request from the next.
+    expect(request?.querySelector('.message')?.textContent?.trim()).toBe(
+      'GET /api/bookings?page=1&pageSize=50',
+    );
+    expect(request?.querySelector('.outcome')?.textContent?.trim()).toBe('200 · 425 ms');
+    // Nothing is lost: the provider's own text stays on the line and in the detail rail.
+    expect(request?.querySelector('.message')?.getAttribute('title')).toContain(
+      'Request finished HTTP/1.1 GET https://api.spinlaundry.online/api/bookings',
+    );
+  });
+
+  it('moves a database command duration out of the message', () => {
+    const lines = Array.from(host.querySelectorAll('co-log-stream .line'));
+
+    expect(lines[0].querySelector('.message')?.textContent?.trim()).toBe('Executed DbCommand');
+    expect(lines[0].querySelector('.outcome')?.textContent?.trim()).toBe('3 ms');
   });
 });
 
@@ -197,6 +235,7 @@ describe('LogsPage markers', () => {
       false,
       true,
       true,
+      false,
       false,
     ]);
   });
@@ -372,8 +411,8 @@ describe('LogsPage paging backwards', () => {
     const times = Array.from(host.querySelectorAll('co-log-stream .time')).map((element) =>
       element.textContent?.trim(),
     );
-    // Oldest first, so a page read backwards lands above what was already on screen.
-    expect(times).toEqual([...times].sort());
+    // Newest first, so a page read backwards lands below what was already on screen.
+    expect(times).toEqual([...times].sort().reverse());
   });
 
   it('says when there is nothing older rather than offering the page again', async () => {

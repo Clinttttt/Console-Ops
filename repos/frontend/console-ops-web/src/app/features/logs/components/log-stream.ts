@@ -23,6 +23,7 @@ import { LogStreamOlderPages } from '../../../core/state/log-stream.store';
 import { Icon } from '../../../core/ui/icon';
 import { LogMarkerRow } from './log-marker';
 import { LogStreamEmpty } from './log-empty';
+import { LogLine } from './log-line';
 
 /** One UTC day of the stream. Grouping keeps a long stream orientated without repeating the date. */
 interface StreamDay {
@@ -50,7 +51,7 @@ interface StreamDay {
 @Component({
   selector: 'co-log-stream',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, Icon, LogMarkerRow, LogStreamEmpty],
+  imports: [DatePipe, Icon, LogLine, LogMarkerRow, LogStreamEmpty],
   templateUrl: './log-stream.html',
   styleUrl: './log-stream.scss',
 })
@@ -119,14 +120,30 @@ export class LogStreamView {
       }
     }
 
-    return [...groups.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, items]) => ({
-        key,
-        instant: items[0].occurredAt,
-        isToday: key === observedDay,
-        items: [...items].sort((left, right) => left.occurredAt.localeCompare(right.occurredAt)),
-      }));
+    return (
+      [...groups.entries()]
+        // Newest first, both between days and within a day: the operator opens this screen to see what just
+        // happened, and a stream that starts a day behind makes them scroll to find it.
+        .sort(([left], [right]) => right.localeCompare(left))
+        .map(([key, items]) => ({
+          key,
+          instant: items[0].occurredAt,
+          isToday: key === observedDay,
+          items: [...items].sort((left, right) => {
+            const byTime = right.occurredAt.localeCompare(left.occurredAt);
+            if (byTime !== 0) {
+              return byTime;
+            }
+
+            // Same instant: the event sits above the marker, so the marker reads as the explanation for
+            // everything above it. Matches the order the API composes, whatever order a page arrived in.
+            return (left.kind === 'marker' ? 1 : 0) - (right.kind === 'marker' ? 1 : 0);
+          }),
+        }))
+        // A day of nothing but markers has nothing to explain. Markers are context for the lines around
+        // them, so a date header carrying only releases is noise rather than information.
+        .filter((day) => day.items.some((item) => item.kind === 'event'))
+    );
   });
 
   /** How many events are in view, ignoring markers, which are context rather than records. */
@@ -144,66 +161,5 @@ export class LogStreamView {
 
   protected asMarker(item: LogStreamItem): LogMarker {
     return item as LogMarker;
-  }
-
-  /** Three letters, as a log stream is normally read. An unparsed line is not called information. */
-  protected levelLabel(event: LogEvent): string {
-    switch (event.level) {
-      case 'trace':
-        return 'TRC';
-      case 'debug':
-        return 'DBG';
-      case 'information':
-        return 'INF';
-      case 'warning':
-        return 'WRN';
-      case 'error':
-        return 'ERR';
-      case 'critical':
-        return 'CRT';
-      default:
-        return 'LOG';
-    }
-  }
-
-  /**
-   * Severity mapped onto the shared status levels that drive `.co-dot`.
-   *
-   * The design system speaks in operational levels, not log levels, so an event has to be translated or it
-   * renders as `unknown` grey. Doing it here keeps one meaning of green, amber, and red across every screen.
-   */
-  protected dotLevel(event: LogEvent): 'healthy' | 'warning' | 'down' | 'unknown' {
-    switch (event.level) {
-      case 'error':
-      case 'critical':
-        return 'down';
-      case 'warning':
-        return 'warning';
-      case 'information':
-        return 'healthy';
-      default:
-        return 'unknown';
-    }
-  }
-
-  /**
-   * The readable end of an emitter category.
-   *
-   * Real categories are namespaces: `Microsoft.EntityFrameworkCore.Database.Command` renders as
-   * `Microsoft.Entit...` in a scannable column, which identifies nothing. The last two segments are what
-   * tell one emitter from another. The full value stays on the line's tooltip and in the detail rail, so
-   * nothing is hidden - only shortened.
-   */
-  protected sourceLabel(source: string): string {
-    const segments = source.split('.');
-    return segments.length <= 2 ? source : segments.slice(-2).join('.');
-  }
-
-  /**
-   * The short trailing context. Console output carries no status code or duration, so the only real signal
-   * left is the stream it was written to; anything else here would be invented.
-   */
-  protected trailing(event: LogEvent): string | null {
-    return event.stream === 'stderr' ? 'stderr' : null;
   }
 }

@@ -382,6 +382,23 @@ public sealed class GetLogStreamTests(ConsoleOpsApiFactory factory)
         Assert.Single(stream.Items);
     }
 
+    [Fact]
+    public async Task Stream_WhenTheWindowHeldNoLines_MarksNothingEither()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        StubLogReader reader = new();
+        using WebApplicationFactory<Program> application = CreateApplication(reader);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client, withLogSource: true);
+        await RecordRunAsync(application, project.Id, "0f1e2d3c4b5a69788796a5b4c3d2e1f001234567", now.AddHours(-2));
+
+        LogStreamResponse stream = await ReadAsync(client, project.Id);
+
+        // A marker is context for the lines around it. Alone it is a release history, which the Deployments
+        // screen tells properly, and on the Logs screen it produced date headers carrying nothing else.
+        Assert.Empty(stream.Items);
+    }
+
     private WebApplicationFactory<Program> CreateApplication(IApplicationLogReader reader) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {

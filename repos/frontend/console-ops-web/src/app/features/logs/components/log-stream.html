@@ -6,8 +6,42 @@
     (showNoise)="toggleNoise.emit()"
   />
 } @else {
+  @for (day of days(); track day.key) {
+    <section class="day">
+      <header class="day-head">
+        <span class="day-marker" aria-hidden="true">
+          <co-icon name="calendar" [size]="15" />
+        </span>
+        @if (day.isToday) {
+          <h3 class="day-label">Today &mdash; {{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
+        } @else {
+          <h3 class="day-label">{{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
+        }
+      </header>
+
+      <ol class="lines">
+        @for (item of day.items; track item.id) {
+          @if (isEvent(item)) {
+            @let event = asEvent(item);
+            <li class="line-item" [attr.data-level]="event.level">
+              <co-log-line
+                [event]="event"
+                [isSelected]="event.id === selectedId()"
+                (selectEvent)="selectEvent.emit($event)"
+              />
+            </li>
+          } @else {
+            <li class="marker-row">
+              <co-log-marker [marker]="asMarker(item)" />
+            </li>
+          }
+        }
+      </ol>
+    </section>
+  }
+
   <!--
-    Older lines sit above, because the stream reads oldest first. The row is always in the DOM so the scroll
+    Older lines sit below, because the stream reads newest first. The row is always in the DOM so the scroll
     sentinel is stable; it is hidden until a first page exists rather than created on demand, because a
     sentinel that is destroyed and rebuilt reports "visible" again on every rebuild and pages backwards
     without stopping.
@@ -27,58 +61,6 @@
       }
     }
   </div>
-
-  @for (day of days(); track day.key) {
-    <section class="day">
-      <header class="day-head">
-        <span class="day-marker" aria-hidden="true">
-          <co-icon name="calendar" [size]="15" />
-        </span>
-        @if (day.isToday) {
-          <h3 class="day-label">Today &mdash; {{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
-        } @else {
-          <h3 class="day-label">{{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
-        }
-      </header>
-
-      <ol class="lines">
-        @for (item of day.items; track item.id) {
-          @if (isEvent(item)) {
-            @let event = asEvent(item);
-            <li class="line-item" [attr.data-level]="event.level">
-              <button
-                type="button"
-                class="line"
-                [class.is-selected]="event.id === selectedId()"
-                [attr.aria-expanded]="event.id === selectedId()"
-                (click)="selectEvent.emit(event.id)"
-              >
-                <span class="co-dot" [attr.data-level]="dotLevel(event)" aria-hidden="true"></span>
-                <time class="time co-mono" [attr.datetime]="event.occurredAt">
-                  {{ event.occurredAt | date: 'HH:mm:ss.SSS' : 'UTC' }}
-                </time>
-                <span class="level">{{ levelLabel(event) }}</span>
-                @if (event.source === null) {
-                  <span class="source co-unavailable">&mdash;</span>
-                } @else {
-                  <span class="source" [title]="event.source">{{ sourceLabel(event.source) }}</span>
-                }
-                <span class="message" [title]="event.message">{{ event.message }}</span>
-                @let trailingText = trailing(event);
-                @if (trailingText !== null) {
-                  <span class="outcome">{{ trailingText }}</span>
-                }
-              </button>
-            </li>
-          } @else {
-            <li class="marker-row">
-              <co-log-marker [marker]="asMarker(item)" />
-            </li>
-          }
-        }
-      </ol>
-    </section>
-  }
 
   <footer class="stream-footer">
     @if (live()) {

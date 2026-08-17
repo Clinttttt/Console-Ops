@@ -72,6 +72,9 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--co-ink-strong);
+  /* Provider text can be one long unbroken token - a URL, a SQL fragment - and must not leave the rail. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .rows {
@@ -84,6 +87,8 @@
   align-items: baseline;
   gap: var(--co-space-3);
   padding: 4px 0;
+  /* The row itself must be allowed to shrink, or a long value pushes the grid past the rail. */
+  min-width: 0;
 }
 
 dt {

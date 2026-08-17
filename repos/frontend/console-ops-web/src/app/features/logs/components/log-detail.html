@@ -14,7 +14,7 @@
   <div class="identity">
     <span class="level" [attr.data-level]="levelTone()">{{ levelLabel() }}</span>
     @if (selected.source !== null) {
-      <span class="source">{{ selected.source }}</span>
+      <span class="source" [title]="selected.source">{{ shortSource() }}</span>
     }
     <button type="button" class="copy" (click)="copyMessage()" aria-label="Copy this event's text">
       <co-icon [name]="copied() ? 'check' : 'copy'" [size]="14" />
