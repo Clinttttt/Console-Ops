@@ -69,7 +69,11 @@ public sealed record CapabilityStatusResponse(
 public sealed record ConfigurationKeyResponse(string Key, string State, bool Required);
 
 /// <param name="Failure">Why the test failed, in the operator's terms and never a credential.</param>
-public sealed record ConnectionCheckResponse(bool Succeeded, string? Failure);
+/// <param name="CheckedAt">
+/// When the check ran. A cheap read reports the last check rather than none, so the screen must say when it
+/// happened instead of implying it is current.
+/// </param>
+public sealed record ConnectionCheckResponse(bool Succeeded, string? Failure, DateTimeOffset CheckedAt);
 
 /// <summary>
 /// Reports what Console Ops has been configured with, by key name only, and optionally whether those
@@ -84,6 +88,7 @@ public sealed class GetConfigurationStatusQueryHandler(
     IEnumerable<IIntegrationProbe> probes,
     IConsoleOpsBuildInfo buildInfo,
     ICollectionJournal journal,
+    IProbeJournal probeJournal,
     TimeProvider timeProvider)
     : IRequestHandler<GetConfigurationStatusQuery, Result<ConfigurationStatusResponse>>
 {
@@ -92,9 +97,10 @@ public sealed class GetConfigurationStatusQueryHandler(
         CancellationToken cancellationToken)
     {
         IReadOnlyList<ConfigurationKeyStatus> keys = inspector.Inspect();
-        Dictionary<string, ConnectionCheckResponse> connections = request.Probe
-            ? await ProbeAllAsync(cancellationToken)
-            : [];
+        if (request.Probe)
+        {
+            await ProbeAllAsync(cancellationToken);
+        }
 
         CapabilityStatusResponse[] capabilities = keys
             .GroupBy(key => key.Capability, StringComparer.Ordinal)
@@ -105,7 +111,10 @@ public sealed class GetConfigurationStatusQueryHandler(
                     key.Key,
                     ToCamelCase(key.State),
                     key.IsRequired))],
-                connections.GetValueOrDefault(group.Key)))
+                // Whatever the last probe established, whether it ran during this request or earlier. A
+                // verification is a fact with a timestamp, and forgetting it on the next read would report
+                // less than Console Ops knows.
+                ToConnection(probeJournal.Last(group.Key))))
             .OrderBy(capability => capability.Capability, StringComparer.Ordinal)
             .ToArray();
 
@@ -155,29 +164,35 @@ public sealed class GetConfigurationStatusQueryHandler(
     }
 
     /// <summary>
-    /// Runs every probe. One provider being unreachable must not hide the state of the others, so a probe that
-    /// throws is reported as a failed check rather than failing the request.
+    /// Runs every probe and records what each established. One provider being unreachable must not hide the
+    /// state of the others, so a probe that throws is recorded as a failed check rather than failing the request.
     /// </summary>
-    private async Task<Dictionary<string, ConnectionCheckResponse>> ProbeAllAsync(
-        CancellationToken cancellationToken)
+    private async Task ProbeAllAsync(CancellationToken cancellationToken)
     {
-        Dictionary<string, ConnectionCheckResponse> results = new(StringComparer.Ordinal);
-
         foreach (IIntegrationProbe probe in probes)
         {
+            DateTimeOffset checkedAt = timeProvider.GetUtcNow();
+
             try
             {
                 IntegrationProbeResult result = await probe.ProbeAsync(cancellationToken);
-                results[probe.Capability] = new ConnectionCheckResponse(result.Succeeded, result.Failure);
+                probeJournal.Record(
+                    probe.Capability,
+                    new ProbeOutcome(result.Succeeded, result.Failure, checkedAt));
             }
             catch (Exception failure) when (failure is not OperationCanceledException)
             {
-                results[probe.Capability] = new ConnectionCheckResponse(false, "The check could not be completed.");
+                probeJournal.Record(
+                    probe.Capability,
+                    new ProbeOutcome(false, "The check could not be completed.", checkedAt));
             }
         }
-
-        return results;
     }
+
+    private static ConnectionCheckResponse? ToConnection(ProbeOutcome? outcome) =>
+        outcome is null
+            ? null
+            : new ConnectionCheckResponse(outcome.Succeeded, outcome.Failure, outcome.CheckedAt);
 
     /// <summary>
     /// A missing required key decides the verdict. A key that is optional and unset reads as a default, not as

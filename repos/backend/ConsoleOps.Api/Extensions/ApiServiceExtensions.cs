@@ -16,6 +16,7 @@ public static class ApiServiceExtensions
     public static IServiceCollection AddConsoleOpsConfigurationInspection(this IServiceCollection services)
     {
         services.AddSingleton<IConfigurationInspector, ConfigurationInspector>();
+        services.AddSingleton<IProbeJournal, ProbeJournal>();
         services.AddSingleton<CollectionJournal>();
         services.AddSingleton<ICollectionJournal>(provider => provider.GetRequiredService<CollectionJournal>());
         services.AddSingleton<ProjectCollectionSweeper>();

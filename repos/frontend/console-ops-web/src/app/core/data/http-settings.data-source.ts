@@ -24,7 +24,11 @@ interface ConfigurationStatus {
       readonly state: string;
       readonly required: boolean;
     }[];
-    readonly connection: { readonly succeeded: boolean; readonly failure: string | null } | null;
+    readonly connection: {
+      readonly succeeded: boolean;
+      readonly failure: string | null;
+      readonly checkedAt: string;
+    } | null;
   }[];
   readonly collection: {
     readonly isEnabled: boolean;
@@ -117,8 +121,9 @@ function toIntegration(
     configuration: toConfiguration(reported?.state ?? 'missing'),
     verification: toVerification(connection),
     authentication: toAuthentication(id, reported?.state ?? 'missing'),
-    // The report states when it was composed, which for a probed read is when the check ran.
-    verifiedAt: connection?.succeeded === true ? status.observedAt : null,
+    // When the check actually ran, which is not when this response was composed: a cheap read reports the last
+    // probe, so the screen must show its own instant rather than implying it just happened.
+    verifiedAt: connection?.succeeded === true ? connection.checkedAt : null,
     failure: connection?.succeeded === false ? (connection.failure ?? null) : null,
   };
 }

@@ -99,6 +99,15 @@ public sealed class GetConfigurationStatusTests(ConsoleOpsApiFactory factory)
         ConfigurationStatusResponse probed = await ReadAsync(client, "?probe=true");
 
         Assert.Equal(1, probe.Calls);
+        // The result belongs to Console Ops, not to a page: a later cheap read still reports it, with the
+        // instant it was established, so a browser reload cannot make a verified provider look unchecked.
+        ConfigurationStatusResponse afterReload = await ReadAsync(client);
+        Assert.Equal(1, probe.Calls);
+        ConnectionCheckResponse remembered = Assert.IsType<ConnectionCheckResponse>(
+            Single(afterReload, "Database").Connection);
+        Assert.False(remembered.Succeeded);
+        Assert.Equal("A stubbed failure.", remembered.Failure);
+        Assert.NotEqual(default, remembered.CheckedAt);
         Assert.True(probed.Probed);
         ConnectionCheckResponse connection = Assert.IsType<ConnectionCheckResponse>(
             Single(probed, "Database").Connection);

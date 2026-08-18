@@ -4,7 +4,6 @@ import { BehaviorSubject, Observable, of } from 'rxjs';
 
 import { SettingsSnapshot } from '../../core/contracts/settings';
 import { SettingsDataSource } from '../../core/data/settings.data-source';
-import { SettingsStore } from '../../core/state/settings.store';
 import { SettingsPage } from './settings-page';
 
 const SNAPSHOT: SettingsSnapshot = {
@@ -151,38 +150,37 @@ describe('SettingsPage', () => {
     ]);
   });
 
-  it('keeps a verification the operator performed when the screen is read again', async () => {
-    host.querySelector<HTMLButtonElement>('co-integration-row .test')!.click();
-    await fixture.whenStable();
-    expect(rowFor('Azure')?.textContent).not.toContain('Not yet probed');
-
-    // What navigating away and back does: a plain read contacts nothing, so it reports nothing as probed.
-    // Letting that overwrite the result made the screen forget a check it had actually performed.
-    TestBed.inject(SettingsStore).read();
-    await fixture.whenStable();
-
-    expect(rowFor('Azure')?.textContent).not.toContain('Not yet probed');
-    expect(rowFor('Azure')?.textContent).toContain('16:20:00');
-  });
-
-  it('drops a remembered verification once the provider stops being configured', async () => {
-    host.querySelector<HTMLButtonElement>('co-integration-row .test')!.click();
-    await fixture.whenStable();
-
-    // The configuration changed after the check, so what was verified no longer describes what is there.
-    reads.next({
+  it('shows a verification the API reports on a plain read, with when it was checked', async () => {
+    // The API remembers the last probe, so a reload or a second tab sees the same answer. The page's job is to
+    // render it as a past check rather than as something happening now.
+    await render({
       ...SNAPSHOT,
       integrations: SNAPSHOT.integrations.map((integration) => ({
         ...integration,
-        configuration: 'notConfigured' as const,
-        authentication: null,
+        verification: 'verified' as const,
+        verifiedAt: '2026-08-18T17:41:28.000Z',
       })),
     });
-    TestBed.inject(SettingsStore).read();
-    await fixture.whenStable();
 
-    expect(rowFor('Azure')?.textContent).toContain('Not configured');
-    expect(rowFor('Azure')?.textContent).not.toContain('16:20:00');
+    expect(rowFor('Azure')?.textContent).not.toContain('Not yet probed');
+    expect(rowFor('Azure')?.textContent).toContain('17:41:28');
+  });
+
+  it('reports a failed check with the reason rather than as unverified', async () => {
+    await render({
+      ...SNAPSHOT,
+      integrations: [
+        {
+          ...SNAPSHOT.integrations[1],
+          verification: 'failed' as const,
+          failure: 'Azure did not issue a token.',
+          verifiedAt: null,
+        },
+      ],
+    });
+
+    expect(rowFor('Azure')?.textContent).toContain('Connection failed');
+    expect(rowFor('Azure')?.textContent).toContain('Azure did not issue a token.');
   });
 
   it('reports facts it does not have as absent rather than as working', async () => {
