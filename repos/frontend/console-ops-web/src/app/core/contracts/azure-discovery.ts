@@ -36,6 +36,12 @@ export interface AzureLogSource {
    * is nothing to read and the screen must say so rather than offering it.
    */
   readonly workspaceId: string | null;
+  /**
+   * The address Azure reports for this resource, or `null` when it has none Console Ops could reach - a
+   * container app with internal ingress resolves only inside its own network. Registering a project offers it
+   * so a generated host name does not have to be copied by hand.
+   */
+  readonly applicationUrl: string | null;
   readonly status: AzureLogSourceStatus;
 }
 

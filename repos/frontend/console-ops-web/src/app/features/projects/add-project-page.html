@@ -233,11 +233,19 @@
             inputmode="url"
             placeholder="https://api.spinnerapp.com"
             [value]="baseUrl()"
-            (input)="baseUrl.set($any($event.target).value)"
+            (input)="
+              baseUrl.set($any($event.target).value);
+              baseUrlEdited.set(true);
+              baseUrlSource.set(null)
+            "
             [attr.aria-invalid]="baseUrlError() !== null"
           />
           @if (baseUrlError() !== null) {
             <p class="error">{{ baseUrlError() }}</p>
+          } @else if (baseUrlSource() !== null) {
+            <p class="suggestion">
+              From Azure resource <span class="co-mono">{{ baseUrlSource() }}</span>
+            </p>
           }
         </div>
 

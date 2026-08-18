@@ -16,6 +16,65 @@ public sealed class AzureResourceGraphCatalogTests
     private static readonly Guid Workspace = Guid.Parse("6f5c1a2b-3d4e-5f60-7182-93a4b5c6d7e8");
 
     [Fact]
+    public async Task ListLogSources_OffersAnAddressOnlyWhereConsoleOpsCouldReachIt()
+    {
+        RecordingHandler handler = new(_ => JsonResponse("""
+            {
+              "totalRecords": 3,
+              "count": 3,
+              "resultTruncated": "false",
+              "data": [
+                {
+                  "name": "stalltrack-api",
+                  "platform": "appService",
+                  "resourceGroup": "stalltrack-prod-rg",
+                  "subscriptionId": "11111111-2222-3333-4444-555555555555",
+                  "hostName": "stalltrack-api-cly-2026-axdafcazchhfdvgq.southeastasia-01.azurewebsites.net",
+                  "ingressExternal": ""
+                },
+                {
+                  "name": "spinner-api-stg",
+                  "platform": "containerApp",
+                  "resourceGroup": "spinner-staging-rg",
+                  "subscriptionId": "11111111-2222-3333-4444-555555555555",
+                  "hostName": "spinner-api-stg.blueisland.southeastasia.azurecontainerapps.io",
+                  "ingressExternal": "true"
+                },
+                {
+                  "name": "internal-worker",
+                  "platform": "containerApp",
+                  "resourceGroup": "spinner-staging-rg",
+                  "subscriptionId": "11111111-2222-3333-4444-555555555555",
+                  "hostName": "internal-worker.internal.southeastasia.azurecontainerapps.io",
+                  "ingressExternal": "false"
+                }
+              ]
+            }
+            """));
+        IAzureLogSourceCatalog catalog = CreateCatalog(handler);
+
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Collection(
+            result.Sources,
+            site => Assert.Equal(
+                "https://stalltrack-api-cly-2026-axdafcazchhfdvgq.southeastasia-01.azurewebsites.net",
+                site.ApplicationUrl),
+            app => Assert.Equal(
+                "https://spinner-api-stg.blueisland.southeastasia.azurecontainerapps.io",
+                app.ApplicationUrl),
+            // An internal ingress resolves only inside its own network, so offering it would produce a project
+            // whose health check can never succeed.
+            app => Assert.Null(app.ApplicationUrl));
+
+        string sentQuery = System.Text.Json.JsonDocument.Parse(Assert.Single(handler.Requests).Body)
+            .RootElement.GetProperty("query").GetString()!;
+        Assert.Contains("properties.defaultHostName", sentQuery, StringComparison.Ordinal);
+        Assert.Contains("properties.configuration.ingress.fqdn", sentQuery, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ListContainerApps_ReadsInventoryAndTheWorkspaceEachAppLogsTo()
     {
         RecordingHandler handler = new(_ => JsonResponse($$"""

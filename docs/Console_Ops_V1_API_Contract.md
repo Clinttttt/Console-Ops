@@ -134,6 +134,7 @@ sources[]
 |-- location (optional)
 |-- environmentName (optional)   the Container Apps environment; absent for services with no equivalent
 |-- workspaceId (optional)       null when Console Ops could not establish where the logs are sent
+|-- applicationUrl (optional)    the resource's public address; null when none is reachable
 `-- status: readable | noWorkspace | platformNotSupported
 hasMore                          true when Azure had more than the bounded page
 ```
@@ -154,6 +155,12 @@ Rules:
   environment and comes back in the same query. For a site it lives in a diagnostic setting that Resource
   Graph does not expose, which would cost one ARM call per site - not worth paying for a platform that has no
   reader yet.
+- **`applicationUrl` is read from Azure, never composed.** An App Service host name is generated and
+  unguessable, so registering a project otherwise means copying it out of the portal - which is how a project
+  came to point at the StallTrack frontend instead of its API. It is `https://` plus the host: an App Service
+  `defaultHostName`, or a container app's ingress FQDN **only when ingress is external**, since an internal
+  FQDN resolves inside the managed environment's network and would give a project a health check that can
+  never succeed. A resource with no reachable address reports `null`, and the form asks for the URL as before.
 - **Failure is not emptiness.** A rejected credential returns `Azure.Unauthorized`, and the UI names the
   cause. An empty list means the identity genuinely sees no applications.
 - **Filter text is escaped** into the query as a literal, never concatenated, because it arrives from a form.

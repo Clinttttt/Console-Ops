@@ -69,6 +69,11 @@
                           <span class="co-meta-dot" aria-hidden="true"></span>
                           {{ app.environmentName }}
                         }
+                        <!-- The address, because two sites in one group can differ only by which one is the API. -->
+                        @if (app.applicationUrl !== null) {
+                          <span class="co-meta-dot" aria-hidden="true"></span>
+                          <span class="co-mono">{{ hostOf(app.applicationUrl) }}</span>
+                        }
                       </span>
                       <span class="app-note">Use</span>
                     </button>
@@ -79,7 +84,13 @@
                       title="Nothing sends this application's logs to a Log Analytics workspace"
                     >
                       <span class="app-name co-mono">{{ app.name }}</span>
-                      <span class="app-meta">{{ app.resourceGroup }}</span>
+                      <span class="app-meta">
+                        {{ app.resourceGroup }}
+                        @if (app.applicationUrl !== null) {
+                          <span class="co-meta-dot" aria-hidden="true"></span>
+                          <span class="co-mono">{{ hostOf(app.applicationUrl) }}</span>
+                        }
+                      </span>
                       <span class="app-note co-unavailable">No log workspace</span>
                     </span>
                   }
@@ -89,7 +100,13 @@
                       title="Console Ops has no reader for this Azure service yet"
                     >
                       <span class="app-name co-mono">{{ app.name }}</span>
-                      <span class="app-meta">{{ app.resourceGroup }}</span>
+                      <span class="app-meta">
+                        {{ app.resourceGroup }}
+                        @if (app.applicationUrl !== null) {
+                          <span class="co-meta-dot" aria-hidden="true"></span>
+                          <span class="co-mono">{{ hostOf(app.applicationUrl) }}</span>
+                        }
+                      </span>
                       <span class="app-note co-unavailable">Not supported yet</span>
                     </span>
                   }

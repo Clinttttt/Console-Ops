@@ -199,9 +199,13 @@ export class AddProjectPage {
   protected readonly healthEndpoint = signal('');
   protected readonly versionEndpoint = signal('');
 
-  /** Whether the operator has typed in the field, so detection never overwrites their own value. */
+  /** Whether the operator has typed in the field, so discovery never overwrites their own value. */
+  protected readonly baseUrlEdited = signal(false);
   protected readonly healthEdited = signal(false);
   protected readonly versionEdited = signal(false);
+
+  /** The Azure resource a filled base URL came from, so the form says where the value originated. */
+  protected readonly baseUrlSource = signal<string | null>(null);
   protected readonly submissionState = signal<SubmissionState>('idle');
   protected readonly submissionError = signal<string | null>(null);
 
@@ -269,9 +273,21 @@ export class AddProjectPage {
   );
 
   /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
+  /**
+   * Choosing a resource fills what Azure knows about it, including the address it answers on.
+   *
+   * The host name of an App Service or container app is generated and unguessable, so an operator otherwise
+   * copies it out of the portal by hand. It is only offered when Azure reports one Console Ops could reach,
+   * and it never replaces a base URL the operator has already supplied.
+   */
   protected applyLogSource(source: AzureLogSource): void {
     this.logContainerAppName.set(source.name);
     this.logWorkspaceId.set(source.workspaceId ?? '');
+
+    if (source.applicationUrl !== null && !this.baseUrlEdited() && this.baseUrl().trim() === '') {
+      this.baseUrl.set(source.applicationUrl);
+      this.baseUrlSource.set(source.name);
+    }
   }
 
   protected readonly isValid = computed(

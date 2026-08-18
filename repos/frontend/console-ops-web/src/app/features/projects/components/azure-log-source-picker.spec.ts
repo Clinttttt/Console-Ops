@@ -22,6 +22,7 @@ function app(overrides: Partial<AzureLogSource>): AzureLogSource {
     location: 'southeastasia',
     environmentName: 'spinner-env',
     workspaceId: WORKSPACE,
+    applicationUrl: 'https://spinner-api.blueisland.southeastasia.azurecontainerapps.io',
     status: 'readable',
     ...overrides,
   };

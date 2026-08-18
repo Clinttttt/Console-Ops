@@ -50,6 +50,14 @@ public sealed record AzureLogSourceCatalogResult(
 /// <param name="EnvironmentName">
 /// The Container Apps environment that owns the app, or <c>null</c> for platforms that have no equivalent.
 /// </param>
+/// <param name="ApplicationUrl">
+/// The resource's own public address, or <c>null</c> when it has none Console Ops could reach.
+/// <para>
+/// Read from Azure rather than composed from a naming convention: an App Service host name is generated and
+/// unguessable, and a container app's FQDN only resolves outside its environment when ingress is external.
+/// It exists so registering a project does not require an operator to copy a host name by hand.
+/// </para>
+/// </param>
 public sealed record AzureLogSourceCandidate(
     string Name,
     AzureLogPlatform Platform,
@@ -57,7 +65,8 @@ public sealed record AzureLogSourceCandidate(
     string SubscriptionId,
     string? Location,
     string? EnvironmentName,
-    Guid? WorkspaceId);
+    Guid? WorkspaceId,
+    string? ApplicationUrl);
 
 /// <summary>
 /// The Azure services Console Ops can name. Naming one is not the same as being able to read it: a reader

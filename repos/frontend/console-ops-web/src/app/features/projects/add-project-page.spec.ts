@@ -19,6 +19,7 @@ import {
 } from '../../core/contracts/github-discovery';
 import { ProjectRegistrationRequest } from '../../core/contracts/project-registration';
 import { ProjectListItem } from '../../core/contracts/project-registry';
+import { AzureLogSources } from '../../core/contracts/azure-discovery';
 import { AzureDiscoveryDataSource } from '../../core/data/azure-discovery.data-source';
 import { DashboardOverviewDataSource } from '../../core/data/dashboard-overview.data-source';
 import { EndpointVerificationDataSource } from '../../core/data/endpoint-verification.data-source';
@@ -72,6 +73,25 @@ const CI_WORKFLOW: GitHubWorkflow = {
 @Component({ template: '' })
 class ProjectsDestination {}
 
+/** One readable resource, so choosing it can be exercised the way an operator would. */
+const AZURE_SOURCES: AzureLogSources = {
+  sources: [
+    {
+      provider: 'azure',
+      platform: 'appService',
+      name: 'stalltrack-api-cly-2026',
+      resourceGroup: 'stalltrack-prod-rg',
+      subscriptionId: '11111111-2222-3333-4444-555555555555',
+      location: 'southeastasia',
+      environmentName: null,
+      workspaceId: '6f5c1a2b-3d4e-5f60-7182-93a4b5c6d7e8',
+      applicationUrl: 'https://stalltrack-api-cly-2026-axdafcazchhfdvgq.azurewebsites.net',
+      status: 'readable',
+    },
+  ],
+  hasMore: false,
+};
+
 describe('AddProjectPage', () => {
   let harness: RouterTestingHarness;
   let host: HTMLElement;
@@ -111,7 +131,7 @@ describe('AddProjectPage', () => {
         // it is opened. A stub keeps these tests about the form.
         {
           provide: AzureDiscoveryDataSource,
-          useValue: { listLogSources: () => of({ containerApps: [], hasMore: false }) },
+          useValue: { listLogSources: () => of(AZURE_SOURCES) },
         },
         provideRouter([
           { path: 'projects/new', component: AddProjectPage },
@@ -412,6 +432,39 @@ describe('AddProjectPage', () => {
     await importSpinner();
 
     expect(host.querySelector<HTMLInputElement>('#health-endpoint')?.value).toBe('/status');
+  });
+
+  it('fills the base URL from the Azure resource instead of asking for its host name', async () => {
+    await completeRequiredFields();
+
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .trigger')!.click();
+    await harness.fixture.whenStable();
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .app')!.click();
+    await harness.fixture.whenStable();
+
+    // A generated App Service host name is unguessable, so it comes from Azure rather than from typing.
+    expect(host.querySelector<HTMLInputElement>('#base-url')?.value).toBe(
+      'https://stalltrack-api-cly-2026-axdafcazchhfdvgq.azurewebsites.net',
+    );
+    expect(host.textContent).toContain('From Azure resource');
+    expect(host.querySelector<HTMLInputElement>('#log-workspace-id')?.value).toBe(
+      '6f5c1a2b-3d4e-5f60-7182-93a4b5c6d7e8',
+    );
+  });
+
+  it('never replaces a base URL the operator supplied themselves', async () => {
+    await completeRequiredFields();
+    await type('#base-url', 'https://api.spinnerapp.com');
+
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .trigger')!.click();
+    await harness.fixture.whenStable();
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .app')!.click();
+    await harness.fixture.whenStable();
+
+    expect(host.querySelector<HTMLInputElement>('#base-url')?.value).toBe(
+      'https://api.spinnerapp.com',
+    );
+    expect(host.textContent).not.toContain('From Azure resource');
   });
 
   it('asks for the paths when detection finds nothing', async () => {

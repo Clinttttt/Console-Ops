@@ -33,12 +33,21 @@ internal static class AzureLogSourceDiscoveryQuery
         // environment, while for a site it lives in a diagnostic setting that Resource Graph does not expose.
         // Resolving that would be one ARM call per site, which is not worth paying for a platform that has no
         // reader yet - so the column is null and the screen says why.
+        //
+        // The host name comes from a different property per platform, and for a container app it is only
+        // reachable when ingress is external: an internal FQDN resolves inside the environment's network and
+        // not from Console Ops, so it is carried separately rather than assumed usable.
         return $"""
             resources
             | where type =~ '{ContainerAppType}' or type =~ '{AppServiceType}'{filter}
             | extend platform = iff(type =~ '{AppServiceType}', 'appService', 'containerApp')
+            | extend hostName = iff(
+                  type =~ '{AppServiceType}',
+                  tostring(properties.defaultHostName),
+                  tostring(properties.configuration.ingress.fqdn))
+            | extend ingressExternal = tostring(properties.configuration.ingress.external)
             | extend environmentKey = tolower(tostring(properties.managedEnvironmentId))
-            | project name, platform, resourceGroup, subscriptionId, location, environmentKey
+            | project name, platform, resourceGroup, subscriptionId, location, hostName, ingressExternal, environmentKey
             | join kind=leftouter (
                 resources
                 | where type =~ '{ManagedEnvironmentType}'
@@ -46,7 +55,7 @@ internal static class AzureLogSourceDiscoveryQuery
                           environmentName = name,
                           workspaceId = tostring(properties.appLogsConfiguration.logAnalyticsConfiguration.customerId)
             ) on environmentKey
-            | project name, platform, resourceGroup, subscriptionId, location, environmentName, workspaceId
+            | project name, platform, resourceGroup, subscriptionId, location, hostName, ingressExternal, environmentName, workspaceId
             | order by platform asc, name asc
             | limit {limit}
             """;

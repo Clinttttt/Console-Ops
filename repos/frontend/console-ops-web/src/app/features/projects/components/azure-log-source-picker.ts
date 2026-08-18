@@ -111,6 +111,11 @@ export class AzureLogSourcePicker {
     this.open.set(false);
   }
 
+  /** The host alone: the scheme is always https here and repeating it costs room in a dense row. */
+  protected hostOf(applicationUrl: string): string {
+    return applicationUrl.replace(/^https:\/\//, '');
+  }
+
   protected setQuery(query: string): void {
     this.query.set(query);
   }
