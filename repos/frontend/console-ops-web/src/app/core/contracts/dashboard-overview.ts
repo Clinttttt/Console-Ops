@@ -109,6 +109,12 @@ export interface ProjectSurface {
   readonly health: StatusCell;
   readonly healthObservedAt: string | null;
   readonly deployedVersion: DeployedVersion | null;
+  /**
+   * Why there is no deployed version: `available`, `unknown`, or `notConfigured`. A missing version used to
+   * render as "Not configured" whatever the cause, which sent an operator to fix configuration that was already
+   * correct - an endpoint answering 401, or answering with HTML, is configured and unreadable.
+   */
+  readonly versionState: 'available' | 'unknown' | 'notConfigured';
   readonly versionSync: VersionSynchronization;
   readonly response: ResponseMeasurement;
 }

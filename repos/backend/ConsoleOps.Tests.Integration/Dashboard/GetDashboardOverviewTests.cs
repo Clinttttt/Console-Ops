@@ -83,6 +83,8 @@ public sealed class GetDashboardOverviewTests(ConsoleOpsApiFactory factory)
             Assert.Equal("Unknown", surface.Health.Label);
             Assert.Null(surface.HealthObservedAt);
             Assert.Null(surface.DeployedVersion);
+            // Why there is no version, so the screen never reports a configured endpoint as unconfigured.
+            Assert.Equal("notConfigured", surface.VersionState);
             Assert.Equal("unknown", surface.VersionSync.State);
             Assert.Empty(surface.Response.Samples);
         });
