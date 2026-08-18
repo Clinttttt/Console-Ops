@@ -20,8 +20,8 @@ import { HttpProjectRegistryDataSource } from './core/data/http-project-registry
 import { LogStreamDataSource } from './core/data/log-stream.data-source';
 import { ProjectRegistryDataSource } from './core/data/project-registry.data-source';
 import { HealthDataSource } from './core/data/health.data-source';
+import { HttpHealthDataSource } from './core/data/http-health.data-source';
 import { HttpSettingsDataSource } from './core/data/http-settings.data-source';
-import { MockHealthDataSource } from './core/data/mock/mock-health.data-source';
 import { SettingsDataSource } from './core/data/settings.data-source';
 
 export const appConfig: ApplicationConfig = {
@@ -52,9 +52,6 @@ export const appConfig: ApplicationConfig = {
     { provide: LogStreamDataSource, useClass: HttpLogStreamDataSource },
 
     { provide: SettingsDataSource, useClass: HttpSettingsDataSource },
-
-    // Health is a labelled design mock. Swap for the HTTP adapter and delete the mock when the screen reads
-    // recorded health observations; it must never stay as a fallback.
-    { provide: HealthDataSource, useClass: MockHealthDataSource },
+    { provide: HealthDataSource, useClass: HttpHealthDataSource },
   ],
 };

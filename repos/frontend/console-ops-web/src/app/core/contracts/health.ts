@@ -15,9 +15,8 @@ export type { EnvironmentKind, StatusLevel };
 /**
  * What a check reported.
  *
- * `running` is separate from `healthy` on purpose: a local process that answers is running, but a project with
- * no health endpoint has never claimed to be healthy. `notConfigured` says the operator never asked for the
- * check, which is not a failure.
+ * `notConfigured` says the operator never asked for the check, which is not a failure. `unknown` means no check
+ * exists - never that something is probably fine.
  */
 export type HealthCheckState =
   'healthy' | 'degraded' | 'unhealthy' | 'unreachable' | 'running' | 'notConfigured' | 'unknown';
@@ -86,9 +85,4 @@ export interface HealthSnapshot {
   readonly summary: HealthSummary;
   readonly environments: readonly EnvironmentHealth[];
   readonly stateChanges: readonly HealthStateChange[];
-  /**
-   * `true` while the screen is backed by sample data. It must say so plainly: a health screen that invents a
-   * verdict is the most dangerous screen in the product.
-   */
-  readonly isSampleData: boolean;
 }

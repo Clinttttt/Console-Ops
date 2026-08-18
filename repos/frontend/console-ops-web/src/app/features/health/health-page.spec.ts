@@ -10,7 +10,6 @@ const OBSERVED_AT = '2026-08-18T09:52:14.000Z';
 
 const SNAPSHOT: HealthSnapshot = {
   observedAt: OBSERVED_AT,
-  isSampleData: true,
   summary: { healthy: 2, degraded: 1, down: 0, lastCheckedAt: '2026-08-18T09:52:00.000Z' },
   environments: [
     {
@@ -43,11 +42,16 @@ const SNAPSHOT: HealthSnapshot = {
       projectName: 'AMYL',
       environmentName: 'Local',
       environmentKind: 'local',
-      state: 'running',
+      state: 'notConfigured',
       checkedAt: '2026-08-18T09:52:03.000Z',
       responseMilliseconds: null,
       checks: [
-        { name: 'Application', kind: 'application', state: 'running', responseMilliseconds: null },
+        {
+          name: 'Application',
+          kind: 'application',
+          state: 'notConfigured',
+          responseMilliseconds: null,
+        },
       ],
       healthySince: null,
       failingSince: null,
@@ -125,8 +129,10 @@ describe('HealthPage', () => {
     await render();
   });
 
-  it('says it is sample data rather than presenting invented verdicts as observed', () => {
-    expect(host.textContent).toContain('Sample data');
+  it('does not report an unconfigured check as healthy', () => {
+    // No health endpoint was asked for, which is not a failure and is certainly not evidence of health.
+    expect(rowFor('AMYL')?.textContent).toContain('Not configured');
+    expect(rowFor('AMYL')?.textContent).not.toContain('Healthy');
   });
 
   it('states the counts and when anything was last checked', () => {
@@ -146,12 +152,6 @@ describe('HealthPage', () => {
     expect(issue?.textContent).toContain('3m 26s');
     expect(issue?.textContent).toContain('6');
     expect(issue?.textContent).toContain('09:41:28');
-  });
-
-  it('does not promote a running process to healthy', () => {
-    // A process that answers is running; only a health endpoint can claim it is healthy.
-    expect(rowFor('AMYL')?.textContent).toContain('Running');
-    expect(rowFor('AMYL')?.textContent).not.toContain('Healthy');
   });
 
   it('shows the dependency behind a verdict without needing the row opened', () => {
@@ -190,6 +190,36 @@ describe('HealthPage', () => {
     // Below the minimum sample a percentage would be a guess dressed as a measurement.
     expect(host.textContent).toContain('Too few checks');
     expect(host.textContent).toContain('Not currently healthy');
+  });
+
+  it('re-reads on an interval, because the screen claims to show what is functioning now', async () => {
+    let reads = 0;
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [HealthPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: HealthDataSource,
+          useValue: {
+            load: () => {
+              reads += 1;
+              return of(SNAPSHOT);
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const created = TestBed.createComponent(HealthPage);
+    await created.whenStable();
+    expect(reads).toBe(1);
+
+    // What the interval does. A screen frozen at page load is the worst kind of health screen: it looks current.
+    document.dispatchEvent(new Event('visibilitychange'));
+    await created.whenStable();
+
+    expect(reads).toBe(2);
   });
 
   it('reports facts it does not have as absent rather than as working', async () => {
