@@ -1,9 +1,13 @@
 :host {
+  /*
+   * The identity column absorbs the slack. Sizing the facts to their content instead of to equal thirds keeps
+   * them together near the action rather than stranded across the middle of the card.
+   */
   display: grid;
-  grid-template-columns: 26px minmax(150px, 1fr) minmax(0, 2.1fr) auto;
+  grid-template-columns: 26px minmax(190px, 1fr) auto auto;
   align-items: center;
   gap: var(--co-space-5);
-  padding: var(--co-space-5);
+  padding: var(--co-space-4) var(--co-space-5);
 }
 
 :host + :host {
@@ -38,7 +42,7 @@
 /* One column per fact, so the two integrations read as a table without being one. */
 .facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(104px, max-content));
   gap: var(--co-space-5);
   margin: 0;
   min-width: 0;

@@ -1,4 +1,5 @@
 using ConsoleOps.Api.Features.Logs;
+using ConsoleOps.Api.Features.Settings;
 using ConsoleOps.Api.Features.Projects;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -19,6 +20,9 @@ public static class RateLimiterExtensions
     /// </summary>
     private const int LogReadPermitsPerMinute = 60;
 
+    /// <summary>A sweep contacts every configured provider for every project, so it is the costliest read.</summary>
+    private const int SweepPermitsPerMinute = 5;
+
     public static IServiceCollection AddConsoleOpsRateLimiter(this IServiceCollection services)
     {
         services.AddRateLimiter(options =>
@@ -28,6 +32,7 @@ public static class RateLimiterExtensions
                 VerifyProjectEndpointsEndpoint.RateLimitPolicy,
                 VerificationPermitsPerMinute);
             options.AddFixedWindow(LogEndpoints.RateLimitPolicy, LogReadPermitsPerMinute);
+            options.AddFixedWindow(SettingsEndpoints.SweepRateLimitPolicy, SweepPermitsPerMinute);
         });
 
         return services;

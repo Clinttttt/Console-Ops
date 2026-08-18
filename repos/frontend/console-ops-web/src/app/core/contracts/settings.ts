@@ -56,9 +56,13 @@ export interface CollectionSettings {
   readonly lastSweepAt: string | null;
   readonly lastSweepSucceeded: boolean | null;
   readonly lastSweepMilliseconds: number | null;
-  /** When the next sweep is expected, or `null` when collection is switched off. */
+  /** When the next sweep is expected, or `null` when collection is off or nothing has run yet. */
   readonly nextSweepAt: string | null;
   readonly isEnabled: boolean;
+  /** How many projects the last sweep refreshed, and how many it could not. 
+ull before any sweep. */
+  readonly projectsRefreshed: number | null;
+  readonly projectsFailed: number | null;
 }
 
 /** Which build is running, which is the first question worth answering when something looks wrong. */
@@ -73,10 +77,6 @@ export interface SettingsSnapshot {
   /** ISO-8601 UTC composition time. Relative times are measured against it. */
   readonly observedAt: string;
   readonly integrations: readonly Integration[];
-  /**
-   * `null` while Console Ops does not record its own sweeps. The screen says the section is not reported yet
-   * rather than showing figures nothing observed.
-   */
-  readonly collection: CollectionSettings | null;
+  readonly collection: CollectionSettings;
   readonly about: AboutConsoleOps;
 }

@@ -7,12 +7,18 @@ namespace ConsoleOps.Api.Features.Settings;
 
 public static class SettingsEndpoints
 {
+    /// <summary>
+    /// Sweeping contacts every configured provider, so it is bounded per client like the other reads that do.
+    /// </summary>
+    public const string SweepRateLimitPolicy = "settings-sweep";
+
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder endpoints)
     {
         RouteGroupBuilder settings = endpoints.MapGroup("/api/settings")
             .WithTags("Settings");
 
         settings.MapGetConfigurationStatusEndpoint();
+        settings.MapRunCollectionSweepEndpoint();
         return endpoints;
     }
 }

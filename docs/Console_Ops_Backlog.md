@@ -25,6 +25,7 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Live tail following a scope from a time cursor | Real |
 | Azure discovery across Container Apps and App Service, with per-resource status | Real |
 | Configuration status by key name, with an opt-in credential probe | Real |
+| Settings screen: integrations, collection and build state | Real |
 
 ## Next
 
@@ -54,11 +55,8 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 ## Blocked or deferred
 
-- **Settings: the Collection section.** Integrations and About read real data and the mock is deleted. Collection
-  is the one section still absent: `ProjectRefreshWorker` does not record its sweeps, so there is nothing to
-  report. It needs the worker to keep its last sweep instant, outcome and duration, and to expose the next due
-  time; then the section replaces its explanatory note. `Refresh now` becomes real at the same time.
-  Deliberately absent from the screen: project, environment, deployment and health facts, which have their own
+- **Settings screen is real.** Integrations, Collection and About all read Console Ops' own state; the mock is
+  deleted. Deliberately absent: project, environment, deployment and health facts, which have their own
   screens; and any editable control, because nothing here can be persisted at runtime yet.
 - **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from
   data already collected: per-environment health, dependencies from the health payload, health

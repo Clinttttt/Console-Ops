@@ -30,18 +30,9 @@
         </section>
 
         @let sweep = collection();
-        <section class="block">
-          <h2 class="co-eyebrow">Collection</h2>
-          @if (sweep === null) {
-            <!-- The worker does not record its sweeps yet, so the section says that rather than inventing them. -->
-            <div class="card">
-              <p class="absent co-unavailable">
-                Console Ops does not record its own collection sweeps yet, so there is nothing to
-                report here. The interval is set by
-                <span class="co-mono">Monitoring:Refresh</span> in application settings.
-              </p>
-            </div>
-          } @else {
+        @if (sweep !== null) {
+          <section class="block">
+            <h2 class="co-eyebrow">Collection</h2>
             <div class="card">
               <div class="interval">
                 <span class="mark" aria-hidden="true">
@@ -136,8 +127,8 @@
                 </button>
               </div>
             </div>
-          }
-        </section>
+          </section>
+        }
 
         @let build = about();
         @if (build !== null) {

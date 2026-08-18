@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using ConsoleOps.Api.Features.Settings;
 using ConsoleOps.Application.Features.Settings.GetConfigurationStatus;
 using ConsoleOps.Application.Integrations.Diagnostics;
 using ConsoleOps.Tests.Integration.Infrastructure;
@@ -125,8 +126,72 @@ public sealed class GetConfigurationStatusTests(ConsoleOpsApiFactory factory)
         Assert.NotNull(connection.Failure);
     }
 
+    [Fact]
+    public async Task Collection_BeforeAnySweep_ReportsTheScheduleAndNothingElse()
+    {
+        using WebApplicationFactory<Program> application = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Monitoring:Refresh:Enabled", "true");
+            builder.UseSetting("Monitoring:Refresh:IntervalSeconds", "300");
+            // A long start-up delay keeps the worker from sweeping while this test asserts that none has.
+            builder.UseSetting("Monitoring:Refresh:StartupDelaySeconds", "3600");
+        });
+        using HttpClient client = CreateClient(application);
+
+        ConfigurationStatusResponse status = await ReadAsync(client);
+
+        Assert.True(status.Collection.IsEnabled);
+        Assert.Equal(300, status.Collection.IntervalSeconds);
+        // Sweeps live in memory for one process, so nothing is reported until one has actually run.
+        Assert.Null(status.Collection.LastSweepAt);
+        Assert.Null(status.Collection.LastSweepSucceeded);
+        Assert.Null(status.Collection.NextSweepAt);
+    }
+
+    [Fact]
+    public async Task Collection_WhenScheduledCollectionIsOff_SaysSoRatherThanReportingNothingDue()
+    {
+        using WebApplicationFactory<Program> application = factory.WithWebHostBuilder(builder =>
+            builder.UseSetting("Monitoring:Refresh:Enabled", "false"));
+        using HttpClient client = CreateClient(application);
+
+        ConfigurationStatusResponse status = await ReadAsync(client);
+
+        // Off is a configuration, not a fault, and is not the same as "nothing has run yet".
+        Assert.False(status.Collection.IsEnabled);
+        Assert.Null(status.Collection.NextSweepAt);
+    }
+
+    [Fact]
+    public async Task Sweep_RunsNowAndIsThenReportedByTheStatus()
+    {
+        using WebApplicationFactory<Program> application = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Monitoring:Refresh:Enabled", "true");
+            builder.UseSetting("Monitoring:Refresh:IntervalSeconds", "300");
+            builder.UseSetting("Monitoring:Refresh:StartupDelaySeconds", "3600");
+        });
+        using HttpClient client = CreateClient(application);
+
+        HttpResponseMessage response = await client.PostAsync("/api/settings/collection/sweeps", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        CollectionSweepResponse sweep = Assert.IsType<CollectionSweepResponse>(
+            await response.Content.ReadFromJsonAsync<CollectionSweepResponse>());
+        // Listing projects succeeded, which is what makes a sweep a sweep. Individual projects may still fail.
+        Assert.True(sweep.Succeeded);
+
+        ConfigurationStatusResponse status = await ReadAsync(client);
+        Assert.Equal(sweep.CompletedAt, status.Collection.LastSweepAt);
+        Assert.True(status.Collection.LastSweepSucceeded);
+        Assert.NotNull(status.Collection.LastSweepMilliseconds);
+        // Due an interval after the sweep began, because the schedule's timer runs from the start.
+        Assert.NotNull(status.Collection.NextSweepAt);
+        Assert.True(status.Collection.NextSweepAt > status.Collection.LastSweepAt);
+    }
+
     private static CapabilityStatusResponse Single(ConfigurationStatusResponse status, string capability) =>
-        Assert.Single(status.Capabilities.Where(entry => entry.Capability == capability));
+        Assert.Single(status.Capabilities, entry => entry.Capability == capability);
 
     private static async Task<ConfigurationStatusResponse> ReadAsync(
         HttpClient client,

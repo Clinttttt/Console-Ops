@@ -16,11 +16,32 @@ public sealed record GetConfigurationStatusQuery(bool Probe = false)
 /// </param>
 /// <param name="Probed">Whether credentials were tested, so the UI never implies a test that did not run.</param>
 /// <param name="About">Which build is running, and whether its schema matches.</param>
+/// <param name="Collection">How collection is scheduled, and how the last sweep went.</param>
 public sealed record ConfigurationStatusResponse(
     DateTimeOffset ObservedAt,
     IReadOnlyList<CapabilityStatusResponse> Capabilities,
     bool Probed,
-    AboutConsoleOpsResponse About);
+    AboutConsoleOpsResponse About,
+    CollectionStatusResponse Collection);
+
+/// <param name="IsEnabled">Whether scheduled collection runs at all, which is a configuration, not a fault.</param>
+/// <param name="LastSweepAt">
+/// When the last sweep finished, or <c>null</c> when none has run since start-up. Sweeps are remembered for this
+/// process only: they describe Console Ops, not a project, and are not written to the observation tables.
+/// </param>
+/// <param name="NextSweepAt">
+/// When the next sweep is due, or <c>null</c> when collection is off or nothing has run yet. Derived from the
+/// last sweep's start and the interval, so it is an expectation rather than a promise.
+/// </param>
+public sealed record CollectionStatusResponse(
+    bool IsEnabled,
+    int IntervalSeconds,
+    DateTimeOffset? LastSweepAt,
+    bool? LastSweepSucceeded,
+    int? LastSweepMilliseconds,
+    int? ProjectsRefreshed,
+    int? ProjectsFailed,
+    DateTimeOffset? NextSweepAt);
 
 /// <param name="Build">The source revision the build came from, or <c>null</c> when it recorded none.</param>
 /// <param name="DatabaseSchema"><c>upToDate</c>, <c>pendingMigrations</c>, or <c>unknown</c>.</param>
@@ -62,6 +83,7 @@ public sealed class GetConfigurationStatusQueryHandler(
     IConfigurationInspector inspector,
     IEnumerable<IIntegrationProbe> probes,
     IConsoleOpsBuildInfo buildInfo,
+    ICollectionJournal journal,
     TimeProvider timeProvider)
     : IRequestHandler<GetConfigurationStatusQuery, Result<ConfigurationStatusResponse>>
 {
@@ -93,7 +115,43 @@ public sealed class GetConfigurationStatusQueryHandler(
             timeProvider.GetUtcNow(),
             capabilities,
             request.Probe,
-            new AboutConsoleOpsResponse(build.Version, build.Build, build.Runtime, build.SchemaState)));
+            new AboutConsoleOpsResponse(build.Version, build.Build, build.Runtime, build.SchemaState),
+            ToCollectionStatus(journal)));
+    }
+
+    /// <summary>
+    /// Collection as it stands. Every value is either configuration or a sweep that actually ran; nothing is
+    /// filled in for a sweep that has not happened.
+    /// </summary>
+    private static CollectionStatusResponse ToCollectionStatus(ICollectionJournal journal)
+    {
+        CollectionSchedule schedule = journal.Schedule;
+        CollectionSweep? sweep = journal.LastSweep;
+
+        if (sweep is null)
+        {
+            return new CollectionStatusResponse(
+                schedule.IsEnabled,
+                (int)schedule.Interval.TotalSeconds,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
+        }
+
+        return new CollectionStatusResponse(
+            schedule.IsEnabled,
+            (int)schedule.Interval.TotalSeconds,
+            sweep.CompletedAt,
+            sweep.Succeeded,
+            (int)sweep.Duration.TotalMilliseconds,
+            sweep.ProjectsRefreshed,
+            sweep.ProjectsFailed,
+            // The timer runs from the start of a sweep, not from its end, so the next one is due an interval
+            // after this one began. Off means nothing is due at all.
+            schedule.IsEnabled ? sweep.StartedAt + schedule.Interval : null);
     }
 
     /// <summary>

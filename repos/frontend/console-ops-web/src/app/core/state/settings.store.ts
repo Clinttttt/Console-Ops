@@ -89,7 +89,51 @@ export class SettingsStore {
   }
 
   private accept(snapshot: SettingsSnapshot): void {
-    this.current.set(snapshot);
+    this.current.set(remember(snapshot, this.verifications));
     this.state.set('loaded');
   }
+
+  /**
+   * What the last probe established, for as long as this tab lives.
+   *
+   * A plain read does not contact a provider, so it always reports verification as not probed. Letting that
+   * overwrite a verification the operator just performed made the screen forget it on every re-entry, which is
+   * a different kind of dishonesty: Console Ops did check, and the result had a timestamp. The result is carried
+   * forward with that timestamp, and dropped the moment the capability stops being configured.
+   */
+  private readonly verifications = new Map<string, Verification>();
+}
+
+interface Verification {
+  readonly verification: 'verified' | 'failed';
+  readonly verifiedAt: string | null;
+  readonly failure: string | null;
+}
+
+function remember(
+  snapshot: SettingsSnapshot,
+  verifications: Map<string, Verification>,
+): SettingsSnapshot {
+  return {
+    ...snapshot,
+    integrations: snapshot.integrations.map((integration) => {
+      if (integration.verification !== 'notProbed') {
+        verifications.set(integration.id, {
+          verification: integration.verification,
+          verifiedAt: integration.verifiedAt,
+          failure: integration.failure,
+        });
+        return integration;
+      }
+
+      const known = verifications.get(integration.id);
+      if (known === undefined || integration.configuration === 'notConfigured') {
+        // Configuration changed since the check, so what was verified no longer describes what is there.
+        verifications.delete(integration.id);
+        return integration;
+      }
+
+      return { ...integration, ...known };
+    }),
+  };
 }

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, switchMap } from 'rxjs';
 
 import {
   AboutConsoleOps,
@@ -26,6 +26,16 @@ interface ConfigurationStatus {
     }[];
     readonly connection: { readonly succeeded: boolean; readonly failure: string | null } | null;
   }[];
+  readonly collection: {
+    readonly isEnabled: boolean;
+    readonly intervalSeconds: number;
+    readonly lastSweepAt: string | null;
+    readonly lastSweepSucceeded: boolean | null;
+    readonly lastSweepMilliseconds: number | null;
+    readonly projectsRefreshed: number | null;
+    readonly projectsFailed: number | null;
+    readonly nextSweepAt: string | null;
+  };
   readonly about: {
     readonly version: string;
     readonly build: string | null;
@@ -54,12 +64,13 @@ export class HttpSettingsDataSource extends SettingsDataSource {
   }
 
   /**
-   * Collection has no endpoint yet: the refresh worker does not record its sweeps. Asking for a refresh would
-   * therefore report a result Console Ops cannot observe, so the read is simply repeated and the screen keeps
-   * saying the section is not available.
+   * Runs the same sweep the scheduled worker runs, then re-reads so the screen reports it from the same place it
+   * always does rather than from the command's own answer.
    */
   override collectNow(): Observable<SettingsSnapshot> {
-    return this.read(false);
+    return this.http
+      .post('/api/settings/collection/sweeps', null)
+      .pipe(switchMap(() => this.read(false)));
   }
 
   private read(probe: boolean): Observable<SettingsSnapshot> {
@@ -84,7 +95,7 @@ function toSnapshot(status: ConfigurationStatus): SettingsSnapshot {
       ),
       toIntegration(status, 'azure', 'Azure', 'Azure', 'Container Apps runtime access'),
     ],
-    collection: toCollection(),
+    collection: toCollection(status.collection),
     about: toAbout(status.about),
   };
 }
@@ -146,9 +157,20 @@ function toAuthentication(id: Integration['id'], state: string): string | null {
   return state === 'configured' ? 'Personal access token' : null;
 }
 
-/** Collection is not reported yet, and an absent section is honest where an invented one is not. */
-function toCollection(): CollectionSettings | null {
-  return null;
+/** Collection as Console Ops reports it: schedule from configuration, sweep facts only if one has run. */
+function toCollection(reported: ConfigurationStatus['collection']): CollectionSettings {
+  return {
+    intervalSeconds: reported.intervalSeconds,
+    // The interval comes from application settings and cannot be changed at runtime.
+    isIntervalEditable: false,
+    lastSweepAt: reported.lastSweepAt,
+    lastSweepSucceeded: reported.lastSweepSucceeded,
+    lastSweepMilliseconds: reported.lastSweepMilliseconds,
+    nextSweepAt: reported.nextSweepAt,
+    isEnabled: reported.isEnabled,
+    projectsRefreshed: reported.projectsRefreshed,
+    projectsFailed: reported.projectsFailed,
+  };
 }
 
 function toAbout(about: ConfigurationStatus['about']): AboutConsoleOps {

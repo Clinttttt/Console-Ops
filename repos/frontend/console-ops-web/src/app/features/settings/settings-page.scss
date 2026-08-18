@@ -65,10 +65,11 @@
 
 .interval {
   grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  padding: var(--co-space-4) var(--co-space-5);
 }
 
 .sweep {
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
   border-top: 1px solid var(--co-line);
 }
 
@@ -109,9 +110,10 @@
   white-space: nowrap;
 }
 
+/* Sized to content and grouped, so the sweep facts sit together rather than spread across the card. */
 .facts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(96px, max-content));
   gap: var(--co-space-5);
   margin: 0;
   min-width: 0;
@@ -119,10 +121,10 @@
 
 .about {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--co-space-5);
+  grid-template-columns: repeat(4, minmax(0, max-content));
+  gap: var(--co-space-6);
   margin: 0;
-  padding: var(--co-space-5);
+  padding: var(--co-space-4) var(--co-space-5);
 }
 
 .about .fact + .fact {

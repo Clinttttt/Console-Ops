@@ -1,3 +1,4 @@
+using ConsoleOps.Api.BackgroundServices;
 using ConsoleOps.Api.Configuration;
 using ConsoleOps.Application.Integrations.Diagnostics;
 
@@ -15,6 +16,9 @@ public static class ApiServiceExtensions
     public static IServiceCollection AddConsoleOpsConfigurationInspection(this IServiceCollection services)
     {
         services.AddSingleton<IConfigurationInspector, ConfigurationInspector>();
+        services.AddSingleton<CollectionJournal>();
+        services.AddSingleton<ICollectionJournal>(provider => provider.GetRequiredService<CollectionJournal>());
+        services.AddSingleton<ProjectCollectionSweeper>();
         return services;
     }
 }
