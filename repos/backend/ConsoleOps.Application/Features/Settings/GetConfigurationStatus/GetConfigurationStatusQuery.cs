@@ -17,12 +17,29 @@ public sealed record GetConfigurationStatusQuery(bool Probe = false)
 /// <param name="Probed">Whether credentials were tested, so the UI never implies a test that did not run.</param>
 /// <param name="About">Which build is running, and whether its schema matches.</param>
 /// <param name="Collection">How collection is scheduled, and how the last sweep went.</param>
+/// <param name="Retention">
+/// How much history Console Ops keeps, and what the last retention sweep removed. Reported because deleting
+/// recorded facts is the one thing Console Ops does that cannot be undone.
+/// </param>
 public sealed record ConfigurationStatusResponse(
     DateTimeOffset ObservedAt,
     IReadOnlyList<CapabilityStatusResponse> Capabilities,
     bool Probed,
     AboutConsoleOpsResponse About,
-    CollectionStatusResponse Collection);
+    CollectionStatusResponse Collection,
+    RetentionStatusResponse Retention);
+
+/// <param name="ObservationsRemoved">
+/// How many rows the last sweep deleted. Zero is a real answer: nothing had aged out yet.
+/// </param>
+/// <param name="Before">The cut-off the last sweep used, so what it removed is unambiguous.</param>
+public sealed record RetentionStatusResponse(
+    bool IsEnabled,
+    int Days,
+    DateTimeOffset? LastSweepAt,
+    bool? LastSweepSucceeded,
+    int? ObservationsRemoved,
+    DateTimeOffset? Before);
 
 /// <param name="IsEnabled">Whether scheduled collection runs at all, which is a configuration, not a fault.</param>
 /// <param name="LastSweepAt">
@@ -88,6 +105,7 @@ public sealed class GetConfigurationStatusQueryHandler(
     IEnumerable<IIntegrationProbe> probes,
     IConsoleOpsBuildInfo buildInfo,
     ICollectionJournal journal,
+    IRetentionJournal retentionJournal,
     IProbeJournal probeJournal,
     TimeProvider timeProvider)
     : IRequestHandler<GetConfigurationStatusQuery, Result<ConfigurationStatusResponse>>
@@ -125,7 +143,8 @@ public sealed class GetConfigurationStatusQueryHandler(
             capabilities,
             request.Probe,
             new AboutConsoleOpsResponse(build.Version, build.Build, build.Runtime, build.SchemaState),
-            ToCollectionStatus(journal)));
+            ToCollectionStatus(journal),
+            ToRetentionStatus(retentionJournal)));
     }
 
     /// <summary>
@@ -187,6 +206,23 @@ public sealed class GetConfigurationStatusQueryHandler(
                     new ProbeOutcome(false, "The check could not be completed.", checkedAt));
             }
         }
+    }
+
+    /// <summary>
+    /// Retention as it stands. A sweep that has not run reports nothing rather than implying it removed zero.
+    /// </summary>
+    private static RetentionStatusResponse ToRetentionStatus(IRetentionJournal journal)
+    {
+        RetentionSchedule schedule = journal.Schedule;
+        RetentionSweep? sweep = journal.LastSweep;
+
+        return new RetentionStatusResponse(
+            schedule.IsEnabled,
+            (int)schedule.Window.TotalDays,
+            sweep?.CompletedAt,
+            sweep?.Succeeded,
+            sweep?.ObservationsRemoved,
+            sweep?.Before);
     }
 
     private static ConnectionCheckResponse? ToConnection(ProbeOutcome? outcome) =>

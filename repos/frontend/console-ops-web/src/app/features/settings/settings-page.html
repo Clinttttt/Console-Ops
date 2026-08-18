@@ -54,6 +54,37 @@
 
               <div class="sweep">
                 <span class="mark" aria-hidden="true">
+                  <co-icon name="archive" [size]="18" />
+                </span>
+                <span class="identity">
+                  <span class="name">History kept</span>
+                  <span class="purpose">
+                    Observations older than this are deleted, because every screen reads a bounded
+                    window.
+                  </span>
+                </span>
+                @let kept = retention();
+                <span class="value">
+                  @if (kept === null || !kept.isEnabled) {
+                    <span class="co-unavailable">Kept indefinitely</span>
+                  } @else {
+                    {{ kept.days }} days
+                  }
+                </span>
+                <span class="source co-unavailable">
+                  @if (kept === null || kept.lastSweepAt === null) {
+                    No sweep since start-up
+                  } @else if (kept.lastSweepSucceeded === false) {
+                    Last sweep failed
+                  } @else {
+                    {{ kept.observationsRemoved }} removed at
+                    {{ kept.lastSweepAt | date: 'HH:mm' : 'UTC' }}
+                  }
+                </span>
+              </div>
+
+              <div class="sweep">
+                <span class="mark" aria-hidden="true">
                   <co-icon name="refresh" [size]="18" />
                 </span>
 

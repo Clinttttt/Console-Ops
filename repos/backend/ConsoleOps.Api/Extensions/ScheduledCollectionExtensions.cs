@@ -1,4 +1,5 @@
 using ConsoleOps.Api.BackgroundServices;
+using ConsoleOps.Application.Integrations.Diagnostics;
 
 namespace ConsoleOps.Api.Extensions;
 
@@ -26,6 +27,25 @@ public static class ScheduledCollectionExtensions
             services.AddHostedService<ProjectRefreshWorker>();
         }
 
+        AddRetention(services, configuration);
         return services;
+    }
+
+    /// <summary>
+    /// Deleting recorded facts is opt-out rather than opt-in, because an instance nobody prunes grows for as long
+    /// as it runs. The worker is registered only when enabled, so turning it off means nothing runs at all.
+    /// </summary>
+    private static void AddRetention(IServiceCollection services, IConfiguration configuration)
+    {
+        IConfigurationSection section = configuration.GetSection(ObservationRetentionOptions.SectionName);
+        services.Configure<ObservationRetentionOptions>(section);
+        services.AddSingleton<IRetentionJournal, RetentionJournal>();
+
+        ObservationRetentionOptions options = new();
+        section.Bind(options);
+        if (options.Enabled)
+        {
+            services.AddHostedService<ObservationRetentionWorker>();
+        }
     }
 }
