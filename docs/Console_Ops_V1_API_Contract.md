@@ -224,6 +224,11 @@ Rules:
   start-up rather than filling one in.
 - **`nextSweepAt` is derived from the last sweep's start**, because the schedule's timer runs from there. It is
   an expectation, shown as approximate, and null when collection is off - which is a configuration, not a fault.
+- **`retention` reports what Console Ops deletes.** Collection appends a row per environment per sweep and every
+  screen reads a bounded window, so rows past the window cost storage without answering anything. The window is
+  configuration with a floor of one week, deletes are batched, and every sweep reports how many rows it removed
+  and the cut-off it used. A sweep that has not run reports nothing rather than implying it removed zero, and
+  disabling retention means nothing is ever deleted.
 - **`about` is read from the running process**, never configured: version and revision from the assembly,
   runtime from the framework description, schema from the pending-migration list. A database that could not be
   asked reports `unknown`, which is not the same as `upToDate`.

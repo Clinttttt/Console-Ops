@@ -36,6 +36,7 @@ export class SettingsStore {
   readonly integrations = computed(() => this.current()?.integrations ?? []);
   readonly collection = computed(() => this.current()?.collection ?? null);
   readonly about = computed(() => this.current()?.about ?? null);
+  readonly retention = computed(() => this.current()?.retention ?? null);
   readonly observedAt = computed(() => this.current()?.observedAt ?? null);
 
   read(): void {

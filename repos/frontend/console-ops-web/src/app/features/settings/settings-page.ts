@@ -39,6 +39,7 @@ export class SettingsPage {
   protected readonly integrations = this.store.integrations;
   protected readonly collection = this.store.collection;
   protected readonly about = this.store.about;
+  protected readonly retention = this.store.retention;
   protected readonly failure = this.store.failure;
   protected readonly runningAction = this.store.runningAction;
 

@@ -73,10 +73,25 @@ export interface AboutConsoleOps {
   readonly databaseSchema: 'upToDate' | 'pendingMigrations' | 'unknown';
 }
 
+/**
+ * How long Console Ops keeps what it recorded, and what the last sweep removed.
+ *
+ * Reported because retention is the only thing Console Ops does that destroys recorded facts. A sweep that has
+ * not run reports nothing rather than implying it removed zero.
+ */
+export interface RetentionSettings {
+  readonly isEnabled: boolean;
+  readonly days: number;
+  readonly lastSweepAt: string | null;
+  readonly lastSweepSucceeded: boolean | null;
+  readonly observationsRemoved: number | null;
+}
+
 export interface SettingsSnapshot {
   /** ISO-8601 UTC composition time. Relative times are measured against it. */
   readonly observedAt: string;
   readonly integrations: readonly Integration[];
   readonly collection: CollectionSettings;
+  readonly retention: RetentionSettings;
   readonly about: AboutConsoleOps;
 }

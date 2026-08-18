@@ -41,6 +41,13 @@ const SNAPSHOT: SettingsSnapshot = {
     projectsRefreshed: 3,
     projectsFailed: 0,
   },
+  retention: {
+    isEnabled: true,
+    days: 30,
+    lastSweepAt: '2026-08-18T15:00:00.000Z',
+    lastSweepSucceeded: true,
+    observationsRemoved: 1240,
+  },
   about: {
     version: '0.4.0',
     build: '8a17c2f',
@@ -130,6 +137,12 @@ describe('SettingsPage', () => {
     expect(host.querySelector('.interval button')).toBeNull();
   });
 
+  it('states how much history is kept and what the last sweep removed', () => {
+    // Retention is the only thing Console Ops does that destroys recorded facts, so it is never silent.
+    expect(host.textContent).toContain('30 days');
+    expect(host.textContent).toContain('1240 removed');
+  });
+
   it('reports the last sweep and when the next one is due', () => {
     expect(host.textContent).toContain('16:18:42');
     expect(host.textContent).toContain('Completed successfully');
@@ -202,6 +215,13 @@ describe('SettingsPage', () => {
         nextSweepAt: null,
         projectsRefreshed: null,
         projectsFailed: null,
+      },
+      retention: {
+        isEnabled: true,
+        days: 30,
+        lastSweepAt: '2026-08-18T15:00:00.000Z',
+        lastSweepSucceeded: true,
+        observationsRemoved: 1240,
       },
       about: { ...SNAPSHOT.about, build: null, databaseSchema: 'unknown' },
     });
