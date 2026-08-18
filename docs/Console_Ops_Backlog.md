@@ -25,7 +25,8 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Live tail following a scope from a time cursor | Real |
 | Azure discovery across Container Apps and App Service, with per-resource status | Real |
 | Configuration status by key name, with an opt-in credential probe | Real |
-| Settings screen: integrations, collection and build state | Real |
+| Observation retention: a bounded batched sweep with a stated window | Real |
+| Settings screen: integrations, collection, retention and build state | Real |
 | Health screen | Labelled design mock; every fact it needs is already collected |
 
 ## Next

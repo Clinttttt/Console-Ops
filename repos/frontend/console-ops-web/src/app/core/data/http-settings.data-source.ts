@@ -40,6 +40,13 @@ interface ConfigurationStatus {
     readonly projectsFailed: number | null;
     readonly nextSweepAt: string | null;
   };
+  readonly retention: {
+    readonly isEnabled: boolean;
+    readonly days: number;
+    readonly lastSweepAt: string | null;
+    readonly lastSweepSucceeded: boolean | null;
+    readonly observationsRemoved: number | null;
+  };
   readonly about: {
     readonly version: string;
     readonly build: string | null;
@@ -100,6 +107,7 @@ function toSnapshot(status: ConfigurationStatus): SettingsSnapshot {
       toIntegration(status, 'azure', 'Azure', 'Azure', 'Container Apps runtime access'),
     ],
     collection: toCollection(status.collection),
+    retention: status.retention,
     about: toAbout(status.about),
   };
 }
