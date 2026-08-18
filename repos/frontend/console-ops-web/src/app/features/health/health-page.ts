@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 
 import { EnvironmentHealth, HealthCheckState } from '../../core/contracts/health';
+import { autoRefresh } from '../../core/state/auto-refresh';
 import { HealthStore } from '../../core/state/health.store';
 import { healthCheckCell, isFailingState } from '../../core/ui/health-check-state';
 import { Icon } from '../../core/ui/icon';
@@ -43,6 +44,10 @@ export class HealthPage {
 
   constructor() {
     this.store.read();
+
+    // The API collects health on a schedule; a screen whose whole purpose is "what is functioning right now"
+    // must re-read it rather than showing whatever was true when the page was opened.
+    autoRefresh(() => this.store.read());
   }
 
   /** Environments needing attention, worst first. Kept separate from the list, not duplicated out of it. */

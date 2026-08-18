@@ -192,6 +192,36 @@ describe('HealthPage', () => {
     expect(host.textContent).toContain('Not currently healthy');
   });
 
+  it('re-reads on an interval, because the screen claims to show what is functioning now', async () => {
+    let reads = 0;
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [HealthPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: HealthDataSource,
+          useValue: {
+            load: () => {
+              reads += 1;
+              return of(SNAPSHOT);
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const created = TestBed.createComponent(HealthPage);
+    await created.whenStable();
+    expect(reads).toBe(1);
+
+    // What the interval does. A screen frozen at page load is the worst kind of health screen: it looks current.
+    document.dispatchEvent(new Event('visibilitychange'));
+    await created.whenStable();
+
+    expect(reads).toBe(2);
+  });
+
   it('reports facts it does not have as absent rather than as working', async () => {
     await render({
       ...SNAPSHOT,
