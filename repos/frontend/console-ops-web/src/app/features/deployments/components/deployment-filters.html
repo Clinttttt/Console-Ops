@@ -1,0 +1,55 @@
+<div class="search">
+  <co-icon name="search" [size]="15" />
+  <label class="co-sr-only" for="co-deployment-search">Search deployments</label>
+  <input
+    id="co-deployment-search"
+    type="search"
+    placeholder="Search deployments..."
+    [value]="query()"
+    (input)="queryChange.emit($any($event.target).value)"
+  />
+</div>
+
+<div class="views" role="group" aria-label="Deployment views">
+  @for (view of views; track view.value) {
+    <button
+      type="button"
+      class="view"
+      [class.is-active]="view.value === activeView()"
+      [attr.aria-pressed]="view.value === activeView()"
+      (click)="viewChange.emit(view.value)"
+    >
+      @if (view.level !== null) {
+        <span class="co-dot" [attr.data-level]="view.level"></span>
+      }
+      {{ view.label }}
+    </button>
+  }
+</div>
+
+<div class="trailing">
+  <div class="select">
+    <label class="co-sr-only" for="co-deployment-project">Project</label>
+    <select
+      id="co-deployment-project"
+      [value]="projectId() ?? ''"
+      (change)="onProjectSelect($any($event.target).value)"
+    >
+      <option value="">All Projects</option>
+      @for (project of projects(); track project.id) {
+        <option [value]="project.id">{{ project.name }}</option>
+      }
+    </select>
+    <co-icon name="chevronDown" [size]="15" />
+  </div>
+
+  <button
+    type="button"
+    class="deploy"
+    disabled
+    title="Triggering a deployment arrives with the deployment controls phase"
+  >
+    <co-icon name="plus" [size]="15" [strokeWidth]="2" />
+    Deploy
+  </button>
+</div>

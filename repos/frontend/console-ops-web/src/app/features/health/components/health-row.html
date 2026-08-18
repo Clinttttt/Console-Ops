@@ -1,0 +1,45 @@
+@let entry = environment();
+
+<button
+  type="button"
+  class="row"
+  [class.is-selected]="isSelected()"
+  [attr.aria-pressed]="isSelected()"
+  (click)="selectEnvironment.emit(entry.id)"
+>
+  <co-project-mark [name]="entry.projectName" [tone]="tone()" [size]="30" />
+
+  <span class="identity">
+    <span class="name">{{ entry.projectName }} / {{ entry.environmentName }}</span>
+  </span>
+
+  <!-- The dependency checks are the reason for the verdict, so they sit beside it rather than behind a click. -->
+  <ul class="checks">
+    @for (check of checks(); track check.name) {
+      <li>
+        <span class="co-dot" [attr.data-level]="check.cell.level" aria-hidden="true"></span>
+        <span class="check-name">{{ check.name }}</span>
+        <span class="check-state">
+          {{ check.cell.label }}
+          @if (check.responseMilliseconds !== null) {
+            <span class="co-meta-dot" aria-hidden="true"></span>
+            <span class="co-mono">{{ check.responseMilliseconds }} ms</span>
+          }
+        </span>
+      </li>
+    }
+  </ul>
+
+  <span class="verdict">
+    <co-status [cell]="verdict()" [showDetail]="false" />
+    @if (checkedLabel() === null) {
+      <span class="checked co-unavailable">Never checked</span>
+    } @else {
+      <span class="checked">{{ checkedLabel() }}</span>
+    }
+  </span>
+
+  <span class="open" aria-hidden="true">
+    <co-icon name="arrowRight" [size]="15" />
+  </span>
+</button>

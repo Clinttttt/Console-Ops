@@ -1,0 +1,52 @@
+<section class="card">
+  <header class="section-head">
+    <h2 class="section-title">Project Preview</h2>
+    <p class="co-section-note">What Console Ops will register.</p>
+  </header>
+
+  @if (!hasPreview()) {
+    <p class="empty">
+      Enter a repository and project name to begin. Console Ops will observe the source branch,
+      workflow and endpoints you configure here.
+    </p>
+  } @else {
+    <dl class="rows">
+      @for (row of rows(); track row.label) {
+        <div class="row">
+          <dt>
+            <co-icon [name]="row.icon" [size]="15" />
+            {{ row.label }}
+          </dt>
+          <dd>
+            @if (row.value === null) {
+              <span class="co-unavailable">Not configured</span>
+            } @else {
+              @if (row.environmentKind !== undefined) {
+                <span
+                  class="co-dot"
+                  [attr.data-level]="row.environmentKind === 'production' ? 'healthy' : 'running'"
+                ></span>
+              }
+              {{ row.value }}
+            }
+          </dd>
+        </div>
+      }
+    </dl>
+  }
+</section>
+
+<section class="card">
+  <header class="section-head">
+    <h2 class="section-title">What happens next</h2>
+  </header>
+
+  <ul class="next">
+    @for (step of nextSteps; track step.text) {
+      <li>
+        <co-icon [name]="step.icon" [size]="15" />
+        <span>{{ step.text }}</span>
+      </li>
+    }
+  </ul>
+</section>

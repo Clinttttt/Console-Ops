@@ -21,4 +21,5 @@ public sealed record RegisterProjectEnvironment(
     string Kind,
     string? ApplicationUrl,
     string? HealthUrl,
-    string? VersionUrl);
+    string? VersionUrl,
+    ProjectLogSource? LogSource = null);

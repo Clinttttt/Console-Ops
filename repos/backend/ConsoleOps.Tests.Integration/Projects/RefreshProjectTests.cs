@@ -89,6 +89,8 @@ public sealed class RefreshProjectTests(ConsoleOpsApiFactory factory)
         Assert.Equal(4, await dbContext.VersionObservations.CountAsync(entity => entity.ProjectId == project.Id));
         Assert.Equal(4, await dbContext.VersionSyncObservations.CountAsync(entity => entity.ProjectId == project.Id));
         Assert.Equal(4, await dbContext.MonitoringActivities.CountAsync(entity => entity.ProjectId == project.Id));
+        // GitHub reported no workflow runs, so no release was recorded for this project.
+        Assert.Equal(0, await dbContext.Deployments.CountAsync(entity => entity.ProjectId == project.Id));
     }
 
     [Fact]
@@ -284,7 +286,8 @@ public sealed class RefreshProjectTests(ConsoleOpsApiFactory factory)
                     ? GitHubFactResult<GitHubSourceObservation>.Failed(GitHubReadFailure.Unavailable)
                     : GitHubFactResult<GitHubSourceObservation>.Success(source),
                 GitHubFactResult<GitHubWorkflowObservation>.Success(workflow),
-                sourceUnavailable ? [] : comparisons));
+                sourceUnavailable ? [] : comparisons,
+                []));
         }
     }
 

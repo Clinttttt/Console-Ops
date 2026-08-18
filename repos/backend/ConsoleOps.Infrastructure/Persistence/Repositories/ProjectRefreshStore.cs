@@ -2,6 +2,7 @@ using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
 using ConsoleOps.Domain.Monitoring;
 using ConsoleOps.Domain.Projects;
+using ConsoleOps.Infrastructure.Persistence.Deployments;
 using ConsoleOps.Infrastructure.Persistence.Monitoring;
 using Microsoft.EntityFrameworkCore;
 
@@ -182,9 +183,76 @@ internal sealed class ProjectRefreshStore(ConsoleOpsDbContext dbContext) : IProj
                 OccurredAtUtc = activity.OccurredAtUtc
             }));
 
+        await SaveDeploymentsAsync(refresh, cancellationToken);
+
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return ProjectRefreshSaveOutcome.Saved;
+    }
+
+    /// <summary>
+    /// Records the workflow runs seen in this refresh.
+    /// <para>
+    /// Runs are re-read every refresh, so an already-known run is updated rather than appended: its
+    /// outcome and completion time change while it is in flight. The first sighting is preserved in
+    /// <c>recorded_at_utc</c>, which is what makes "Console Ops saw this release at" meaningful.
+    /// </para>
+    /// </summary>
+    private async Task SaveDeploymentsAsync(
+        ProjectRefreshWriteModel refresh,
+        CancellationToken cancellationToken)
+    {
+        if (refresh.Deployments.Count == 0)
+        {
+            return;
+        }
+
+        long[] runIds = refresh.Deployments
+            .Select(deployment => deployment.RunId)
+            .Distinct()
+            .ToArray();
+        Dictionary<long, DeploymentEntity> existing = await dbContext.Deployments
+            .Where(entity => entity.ProjectId == refresh.ProjectId
+                && runIds.Contains(entity.ExternalRunId))
+            .ToDictionaryAsync(entity => entity.ExternalRunId, cancellationToken);
+
+        foreach (DeploymentRunWriteModel deployment in refresh.Deployments)
+        {
+            if (existing.TryGetValue(deployment.RunId, out DeploymentEntity? tracked))
+            {
+                tracked.RunNumber = deployment.RunNumber;
+                tracked.WorkflowFile = deployment.WorkflowFile;
+                tracked.WorkflowName = deployment.WorkflowName;
+                tracked.Branch = deployment.Branch;
+                tracked.CommitSha = deployment.CommitSha;
+                tracked.Result = deployment.Result;
+                tracked.StartedAtUtc = deployment.StartedAtUtc;
+                tracked.CompletedAtUtc = deployment.CompletedAtUtc;
+                tracked.TriggeredBy = deployment.TriggeredBy;
+                tracked.RunUrl = deployment.RunUrl;
+                tracked.ObservedAtUtc = deployment.ObservedAtUtc;
+                continue;
+            }
+
+            dbContext.Deployments.Add(new DeploymentEntity
+            {
+                Id = Guid.CreateVersion7(),
+                ProjectId = refresh.ProjectId,
+                ExternalRunId = deployment.RunId,
+                RunNumber = deployment.RunNumber,
+                WorkflowFile = deployment.WorkflowFile,
+                WorkflowName = deployment.WorkflowName,
+                Branch = deployment.Branch,
+                CommitSha = deployment.CommitSha,
+                Result = deployment.Result,
+                StartedAtUtc = deployment.StartedAtUtc,
+                CompletedAtUtc = deployment.CompletedAtUtc,
+                TriggeredBy = deployment.TriggeredBy,
+                RunUrl = deployment.RunUrl,
+                RecordedAtUtc = deployment.ObservedAtUtc,
+                ObservedAtUtc = deployment.ObservedAtUtc
+            });
+        }
     }
 
     private static string ToCamelCase<TEnum>(TEnum value)

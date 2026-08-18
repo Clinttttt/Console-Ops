@@ -1,0 +1,114 @@
+@if (items().length === 0) {
+  <co-log-empty
+    [filtersActive]="filtersActive()"
+    [noise]="noise()"
+    (clearFilters)="clearFilters.emit()"
+    (showNoise)="toggleNoise.emit()"
+  />
+} @else {
+  @for (day of days(); track day.key) {
+    <section class="day">
+      <header class="day-head">
+        <span class="day-marker" aria-hidden="true">
+          <co-icon name="calendar" [size]="15" />
+        </span>
+        @if (day.isToday) {
+          <h3 class="day-label">Today &mdash; {{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
+        } @else {
+          <h3 class="day-label">{{ day.instant | date: 'MMM d, y' : 'UTC' }}</h3>
+        }
+      </header>
+
+      <ol class="lines">
+        @for (item of day.items; track item.id) {
+          @if (isEvent(item)) {
+            @let event = asEvent(item);
+            <li class="line-item" [attr.data-level]="event.level">
+              <co-log-line
+                [event]="event"
+                [isSelected]="event.id === selectedId()"
+                (selectEvent)="selectEvent.emit($event)"
+              />
+            </li>
+          } @else {
+            <li class="marker-row">
+              <co-log-marker [marker]="asMarker(item)" />
+            </li>
+          }
+        }
+      </ol>
+    </section>
+  }
+
+  <!--
+    Older lines sit below, because the stream reads newest first. The row is always in the DOM so the scroll
+    sentinel is stable; it is hidden until a first page exists rather than created on demand, because a
+    sentinel that is destroyed and rebuilt reports "visible" again on every rebuild and pages backwards
+    without stopping.
+  -->
+  <div class="older" #olderTrigger [class.is-idle]="olderPages() === 'unknown'">
+    @switch (olderPages()) {
+      @case ('available') {
+        <button type="button" class="older-action" (click)="loadOlder.emit()">
+          Load older lines
+        </button>
+      }
+      @case ('reading') {
+        <p class="older-status co-unavailable">Reading the window before this one&hellip;</p>
+      }
+      @case ('exhausted') {
+        <p class="older-status co-unavailable">Nothing older in the day before this point.</p>
+      }
+    }
+  </div>
+
+  <footer class="stream-footer">
+    @if (live()) {
+      <p class="waiting">
+        <span class="co-dot" data-level="healthy"></span>
+        Following new events
+      </p>
+    } @else {
+      <p class="waiting co-unavailable">
+        <co-icon name="pause" [size]="13" />
+        Paused
+      </p>
+    }
+
+    <p class="count">
+      Showing {{ eventCount() }} of {{ totalCount() }}
+      {{ totalCount() === 1 ? 'event' : 'events' }}
+      @if (errorCount() > 0) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        {{ errorCount() }} {{ errorCount() === 1 ? 'error' : 'errors' }}
+      }
+      <!-- The provider retains the logs, so the screen states the window it read rather than implying all. -->
+      @let read = window();
+      @if (read !== null) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        last {{ read.hours }}h
+        @if (read.truncated) {
+          <span class="co-meta-dot" aria-hidden="true"></span>
+          <span class="co-unavailable">window holds more</span>
+        }
+      }
+      <!--
+        What was left out, and the way to put it back. It lives with the other facts about the view rather
+        than as another control in the toolbar, because it explains a number rather than filtering a field.
+      -->
+      @let hidden = noise();
+      @if (hidden !== null && hidden.excluded && hidden.hiddenCount > 0) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        <button type="button" class="noise-toggle" (click)="toggleNoise.emit()">
+          {{ hidden.hiddenCount }} framework
+          {{ hidden.hiddenCount === 1 ? 'line' : 'lines' }} hidden
+        </button>
+      } @else if (hidden !== null && !hidden.excluded) {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        <button type="button" class="noise-toggle" (click)="toggleNoise.emit()">
+          Hide framework lines
+        </button>
+      }
+    </p>
+  </footer>
+}

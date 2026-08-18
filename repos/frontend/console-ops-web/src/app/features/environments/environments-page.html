@@ -1,0 +1,41 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice co-reading" aria-busy="true">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading configured environments...
+    </p>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>Environment configuration could not be read.</p>
+      <button type="button" class="retry" (click)="retry()">Try again</button>
+    </div>
+  }
+
+  @default {
+    <co-environment-filters
+      [query]="query()"
+      [projects]="projectOptions()"
+      [projectId]="projectId()"
+      (queryChange)="setQuery($event)"
+      (projectChange)="setProject($event)"
+    />
+
+    <div class="layout">
+      <div class="primary">
+        <co-environment-groups
+          [environments]="environments()"
+          [totalCount]="totalCount()"
+          [selectedId]="selected()?.id ?? null"
+          (selectEnvironment)="select($event)"
+          (clearFilters)="clearFilters()"
+        />
+      </div>
+
+      <aside class="rail" aria-label="Environment detail">
+        <co-selected-environment [environment]="selected()" [versionSync]="selectedVersionSync()" />
+      </aside>
+    </div>
+  }
+}

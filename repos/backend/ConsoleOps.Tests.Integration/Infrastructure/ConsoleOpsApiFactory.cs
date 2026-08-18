@@ -27,6 +27,10 @@ public sealed class ConsoleOpsApiFactory : WebApplicationFactory<Program>, IAsyn
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:DefaultConnection", _postgres.GetConnectionString());
+
+        // Tests assert exactly what a given refresh recorded. A background sweep would add refreshes
+        // nobody asked for, so scheduled collection is off unless a test opts in.
+        builder.UseSetting("Monitoring:Refresh:Enabled", "false");
     }
 
     private async Task DisposeResourcesAsync()

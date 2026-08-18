@@ -11,7 +11,15 @@ internal sealed class DashboardOverviewReadStore(ConsoleOpsDbContext dbContext)
     private const int ResponseSampleCount = 8;
     private const int RecentActivityCount = 20;
 
-    public async Task<DashboardOverviewData> ReadAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Upper bound on health checks loaded for the availability window, so one very long-running
+    /// instance with many environments cannot turn the dashboard query into a table scan.
+    /// </summary>
+    private const int MaximumAvailabilityRows = 20_000;
+
+    public async Task<DashboardOverviewData> ReadAsync(
+        DateTimeOffset availabilitySinceUtc,
+        CancellationToken cancellationToken)
     {
         List<Project> projects = await dbContext.Projects
             .AsNoTracking()
@@ -21,7 +29,7 @@ internal sealed class DashboardOverviewReadStore(ConsoleOpsDbContext dbContext)
             .ToListAsync(cancellationToken);
         if (projects.Count == 0)
         {
-            return new DashboardOverviewData([], []);
+            return new DashboardOverviewData([], [], []);
         }
 
         Guid[] projectIds = projects.Select(project => project.Id).ToArray();
@@ -101,6 +109,17 @@ internal sealed class DashboardOverviewReadStore(ConsoleOpsDbContext dbContext)
                 .OrderByDescending(observation => observation.ObservedAtUtc)
                 .ThenByDescending(observation => observation.Id)
                 .First())
+            .ToListAsync(cancellationToken);
+        List<DashboardAvailabilityData> availability = await dbContext.HealthObservations
+            .AsNoTracking()
+            .Where(observation => environmentIds.Contains(observation.EnvironmentId)
+                && observation.ObservedAtUtc >= availabilitySinceUtc)
+            .OrderByDescending(observation => observation.ObservedAtUtc)
+            .Take(MaximumAvailabilityRows)
+            .Select(observation => new DashboardAvailabilityData(
+                observation.EnvironmentId,
+                observation.State,
+                observation.ObservedAtUtc))
             .ToListAsync(cancellationToken);
         List<DashboardActivityData> activities = await (
             from activity in dbContext.MonitoringActivities.AsNoTracking()
@@ -212,7 +231,7 @@ internal sealed class DashboardOverviewReadStore(ConsoleOpsDbContext dbContext)
             }
         }
 
-        return new DashboardOverviewData(surfaces, activities);
+        return new DashboardOverviewData(surfaces, activities, availability);
     }
 
     private static string ToCamelCase<TEnum>(TEnum value)

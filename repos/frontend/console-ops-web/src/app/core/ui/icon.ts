@@ -20,6 +20,8 @@ export type IconName =
   | 'gear'
   // Pipeline and providers
   | 'github'
+  | 'azure'
+  | 'docker'
   | 'ciCd'
   | 'cube'
   // Components
@@ -35,18 +37,38 @@ export type IconName =
   // Controls
   | 'search'
   | 'bell'
+  | 'sliders'
+  | 'plus'
+  | 'pencil'
+  | 'calendar'
+  | 'ellipsis'
+  | 'archive'
   | 'chevronDown'
   | 'chevronLeft'
   | 'arrowRight'
   | 'check'
   | 'checkCircle'
   | 'copy'
-  | 'externalLink';
+  | 'externalLink'
+  | 'pause'
+  | 'close';
 
 interface IconDefinition {
   readonly paths: readonly string[];
   /** Brand marks are filled rather than stroked. */
   readonly filled?: true;
+  /**
+   * A brand mark drawn in its own colours rather than in the surrounding ink.
+   *
+   * Flat fills rather than a gradient on purpose: a gradient needs a definition with an id, and the same icon
+   * appears several times on a screen, so ids would collide. Two facets read as the mark at the sizes used here.
+   */
+  readonly brand?: readonly BrandLayer[];
+}
+
+interface BrandLayer {
+  readonly d: string;
+  readonly fill: string;
 }
 
 const CIRCLE = (cx: number, cy: number, r: number): string =>
@@ -99,6 +121,24 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
     filled: true,
     paths: [
       'M12 2.2A9.8 9.8 0 0 0 8.9 21.3c.5.1.7-.2.7-.5v-1.9c-2.7.6-3.3-1.2-3.3-1.2-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.5-1.1-4.5-4.9 0-1.1.4-2 1-2.6-.1-.3-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.3 9.3 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.3.1 2.6.6.6 1 1.5 1 2.6 0 3.8-2.3 4.6-4.5 4.9.4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A9.8 9.8 0 0 0 12 2.2Z',
+    ],
+  },
+  azure: {
+    filled: true,
+    // The Azure "A" in Azure's own blues: the descending stroke in the primary blue, the trailing leg in the
+    // lighter facet. The monochrome path stays as the fallback for anywhere the brand layers are not drawn.
+    paths: ['M12 3.4 4.2 20.6h5.1L12 13.9l2.7 6.7h5.1L12 3.4Z'],
+    brand: [
+      { d: 'M12 3.4 4.2 20.6h5.1L12 13.9Z', fill: '#0078D4' },
+      { d: 'M12 3.4 12 13.9l2.7 6.7h5.1Z', fill: '#50E6FF' },
+    ],
+  },
+  docker: {
+    filled: true,
+    paths: [
+      'M4.2 12.9h13.1c.1 3-2.1 5.5-5.7 5.5-3.9 0-6.5-1.9-7.4-5.5Z',
+      'M6.1 9.1h2.6v3.1H6.1ZM9.4 9.1H12v3.1H9.4ZM12.7 9.1h2.6v3.1h-2.6ZM9.4 5.6H12v2.8H9.4Z',
+      'M17.9 11.5c.9-.7 2.2-.6 3 .2l-.7 1.1c-.6-.5-1.5-.5-2.1-.1Z',
     ],
   },
   ciCd: {
@@ -154,6 +194,38 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
   bell: {
     paths: ['M18.2 15.6V10a6.2 6.2 0 1 0-12.4 0v5.6L4.4 18h15.2Z', 'M10.2 21h3.6'],
   },
+  sliders: {
+    paths: [
+      'M4 7.4h5.6M14.4 7.4H20',
+      'M4 12h8.6M17.4 12H20',
+      'M4 16.6h3.6M12.4 16.6H20',
+      CIRCLE(12, 7.4, 2.2),
+      CIRCLE(15, 12, 2.2),
+      CIRCLE(10, 16.6, 2.2),
+    ],
+  },
+  plus: {
+    paths: ['M12 5.6v12.8M5.6 12h12.8'],
+  },
+  pencil: {
+    paths: [
+      'M4.6 19.4h3.3l9.2-9.2-3.3-3.3-9.2 9.2Z',
+      'M15.2 5.6 17 3.8a1.5 1.5 0 0 1 2.1 0l1.1 1.1a1.5 1.5 0 0 1 0 2.1l-1.8 1.8Z',
+    ],
+  },
+  calendar: {
+    paths: ['M4.4 5.8h15.2v13.8H4.4Z', 'M4.4 9.8h15.2', 'M8.4 3.6v3.4M15.6 3.6v3.4'],
+  },
+  ellipsis: {
+    paths: [CIRCLE(6, 12, 1.1), CIRCLE(12, 12, 1.1), CIRCLE(18, 12, 1.1)],
+  },
+  archive: {
+    paths: [
+      'M3.8 4.6h16.4v3.8H3.8Z',
+      'M5.4 8.4h13.2v10.2a.8.8 0 0 1-.8.8H6.2a.8.8 0 0 1-.8-.8Z',
+      'M10 12.4h4',
+    ],
+  },
   chevronDown: { paths: ['M6.8 9.6 12 14.8l5.2-5.2'] },
   chevronLeft: { paths: ['M14.4 6.8 9.2 12l5.2 5.2'] },
   arrowRight: { paths: ['M4.6 12h14.8M14 6.6l5.4 5.4-5.4 5.4'] },
@@ -164,6 +236,12 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
       'M9.4 9.4h9.2v9.2H9.4Z',
       'M15 9.4V6.2a.8.8 0 0 0-.8-.8H6.2a.8.8 0 0 0-.8.8v8a.8.8 0 0 0 .8.8h3.2',
     ],
+  },
+  pause: {
+    paths: ['M9.4 5.6v12.8', 'M14.6 5.6v12.8'],
+  },
+  close: {
+    paths: ['M6.4 6.4l11.2 11.2', 'M17.6 6.4 6.4 17.6'],
   },
   externalLink: {
     paths: [
@@ -198,8 +276,15 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
       [attr.role]="label() === null ? 'presentation' : 'img'"
       [attr.aria-label]="label()"
     >
-      @for (path of definition().paths; track $index) {
-        <path [attr.d]="path" />
+      @let brand = definition().brand;
+      @if (brand === undefined) {
+        @for (path of definition().paths; track $index) {
+          <path [attr.d]="path" />
+        }
+      } @else {
+        @for (layer of brand; track $index) {
+          <path [attr.d]="layer.d" [attr.fill]="layer.fill" stroke="none" />
+        }
       }
     </svg>
   `,

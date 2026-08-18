@@ -50,7 +50,8 @@ internal sealed class ProjectReadStore(ConsoleOpsDbContext dbContext) : IProject
                     environment.Kind,
                     environment.ApplicationUrl,
                     environment.HealthUrl,
-                    environment.VersionUrl))
+                    environment.VersionUrl,
+                    environment.LogSource))
                 .ToArray(),
             project.CreatedAtUtc,
             project.UpdatedAtUtc,
@@ -71,7 +72,13 @@ internal sealed class ProjectReadStore(ConsoleOpsDbContext dbContext) : IProject
             environment.Kind.ToString().ToLowerInvariant(),
             environment.ApplicationUrl,
             environment.HealthUrl,
-            environment.VersionUrl)).ToArray(),
+            environment.VersionUrl,
+            environment.LogSource is null
+                ? null
+                : new ProjectLogSourceResponse(
+                    "azureContainerApps",
+                    environment.LogSource.WorkspaceId,
+                    environment.LogSource.ContainerAppName))).ToArray(),
         project.CreatedAtUtc,
         project.UpdatedAtUtc,
         project.ConfigurationVersion);
@@ -96,5 +103,6 @@ internal sealed class ProjectReadStore(ConsoleOpsDbContext dbContext) : IProject
         EnvironmentKind Kind,
         string? ApplicationUrl,
         string? HealthUrl,
-        string? VersionUrl);
+        string? VersionUrl,
+        AzureLogSource? LogSource);
 }

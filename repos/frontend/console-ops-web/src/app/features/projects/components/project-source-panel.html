@@ -1,0 +1,66 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Source</h2>
+  <p class="co-section-note">GitHub is the source of truth for these facts.</p>
+</header>
+
+@let repo = repository();
+@let surface = observed();
+
+<dl class="rows">
+  <div class="row">
+    <dt>Repository</dt>
+    <dd>
+      <a class="link" [href]="repositoryUrl()" target="_blank" rel="noopener noreferrer">
+        <co-icon name="github" [size]="14" />
+        {{ repo.owner }}/{{ repo.name }}
+        <co-icon name="externalLink" [size]="12" />
+      </a>
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Default branch</dt>
+    <dd>
+      <span class="co-mono">{{ repo.defaultBranch }}</span>
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Deployment workflow</dt>
+    <dd>
+      @if (repo.workflowFile === null) {
+        <span class="co-unavailable">Not configured</span>
+      } @else {
+        <span class="co-mono">{{ repo.workflowFile }}</span>
+      }
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>Latest commit</dt>
+    <dd>
+      @if (surface === null || surface.source.commitShortSha === null) {
+        <span class="co-unavailable">Not observed yet</span>
+      } @else {
+        <span class="co-mono">{{ surface.source.commitShortSha }}</span>
+        @if (surface.source.committedAt !== null) {
+          <span class="detail">
+            {{ surface.source.committedAt | date: 'MMM d, HH:mm' : 'UTC' }} UTC
+          </span>
+        }
+      }
+    </dd>
+  </div>
+
+  <div class="row">
+    <dt>CI</dt>
+    <dd>
+      @let ci = workflow();
+      @if (ci === null) {
+        <span class="co-unavailable">Not observed yet</span>
+      } @else {
+        <co-status [cell]="ci" />
+      }
+    </dd>
+  </div>
+</dl>

@@ -1,0 +1,91 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Project Registry</h2>
+  <p class="co-section-note">Manage the projects and environments Console Ops monitors.</p>
+</header>
+
+@if (projects().length === 0) {
+  <div class="empty">
+    <p class="co-unavailable">No registered projects match this view.</p>
+    <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else {
+  <table class="co-table">
+    <thead>
+      <tr>
+        <th scope="col">Project</th>
+        <th scope="col">Environments</th>
+        <th scope="col">Source / Branch</th>
+        <th scope="col">Monitoring</th>
+        <th scope="col">Last Updated</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (project of projects(); track project.id) {
+        <tr>
+          <td>
+            <div class="project">
+              <co-project-mark [name]="project.name" [tone]="toneFor(project.id)" [size]="32" />
+              <span>
+                <span class="project-name">{{ project.name }}</span>
+                @if (project.description !== null) {
+                  <span class="project-kind">{{ project.description }}</span>
+                }
+              </span>
+            </div>
+          </td>
+
+          <td>
+            <div class="environments">
+              @for (environment of project.environments; track environment.id) {
+                <co-environment-tag [name]="environment.name" [kind]="environment.kind" />
+              }
+            </div>
+          </td>
+
+          <td>
+            <div class="source">
+              <co-icon name="github" [size]="15" />
+              <span>
+                <span class="repository">{{ repository(project) }}</span>
+                <span class="branch">{{ project.repository.defaultBranch }}</span>
+              </span>
+            </div>
+          </td>
+
+          <td>
+            <span class="monitoring">{{ monitoringLabel(project) }}</span>
+            @if (project.repository.workflowFile !== null) {
+              <span class="workflow">{{ project.repository.workflowFile }}</span>
+            }
+          </td>
+
+          <td>
+            <time class="updated-at" [attr.datetime]="project.updatedAtUtc ?? project.createdAtUtc">
+              {{ project.updatedAtUtc ?? project.createdAtUtc | date: 'MMM d, y' : 'UTC' }}
+            </time>
+            <span class="configuration-version"
+              >Configuration v{{ project.configurationVersion }}</span
+            >
+          </td>
+
+          <td>
+            <div class="actions">
+              <a class="action is-available" [routerLink]="['/projects', project.id]">Open</a>
+              <a class="action is-available" [routerLink]="['/projects', project.id, 'edit']">
+                Edit
+              </a>
+              <span
+                class="more"
+                aria-disabled="true"
+                title="Project actions arrive in a later slice"
+              >
+                <co-icon name="ellipsis" [size]="16" />
+              </span>
+            </div>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

@@ -22,6 +22,8 @@ Deep reference lives in on-demand skills, not here:
 - `console-ops-backend-slice` — vertical slice + CQRS + result/error recipe.
 - `console-ops-frontend` — Angular structure, contracts, and design system.
 
+Remaining work, blockers, and what must not be built yet are tracked in `docs/Console_Ops_Backlog.md`.
+
 ## Non-negotiables
 
 - Modular monolith. Vertical Slice Architecture, CQRS via MediatR, focused DDD. One end-to-end use
@@ -57,9 +59,31 @@ Deep reference lives in on-demand skills, not here:
 ## Product phase discipline
 
 V1 is read-only: register/edit/archive projects, GitHub source + workflow state, health and version
-probes, deterministic version sync, dashboard query, transition-based activity. Deployment
-triggering, restart, rollback, Docker agents, and log ingestion are later phases — do not build them
-early.
+probes, deterministic version sync, dashboard query, transition-based activity, release history
+recorded from GitHub Actions workflow runs, observed availability computed from recorded health checks,
+scheduled collection of all of the above, provider-backed application logs, and a configuration status
+report. Deployment triggering, restart, rollback, Docker agents, and log ingestion are later phases —
+do not build them early.
+
+Logs are **pulled** during the request, the one pass-through provider read in Console Ops: Azure
+Container Apps console output through Log Analytics, bounded by window, row cap and timeout. Never build
+an `ILoggerProvider`, an ingestion key, or an inbound collector. Framework chatter is excluded by
+default at information and below, never a warning or worse, and the count left out is always stated.
+An environment on a platform with no reader is reported as unsupported, never offered as a source.
+
+Settings describes **Console Ops itself** — integrations, collection, build — and never repeats project,
+environment, deployment or health facts, which have their own screens. Configuration is reported by key
+name only: no code path may read a value into a response. `Configured` and `Verified` are different
+claims, and only a provider answering earns the second. Nothing on that screen is editable while nothing
+there can be persisted at runtime.
+
+Collection is server side and scheduled (`Monitoring:Refresh`), sending the same command as the manual
+refresh endpoint so the two can never record different facts. The browser only re-reads stored data; it
+never polls a provider, and no screen invents a staleness verdict.
+
+Release history records what GitHub proves — a run built a commit and ended a certain way — and links it
+to an environment only through that environment's own version observation. Never store or infer which
+environment a run deployed to, and never claim a runtime revision until Azure awareness exists.
 
 ## CI provider
 
@@ -80,4 +104,10 @@ Activity, Version Sync.
 - Build/test after each change; add a regression test for every bug fix.
 - Concurrent agents use one Git worktree + task branch each, outside `C:\dev\ConsoleOps`. Sequential
   or read-only work stays in the primary worktree. Only one agent owns EF Core migrations per batch.
+- **Check `git status -sb` before the first commit of a session.** Commit only onto your own
+  `agent/<agent>/<task>` branch, created from the integration branch. Never commit onto another
+  agent's branch, and never onto `main`: work reaches `main` through a pull request. Kiro's branches
+  are `agent/kiro/<task>`.
+- Stage explicit file paths, never a directory. Another agent's uncommitted files live in the same
+  working tree, and `git add <dir>` has swept them into a commit before.
 - Commit only when the user asks.

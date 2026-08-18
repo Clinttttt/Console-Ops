@@ -1267,6 +1267,14 @@ Environment and runtime target configuration.
 
 Integration and Console Ops configuration.
 
+Built 2026-08-18. Three sections, all describing Console Ops itself: **Integrations** (GitHub and Azure,
+distinguishing configured from verified, with a connection test), **Collection** (the observation interval and
+how the last sweep went), and **About** (running version, build revision, runtime, database schema).
+
+Deliberately absent: project, environment, deployment and health facts, which have their own screens; and any
+editable control, because nothing here can be persisted at runtime yet. Credential values never appear in any
+form — the screen answers "can Console Ops reach this provider?", never "what is the secret?".
+
 These screens describe product scope only.
 
 Their final technical implementation and structure are intentionally not prescribed here.

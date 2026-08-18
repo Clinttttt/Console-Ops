@@ -1,0 +1,74 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice co-reading" aria-busy="true">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading the project...
+    </p>
+  }
+
+  @case ('notFound') {
+    <div class="notice">
+      <p>That project is not registered, or it has been archived.</p>
+      <a class="back" routerLink="/projects">Back to Projects</a>
+    </div>
+  }
+
+  @case ('unavailable') {
+    <div class="notice">
+      <p>The project could not be read.</p>
+      <a class="back" routerLink="/projects">Back to Projects</a>
+    </div>
+  }
+
+  @default {
+    @let detail = project();
+    @if (detail !== null) {
+      <header class="identity">
+        <co-project-mark [name]="detail.name" [tone]="tone()" [size]="38" />
+        <span class="identity-text">
+          <span class="name">{{ detail.name }}</span>
+          @if (detail.description !== null) {
+            <span class="description">{{ detail.description }}</span>
+          }
+        </span>
+
+        <a class="edit" [routerLink]="['/projects', projectId(), 'edit']">Edit configuration</a>
+
+        <button type="button" class="refresh" [disabled]="refreshing()" (click)="refresh()">
+          {{ refreshing() ? 'Refreshing...' : 'Refresh observations' }}
+        </button>
+      </header>
+
+      @if (refreshError() !== null) {
+        <p class="refresh-error" role="alert">{{ refreshError() }}</p>
+      }
+
+      <div class="layout">
+        <co-project-source-panel [repository]="detail.repository" [observed]="sourceSurface()" />
+
+        <section class="environments">
+          <header class="section-head">
+            <h2 class="co-eyebrow">Environments</h2>
+            <p class="co-section-note">
+              Each environment is observed on its own; nothing is inferred from another.
+            </p>
+          </header>
+
+          @for (view of environments(); track view.configured.id) {
+            <co-project-environment-panel [view]="view" />
+          }
+        </section>
+      </div>
+
+      <footer class="meta">
+        <span> Registered {{ detail.createdAtUtc | date: 'MMM d, y HH:mm' : 'UTC' }} UTC </span>
+        @if (detail.updatedAtUtc !== null) {
+          <span class="co-meta-dot" aria-hidden="true"></span>
+          <span>Updated {{ detail.updatedAtUtc | date: 'MMM d, y HH:mm' : 'UTC' }} UTC</span>
+        }
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        <span>Configuration version {{ detail.configurationVersion }}</span>
+      </footer>
+    }
+  }
+}

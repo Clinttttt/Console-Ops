@@ -6,12 +6,27 @@ namespace ConsoleOps.Application.Features.Dashboard.GetOverview;
 
 public interface IDashboardOverviewReadStore
 {
-    Task<DashboardOverviewData> ReadAsync(CancellationToken cancellationToken);
+    /// <param name="availabilitySinceUtc">
+    /// Start of the availability window. Health checks from before it are not loaded, so the uptime
+    /// figure and the query cost both stay bounded.
+    /// </param>
+    Task<DashboardOverviewData> ReadAsync(
+        DateTimeOffset availabilitySinceUtc,
+        CancellationToken cancellationToken);
 }
 
 public sealed record DashboardOverviewData(
     IReadOnlyList<DashboardSurfaceData> Surfaces,
-    IReadOnlyList<DashboardActivityData> Activities);
+    IReadOnlyList<DashboardActivityData> Activities,
+    IReadOnlyList<DashboardAvailabilityData> Availability);
+
+/// <summary>
+/// One recorded health check inside the availability window, carrying only what uptime needs.
+/// </summary>
+public sealed record DashboardAvailabilityData(
+    Guid EnvironmentId,
+    ApplicationHealthState State,
+    DateTimeOffset ObservedAtUtc);
 
 public sealed record DashboardSurfaceData(
     Guid ProjectId,

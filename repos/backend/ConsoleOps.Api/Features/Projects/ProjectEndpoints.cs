@@ -13,6 +13,7 @@ public static class ProjectEndpoints
         projects.MapGetProjectEndpoint();
         projects.MapListProjectsEndpoint();
         projects.MapRefreshProjectEndpoint();
+        projects.MapVerifyProjectEndpointsEndpoint();
 
         return endpoints;
     }

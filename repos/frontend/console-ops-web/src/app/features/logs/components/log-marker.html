@@ -1,0 +1,41 @@
+@let entry = marker();
+
+<span class="marker-icon" aria-hidden="true">
+  <co-icon [name]="icon()" [size]="14" />
+</span>
+
+<span class="marker-text">
+  @switch (entry.markerKind) {
+    @case ('deployment') {
+      Deployment
+      @if (entry.commitShortSha !== null) {
+        <span class="co-mono">{{ entry.commitShortSha }}</span>
+      }
+    }
+    @case ('revision') {
+      Revision first seen
+      @if (entry.commitShortSha !== null) {
+        <span class="co-mono">{{ entry.commitShortSha }}</span>
+      }
+    }
+    @default {
+      Container restarted
+    }
+  }
+  <span class="co-meta-dot" aria-hidden="true"></span>
+  <span class="co-mono">{{ entry.occurredAt | date: 'HH:mm' : 'UTC' }}</span>
+</span>
+
+<span class="marker-rule" aria-hidden="true"></span>
+
+<span class="marker-trailing">
+  @if (entry.revision !== null) {
+    <span class="co-mono">{{ entry.revision }}</span>
+  }
+  @if (entry.deploymentId !== null) {
+    <a class="co-inline-link" routerLink="/deployments">
+      View release
+      <co-icon name="arrowRight" [size]="14" />
+    </a>
+  }
+</span>

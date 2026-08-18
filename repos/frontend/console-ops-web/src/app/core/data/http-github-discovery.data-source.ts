@@ -1,0 +1,57 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+
+import {
+  DetectedEndpoints,
+  GitHubLatestCommit,
+  GitHubRepositoryPage,
+  GitHubWorkflowList,
+} from '../contracts/github-discovery';
+import { GitHubDiscoveryDataSource } from './github-discovery.data-source';
+
+/**
+ * Reads GitHub discovery endpoints.
+ *
+ * These endpoints are planned but not implemented, so this adapter is expected to fail today. That is
+ * deliberate: the UI reports discovery as unavailable and keeps manual entry working, and the import
+ * path starts functioning the moment the API ships without any frontend change.
+ */
+@Injectable()
+export class HttpGitHubDiscoveryDataSource extends GitHubDiscoveryDataSource {
+  private readonly http = inject(HttpClient);
+
+  override listRepositories(query: string): Observable<GitHubRepositoryPage> {
+    const trimmed = query.trim();
+    const params = trimmed === '' ? undefined : new HttpParams({ fromObject: { query: trimmed } });
+
+    return this.http.get<GitHubRepositoryPage>('/api/github/repositories', { params });
+  }
+
+  override listWorkflows(owner: string, name: string): Observable<GitHubWorkflowList> {
+    const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/workflows`;
+    return this.http.get<GitHubWorkflowList>(path);
+  }
+
+  override getLatestCommit(
+    owner: string,
+    name: string,
+    branch: string,
+  ): Observable<GitHubLatestCommit> {
+    const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/commits/latest`;
+    return this.http.get<GitHubLatestCommit>(path, {
+      params: new HttpParams({ fromObject: { branch } }),
+    });
+  }
+
+  override detectEndpoints(
+    owner: string,
+    name: string,
+    branch: string,
+  ): Observable<DetectedEndpoints> {
+    const path = `/api/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/endpoints`;
+    return this.http.get<DetectedEndpoints>(path, {
+      params: new HttpParams({ fromObject: { branch } }),
+    });
+  }
+}

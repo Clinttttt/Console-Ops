@@ -1,0 +1,131 @@
+:host {
+  display: block;
+}
+
+.panel {
+  max-width: 620px;
+  padding: var(--co-space-5) var(--co-space-6);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--co-space-3);
+  padding-bottom: var(--co-space-4);
+  border-bottom: 1px solid var(--co-line);
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(26, 143, 76, 0.12);
+  color: var(--co-status-healthy);
+  flex: none;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.steps {
+  margin: var(--co-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  color: var(--co-ink-faint);
+}
+
+.step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.step-label {
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+}
+
+.step-detail {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.step-state {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+.step[data-state='done'] .step-state {
+  color: var(--co-status-healthy);
+}
+
+.pending,
+.skipped {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pending {
+  color: var(--co-status-warning);
+}
+
+.skipped {
+  color: var(--co-ink-faint);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin-top: var(--co-space-5);
+  padding-top: var(--co-space-4);
+  border-top: 1px solid var(--co-line);
+}
+
+.primary,
+.secondary {
+  padding: 9px var(--co-space-5);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.primary {
+  background: var(--co-navy);
+  color: #fff;
+}
+
+.primary:hover {
+  background: var(--co-navy-soft);
+}
+
+.secondary {
+  border: 1px solid var(--co-line-strong);
+  color: var(--co-ink);
+}
+
+.secondary:hover {
+  background: var(--co-surface-sunken);
+}

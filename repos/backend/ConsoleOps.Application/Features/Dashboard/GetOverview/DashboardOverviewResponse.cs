@@ -106,6 +106,20 @@ public sealed record DashboardSystemSummaryResponse(
     string Label,
     DashboardUptimeWindowResponse? Uptime);
 
+/// <summary>
+/// Availability observed by Console Ops over the window, or <c>null</c> when too few checks exist for a
+/// figure to mean anything.
+/// </summary>
+/// <param name="WindowHours">Length of the window. The UI decides how to word it.</param>
+/// <param name="Percentage">Share of measured checks that were acceptable, to one decimal.</param>
+/// <param name="Checks">Measured checks behind the figure, so the screen can say what it rests on.</param>
+/// <param name="Samples">
+/// Availability per hour, oldest first, for hours containing checks. Hours with no check are absent
+/// rather than drawn as zero.
+/// </param>
 public sealed record DashboardUptimeWindowResponse(
-    string Label,
+    int WindowHours,
+    DateTimeOffset Since,
+    double Percentage,
+    int Checks,
     IReadOnlyList<double> Samples);

@@ -50,7 +50,26 @@ public sealed record ProjectRefreshWriteModel(
     SourceObservationWriteModel Source,
     WorkflowObservationWriteModel Workflow,
     IReadOnlyList<EnvironmentObservationWriteModel> Environments,
-    IReadOnlyList<ActivityWriteModel> Activities);
+    IReadOnlyList<ActivityWriteModel> Activities,
+    IReadOnlyList<DeploymentRunWriteModel> Deployments);
+
+/// <summary>
+/// One workflow run recorded as a release. Runs are re-observed on every refresh, so the store keys on
+/// <paramref name="RunId"/> and updates the mutable facts instead of appending a second record.
+/// </summary>
+public sealed record DeploymentRunWriteModel(
+    long RunId,
+    int? RunNumber,
+    string? WorkflowFile,
+    string? WorkflowName,
+    string Branch,
+    string CommitSha,
+    GitHubWorkflowState Result,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc,
+    string? TriggeredBy,
+    string? RunUrl,
+    DateTimeOffset ObservedAtUtc);
 
 public sealed record SourceObservationWriteModel(
     bool IsAvailable,

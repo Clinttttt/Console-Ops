@@ -5,6 +5,7 @@ import { ProjectSurface } from '../../../core/contracts/dashboard-overview';
 import { EnvironmentTag } from '../../../core/ui/environment-tag';
 import { Icon } from '../../../core/ui/icon';
 import { ProjectMark, ProjectMarkTone } from '../../../core/ui/project-mark';
+import { toneForProject } from '../../../core/ui/project-tone';
 import { Sparkline } from '../../../core/ui/sparkline';
 import { Status } from '../../../core/ui/status';
 
@@ -35,11 +36,6 @@ export class ProjectSurfacesSection {
 
   /** Stable presentation-only tone derived locally; operational status never affects it. */
   protected toneFor(projectId: string): ProjectMarkTone {
-    const tones: readonly ProjectMarkTone[] = ['navy', 'slate', 'amber'];
-    const hash = Array.from(projectId).reduce(
-      (value, character) => value + character.charCodeAt(0),
-      0,
-    );
-    return tones[hash % tones.length];
+    return toneForProject(projectId);
   }
 }

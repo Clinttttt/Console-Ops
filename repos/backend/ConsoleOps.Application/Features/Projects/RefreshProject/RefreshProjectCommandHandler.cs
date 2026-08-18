@@ -92,7 +92,8 @@ public sealed class RefreshProjectCommandHandler(
             source,
             workflow,
             environments,
-            activities);
+            activities,
+            CreateDeployments(gitHub));
         ProjectRefreshSaveOutcome saveOutcome = await refreshStore.SaveAsync(
             writeModel,
             cancellationToken);
@@ -168,6 +169,31 @@ public sealed class RefreshProjectCommandHandler(
             gitHub.Workflow.Failure,
             observation?.ObservedAtUtc ?? fallbackObservedAtUtc);
     }
+
+    /// <summary>
+    /// Records the workflow runs GitHub reported for this project as releases.
+    /// <para>
+    /// No environment is attributed here. A run proves that CI produced a commit, not where it landed;
+    /// the Deployments query establishes that link from runtime version observations.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<DeploymentRunWriteModel> CreateDeployments(
+        GitHubProjectReadResult gitHub) =>
+        gitHub.WorkflowRuns
+            .Select(run => new DeploymentRunWriteModel(
+                run.RunId,
+                run.RunNumber,
+                run.WorkflowFile,
+                run.WorkflowName,
+                run.Branch,
+                run.CommitSha,
+                run.State,
+                run.StartedAtUtc,
+                run.CompletedAtUtc,
+                run.TriggeredBy,
+                run.RunUrl,
+                run.ObservedAtUtc))
+            .ToArray();
 
     private static int? GetProvenCommitsBehind(
         GitHubProjectReadResult gitHub,

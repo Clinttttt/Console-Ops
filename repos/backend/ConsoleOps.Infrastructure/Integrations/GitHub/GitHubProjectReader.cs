@@ -12,6 +12,13 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
     internal const string ApiVersion = "2026-03-10";
     internal const string UserAgent = "ConsoleOps/1.0";
 
+    /// <summary>
+    /// How many recent runs of the configured workflow one refresh records. The newest run is also the
+    /// project's current workflow state, so release history costs no extra GitHub request. Bounded on
+    /// purpose: refresh is interactive and a project's history is filled in over successive refreshes.
+    /// </summary>
+    internal const int WorkflowRunPageSize = 20;
+
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<GitHubProjectReadResult> ReadAsync(
@@ -27,11 +34,12 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
 
         Task<GitHubFactResult<GitHubSourceObservation>> sourceTask =
             ReadSourceAsync(project, cancellationToken);
-        Task<GitHubFactResult<GitHubWorkflowObservation>> workflowTask =
+        Task<WorkflowReadResult> workflowTask =
             ReadWorkflowAsync(project, cancellationToken);
 
         await Task.WhenAll(sourceTask, workflowTask);
         GitHubFactResult<GitHubSourceObservation> source = await sourceTask;
+        WorkflowReadResult workflow = await workflowTask;
         IReadOnlyList<GitHubCommitComparison> comparisons = source.Observation is null
             ? []
             : await ReadComparisonsAsync(
@@ -42,8 +50,9 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
 
         return new GitHubProjectReadResult(
             source,
-            await workflowTask,
-            comparisons);
+            workflow.Observation,
+            comparisons,
+            workflow.Runs);
     }
 
     private async Task<IReadOnlyList<GitHubCommitComparison>> ReadComparisonsAsync(
@@ -152,63 +161,131 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
                 observedAtUtc));
     }
 
-    private async Task<GitHubFactResult<GitHubWorkflowObservation>> ReadWorkflowAsync(
+    private async Task<WorkflowReadResult> ReadWorkflowAsync(
         GitHubProjectReference project,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(project.WorkflowFile))
         {
-            return GitHubFactResult<GitHubWorkflowObservation>.Success(
-                new GitHubWorkflowObservation(
-                    null,
-                    null,
-                    GitHubWorkflowState.NotConfigured,
-                    null,
-                    null,
-                    null,
-                    timeProvider.GetUtcNow()));
+            return new WorkflowReadResult(
+                GitHubFactResult<GitHubWorkflowObservation>.Success(
+                    new GitHubWorkflowObservation(
+                        null,
+                        null,
+                        GitHubWorkflowState.NotConfigured,
+                        null,
+                        null,
+                        null,
+                        timeProvider.GetUtcNow())),
+                []);
         }
 
         string workflowFile = project.WorkflowFile.Trim();
         string path = $"repos/{Escape(project.Owner)}/{Escape(project.Repository)}"
             + $"/actions/workflows/{Escape(workflowFile)}/runs"
-            + $"?branch={Escape(project.DefaultBranch)}&per_page=1";
+            + $"?branch={Escape(project.DefaultBranch)}&per_page={WorkflowRunPageSize}";
         GitHubResponse<GitHubWorkflowRunsDto> response =
             await GetAsync<GitHubWorkflowRunsDto>(path, cancellationToken);
 
         if (response.Failure is not null)
         {
-            return GitHubFactResult<GitHubWorkflowObservation>.Failed(response.Failure.Value);
+            return new WorkflowReadResult(
+                GitHubFactResult<GitHubWorkflowObservation>.Failed(response.Failure.Value),
+                []);
         }
 
-        GitHubWorkflowRunDto? run = response.Value?.WorkflowRuns?.FirstOrDefault();
+        GitHubWorkflowRunDto[] runs = response.Value?.WorkflowRuns ?? [];
+        GitHubWorkflowRunDto? run = runs.FirstOrDefault();
         DateTimeOffset observedAtUtc = timeProvider.GetUtcNow();
 
         if (run is null)
         {
-            return GitHubFactResult<GitHubWorkflowObservation>.Success(
-                new GitHubWorkflowObservation(
-                    workflowFile,
-                    null,
-                    GitHubWorkflowState.Unknown,
-                    null,
-                    null,
-                    null,
-                    observedAtUtc));
+            return new WorkflowReadResult(
+                GitHubFactResult<GitHubWorkflowObservation>.Success(
+                    new GitHubWorkflowObservation(
+                        workflowFile,
+                        null,
+                        GitHubWorkflowState.Unknown,
+                        null,
+                        null,
+                        null,
+                        observedAtUtc)),
+                []);
         }
 
         GitHubWorkflowState state = MapWorkflowState(run.Status, run.Conclusion);
         DateTimeOffset? completedAtUtc = IsTerminal(state) ? run.UpdatedAt : null;
 
-        return GitHubFactResult<GitHubWorkflowObservation>.Success(
-            new GitHubWorkflowObservation(
+        return new WorkflowReadResult(
+            GitHubFactResult<GitHubWorkflowObservation>.Success(
+                new GitHubWorkflowObservation(
+                    workflowFile,
+                    NullIfWhiteSpace(run.Name),
+                    state,
+                    IsFullCommitSha(run.HeadSha) ? run.HeadSha : null,
+                    run.RunStartedAt,
+                    completedAtUtc,
+                    observedAtUtc)),
+            MapRuns(project, workflowFile, runs, observedAtUtc));
+    }
+
+    /// <summary>
+    /// Turns the run page into release records, keeping only runs whose identity can be trusted.
+    /// A run without a numeric id or a full commit SHA cannot be reconciled with a deployed version
+    /// later, so it is dropped rather than recorded as a partly-known release.
+    /// </summary>
+    private static IReadOnlyList<GitHubWorkflowRun> MapRuns(
+        GitHubProjectReference project,
+        string workflowFile,
+        IReadOnlyList<GitHubWorkflowRunDto> runs,
+        DateTimeOffset observedAtUtc)
+    {
+        List<GitHubWorkflowRun> mapped = new(runs.Count);
+
+        foreach (GitHubWorkflowRunDto run in runs)
+        {
+            if (run.Id is not long runId || runId <= 0 || !IsFullCommitSha(run.HeadSha))
+            {
+                continue;
+            }
+
+            GitHubWorkflowState state = MapWorkflowState(run.Status, run.Conclusion);
+            mapped.Add(new GitHubWorkflowRun(
+                runId,
+                run.RunNumber,
                 workflowFile,
                 NullIfWhiteSpace(run.Name),
+                NullIfWhiteSpace(run.HeadBranch) ?? project.DefaultBranch.Trim(),
+                run.HeadSha!,
                 state,
-                IsFullCommitSha(run.HeadSha) ? run.HeadSha : null,
-                run.RunStartedAt,
-                completedAtUtc,
+                run.RunStartedAt ?? run.CreatedAt,
+                IsTerminal(state) ? run.UpdatedAt : null,
+                NullIfWhiteSpace(run.Actor?.Login),
+                SafeRunUrl(run.HtmlUrl),
                 observedAtUtc));
+        }
+
+        return mapped;
+    }
+
+    /// <summary>
+    /// Accepts a run link only when it is an absolute GitHub HTTPS URL without embedded credentials,
+    /// because the browser renders it as an outbound link.
+    /// </summary>
+    private static string? SafeRunUrl(string? value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? url)
+            || url.Scheme != Uri.UriSchemeHttps
+            || !string.IsNullOrEmpty(url.UserInfo))
+        {
+            return null;
+        }
+
+        string host = url.Host;
+        bool isGitHubHost = host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".github.com", StringComparison.OrdinalIgnoreCase);
+
+        return isGitHubHost ? url.AbsoluteUri : null;
     }
 
     private async Task<GitHubResponse<T>> GetAsync<T>(
@@ -338,15 +415,31 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
         GitHubWorkflowRunDto[]? WorkflowRuns);
 
     private sealed record GitHubWorkflowRunDto(
+        long? Id,
         string? Name,
         string? Status,
         string? Conclusion,
+        [property: JsonPropertyName("run_number")]
+        int? RunNumber,
         [property: JsonPropertyName("head_sha")]
         string? HeadSha,
+        [property: JsonPropertyName("head_branch")]
+        string? HeadBranch,
+        [property: JsonPropertyName("html_url")]
+        string? HtmlUrl,
+        GitHubActorDto? Actor,
         [property: JsonPropertyName("run_started_at")]
         DateTimeOffset? RunStartedAt,
+        [property: JsonPropertyName("created_at")]
+        DateTimeOffset? CreatedAt,
         [property: JsonPropertyName("updated_at")]
         DateTimeOffset? UpdatedAt);
+
+    private sealed record GitHubActorDto(string? Login);
+
+    private sealed record WorkflowReadResult(
+        GitHubFactResult<GitHubWorkflowObservation> Observation,
+        IReadOnlyList<GitHubWorkflowRun> Runs);
 
     private sealed record GitHubComparisonDto(
         string? Status,

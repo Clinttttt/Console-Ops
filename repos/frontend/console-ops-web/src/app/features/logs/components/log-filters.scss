@@ -1,0 +1,174 @@
+:host {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-4);
+  padding-bottom: var(--co-space-5);
+}
+
+/*
+ * The scope is one field with one dropdown: a transparent select covers the whole group, so what the
+ * operator sees is the project, the chevron, and the environment pill, while the choice itself is a
+ * single native list of project/environment pairs. The pill keeps the tag component's colours, and no
+ * part of the group restates them.
+ */
+.scope {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 5px var(--co-space-2) 5px var(--co-space-3);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+}
+
+.scope:hover {
+  border-color: var(--co-ink-faint);
+}
+
+.scope select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The reading of the current scope, not a control: clicks belong to the select above it. */
+.scope > .project,
+.scope > co-icon,
+.scope > co-environment-tag {
+  pointer-events: none;
+}
+
+.project {
+  font-size: 12.5px;
+  color: var(--co-ink);
+  white-space: nowrap;
+}
+
+.scope > co-icon {
+  color: var(--co-ink-muted);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+  padding: 8px var(--co-space-3);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  color: var(--co-ink-muted);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  color: var(--co-ink);
+}
+
+.search input::placeholder {
+  color: var(--co-ink-faint);
+}
+
+.levels {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.level {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 5px var(--co-space-3);
+  border-radius: var(--co-radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--co-ink-muted);
+  white-space: nowrap;
+}
+
+.level:hover {
+  color: var(--co-ink);
+}
+
+.level.is-active {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-strong);
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin-left: auto;
+}
+
+.select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select select {
+  appearance: none;
+  padding: 8px 34px 8px var(--co-space-3);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--co-ink);
+}
+
+.select.is-source select {
+  padding-left: 32px;
+}
+
+.select co-icon {
+  position: absolute;
+  right: var(--co-space-3);
+  color: var(--co-ink-muted);
+  pointer-events: none;
+}
+
+.select.is-source co-icon:first-of-type {
+  right: auto;
+  left: var(--co-space-3);
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 8px var(--co-space-4);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+  white-space: nowrap;
+}
+
+.live:hover {
+  background: var(--co-surface-sunken);
+}
+
+.live.is-on {
+  color: var(--co-ink-strong);
+}

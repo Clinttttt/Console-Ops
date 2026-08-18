@@ -44,7 +44,12 @@ internal static class UpdateProjectEndpoint
                 environment.Kind,
                 environment.ApplicationUrl,
                 environment.HealthUrl,
-                environment.VersionUrl)).ToArray() ?? []);
+                environment.VersionUrl,
+                environment.LogSource is null
+                    ? null
+                    : new ProjectLogSource(
+                        environment.LogSource.WorkspaceId,
+                        environment.LogSource.ContainerAppName))).ToArray() ?? []);
 
         var result = await sender.Send(command, cancellationToken);
 

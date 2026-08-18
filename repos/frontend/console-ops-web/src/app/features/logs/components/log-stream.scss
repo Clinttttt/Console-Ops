@@ -1,0 +1,144 @@
+:host {
+  display: block;
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.day-head {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  padding: var(--co-space-4) var(--co-space-5);
+  border-bottom: 1px solid var(--co-line);
+}
+
+.day-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-sm);
+  color: var(--co-ink-muted);
+}
+
+.day-label {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.lines {
+  margin: 0;
+  /* One source of geometry for the rail, inherited by the marker rows too. */
+  --co-rail-left: calc(var(--co-space-5) + 3px);
+  padding: var(--co-space-2) 0;
+  list-style: none;
+}
+
+/*
+ * Severity tint, declared once per level. The triples mirror --co-status-healthy, --co-status-warning,
+ * and --co-status-down, kept as components so one value drives the badge wash and its text.
+ */
+.line-item[data-level='info'] {
+  --co-level: 26, 143, 76;
+}
+
+.line-item[data-level='warning'] {
+  --co-level: 201, 138, 8;
+}
+
+.line-item[data-level='error'] {
+  --co-level: 208, 42, 42;
+}
+
+/*
+ * Timeline rail: a neutral thread through the dots. It orders the stream; severity is carried by the
+ * dots and the badges, so tinting the line too would only repeat them louder.
+ */
+.line-item {
+  position: relative;
+}
+
+.line-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--co-rail-left);
+  z-index: 1;
+  width: 1.5px;
+  background: var(--co-line-strong);
+}
+
+/* One scannable line per event: a wall of detail here is what makes log views unreadable. */
+/* Paging backwards. Centred and quiet: it is a way to read further, not an action on anything. */
+.older {
+  display: flex;
+  justify-content: center;
+  padding: var(--co-space-3) var(--co-space-5);
+  border-bottom: 1px solid var(--co-line);
+}
+
+.older-action {
+  padding: 5px var(--co-space-4);
+  border: 1px solid var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink);
+}
+
+.older-action:hover {
+  background: var(--co-surface-sunken);
+}
+
+.older-status {
+  margin: 0;
+  font-size: 11.5px;
+}
+
+/* Kept in the DOM so the scroll sentinel is stable, but says nothing before a first page exists. */
+.older.is-idle {
+  display: none;
+}
+
+/* Markers style themselves; the list only has to keep them in the flow. */
+.marker-row {
+  display: block;
+}
+
+.stream-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-4);
+  padding: var(--co-space-3) var(--co-space-5);
+  border-top: 1px solid var(--co-line);
+}
+
+.waiting,
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+/* Reads as part of the sentence it sits in; it explains the count rather than acting on the stream. */
+.noise-toggle {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--co-line-strong);
+  text-underline-offset: 2px;
+}
+
+.noise-toggle:hover {
+  color: var(--co-ink-strong);
+}

@@ -104,6 +104,27 @@ Use the actual integration branch if it is not `main`.
 This workflow reduces filesystem collisions; it does not replace task ownership, small slices,
 review, or integration testing.
 
+## Composition root
+
+`Program.cs` composes and nothing else. Each concern it used to configure inline lives in one focused
+extension under `ConsoleOps.Api/Extensions`, so the file reads as a list of decisions and each decision has one
+place to change:
+
+| Extension | Owns |
+|---|---|
+| `AddConsoleOpsProblemDetails` | RFC 7807 responses, carrying the trace identifier |
+| `AddConsoleOpsRateLimiter` | per-client limits on endpoints that reach outside during a request |
+| `AddScheduledCollection` | `Monitoring:Refresh` options, and the worker only when enabled |
+| `EnsureSafeExposure` | refusing to start unauthenticated on a non-loopback address |
+| `UseConsoleOpsPipeline` | middleware order |
+| `MapConsoleOpsEndpoints` | the endpoint map |
+
+There is no `Web` folder and no controller layer: the API layer is already organised by feature
+(`Features/<Capability>/<UseCase>Endpoint.cs`), and these extensions are composition, not a new layer.
+
+Policy that a guard enforces belongs beside the concept, not in the wiring: `NetworkExposure.MustRefuseToStart`
+decides, and the extension only throws. A rule that runs solely when a host boots is a rule no test can reach.
+
 ## Vertical slices and CQRS
 
 Organize application behavior by capability and use case, not by broad technical folders such as
@@ -339,6 +360,207 @@ Rules that keep the deviation safe:
   adapter is removed rather than kept in parallel.
 - Phase 0 removes presentation-only API fields and later-phase mock claims before persistence or
   backend response types are created.
+
+### Projects screen contract reconciliation
+
+Decided 2026-08-14. The design-first Projects and Add Project screens are now connected to the
+implemented V1 project APIs. Their runtime mock adapter was removed, and their TypeScript contracts
+mirror `GET /api/projects` and `POST /api/projects` exactly.
+
+The design proposal to add application `kind`, runtime/framework, deployment history, lifecycle, and
+separate monitoring-intent flags was rejected for V1. Those fields and columns were removed rather
+than populated with guesses or added to the backend without a product requirement. Normal project
+queries continue to exclude archived projects. The Projects screen shows persisted project,
+repository, environment, workflow, endpoint-presence, timestamp, and configuration-version facts.
+
+Add Project supports the optional explicit GitHub Actions workflow file already present in the V1
+contract. Relative health/version paths are a form convenience only: the frontend resolves them
+against the configured application base URL and sends only absolute HTTP(S) URLs to the API. After a
+successful registration, the frontend requests one best-effort project refresh so the dashboard can
+show stored observations. A refresh failure does not reinterpret a successful registration as a
+failure. Azure remains labelled as a later phase because Azure runtime awareness is V2.
+
+### Project editing and archiving reached the UI
+
+Decided 2026-08-15. `PUT /api/projects/{id}` and `DELETE /api/projects/{id}` existed and were tested but
+unreachable, leaving two V1 capabilities - edit configuration, archive a project - implemented and
+unusable. Both are now exposed at `/projects/{id}/edit`.
+
+The edit form always sends the complete repository and environment list, because the endpoint replaces
+editable configuration rather than patching it, and it carries the `configurationVersion` it loaded. A
+stale version comes back as a conflict, which the screen reports as "this project changed since you
+opened it" instead of retrying and overwriting someone else's change. Existing environments keep their
+`id` so the API matches them rather than recreating them.
+
+Archiving takes two deliberate steps: the first press asks, naming the project and saying what archiving
+means, and only the second calls the API.
+
+Environments can be added and removed in the same form, within the contract's rules. A new environment is
+sent without an `id`, which is how the API knows to create it; an existing one keeps its `id` so it is
+matched rather than recreated. Removing an environment that exists asks first and says its observations
+are discarded, while an unsaved draft goes immediately because it has nothing to lose. The last
+environment cannot be removed, since every project must keep one, and duplicate names are rejected before
+the API has to.
+
+### Environments screen contract reconciliation
+
+Decided 2026-08-15. The Environments screen is connected to V1 truth and its fixture, port, adapter and
+store were deleted. It is composed in the frontend from two existing endpoints rather than a new one:
+configuration from `GET /api/projects` and observations from the stored dashboard overview, joined on
+environment id.
+
+The design proposal to add runtime provider and target, Azure revision, configuration-presence counts,
+and last-deployment time was **not** adopted for V1, matching the Projects reconciliation above. Those
+columns were removed rather than populated with guesses, and the archived-environments view went with
+them because normal V1 queries exclude archived projects and no archive query exists.
+
+What the screen now shows per environment: project, environment name and kind, application URL, health,
+version sync, deployed version, health endpoint, version endpoint, and last check. An environment with
+no observation reads `Not observed yet` rather than borrowing another environment's state. Editing is
+offered as a link to the project, because V1 edits environments through project configuration
+replacement rather than an environment resource.
+
+### Deployments screen: release history recorded from GitHub Actions runs
+
+Decided 2026-08-15, replacing the fixture-backed design mock of 2026-08-14. The screen reads
+`GET /api/deployments`; the fixture, its mock adapter, and the SAMPLE DATA banner are deleted.
+
+A deployment record is **one run of a project's configured workflow**. That is the honest unit: GitHub
+proves a commit was built and how the run ended, not where the artifact landed. There is deliberately no
+environment column on the `deployments` table.
+
+The environment link is **evidence, not attribution**. An environment appears under a release because its
+own `/version` endpoint reported that release's commit, and the release is `isCurrent` there while that
+is still the latest thing the environment reported. This reuses the deterministic commit match already
+behind version sync. A release with no environments was built but never seen running: the screen says
+`Not observed running` rather than claiming or hiding a destination, and such a release drops out of an
+environment-scoped view instead of being assumed into it.
+
+Health before and after are the health observations bracketing the first sighting of the commit in that
+environment. This is only possible because the observation tables are append-only, and it is what makes
+a bad release visible: `Healthy` before, `Unhealthy` after, same environment, recorded times shown.
+
+Collection is bounded and idempotent. Refresh reads the last `WorkflowRunPageSize` (20) runs from the
+same workflow-runs request that already answers "what is the workflow doing", so history costs no extra
+GitHub call. Records are upserted on `(project_id, external_run_id)`: `recorded_at_utc` keeps the first
+sighting, `observed_at_utc` the last confirmation, so an in-flight run completing updates one row.
+History therefore starts at the first refresh and fills in as refreshes continue; continuous collection
+needs a background worker and is a later phase.
+
+Two rules carried over from the mock still hold:
+
+- The verification verdict is derived, not stored. `core/ui/deployment-verdict.ts` computes it from the
+  run outcome, the health observed after the release was seen, and version sync, in severity order. Drift
+  is only reported for an environment the release still serves, because a superseded release is expected
+  to be behind. An unknown fact yields `Unverified` rather than a pass.
+- Every figure in the verification summary is counted from the records in view, never estimated. When a
+  figure has no basis it reads as unavailable rather than zero, and it recounts when the view narrows.
+
+Still absent, because V1 has no source: the runtime revision (`spinner-api--000021`) and the runtime
+target, both of which need Azure awareness. Triggering, redeploying, rolling back, and log access remain
+disabled controls that name the phase they belong to.
+
+### Collection is scheduled; the browser only re-reads
+
+Decided 2026-08-15. Console Ops collects observations on its own so the screens are current without the
+operator pressing anything. Two halves, deliberately separated:
+
+- **The API collects.** `ProjectRefreshWorker` sweeps active projects on an interval (`Monitoring:Refresh`,
+  default every 300s) and sends the same `RefreshProjectCommand` the manual endpoint sends. There is no
+  second collection path that could record different facts or emit different activity. A project that
+  fails is logged and skipped; the sweep continues and the worker survives. Registration is conditional
+  on `Enabled`, so collection can be turned off entirely, and integration tests turn it off so they
+  assert only the refreshes they perform.
+- **The browser re-reads.** `core/state/auto-refresh.ts` re-reads a screen's stored data every 30s while
+  it is being looked at. It never asks the API to contact a provider. A hidden tab is not polled, and
+  returning to one reads immediately rather than showing state from minutes ago.
+
+The manual refresh action stays. Its meaning changes from "the only way to get data" to "check now",
+which is worth having when a deploy is in flight.
+
+This also matters for release history: with only manual refreshes, a workflow run that starts and ends
+between two visits is never recorded. A steady sweep is what makes the Deployments timeline continuous
+and gives health-before and health-after something to compare.
+
+Freshness is still not asserted. No stale threshold is invented; every screen shows each fact's own
+observation time and lets the reader judge.
+
+### Observed availability, only once it has been observed
+
+Decided 2026-08-16. Uptime was previously impossible and said so: with collection driven by a button,
+health history was too sparse to mean anything. Scheduled collection changed the input, so the figure is
+now computed from the health checks already recorded — no new storage, no new provider call.
+
+The rule lives in the domain (`Uptime.Calculate`) because it is a monitoring rule, not a query detail,
+and it is deliberately conservative:
+
+- A check that established nothing counts on neither side of the ratio. An unknown state, or an
+  environment with no health endpoint, is not evidence of being available.
+- Below twelve measured checks the window reports nothing at all. Three checks producing "100%" would be
+  the most misleading number on the screen, so `Not recorded yet` stands until the evidence exists.
+- The figure carries its sample count, and the UI shows it: `Uptime · last 24h · 288 checks`. Sampled
+  availability must not be mistaken for a guarantee.
+- Hours without a check are omitted from the sparkline rather than drawn as zero or as full availability.
+
+The window is bounded in the query as well as the rule: only checks inside it are loaded, with a row cap,
+so the dashboard query cannot degrade as history grows.
+
+### Logs screen: the forensic workspace, mock ahead of ingestion
+
+Decided 2026-08-16. The Logs screen exists as a fixture-backed design mock at `/logs`, labelled as sample
+data. It is not connected to the API and must not be: Console Ops has no log ingestion, so every event on
+it would otherwise be invented. Ingestion is the next decision, not a next component.
+
+The screen has one purpose that no other screen serves: what did the application and its runtime actually
+say around the time something happened. That boundary is enforced by omission. No project configuration,
+no release history, no environment configuration, no health summary, and no availability figure appears
+here, and the page spec asserts their absence so the screen cannot drift into another dashboard.
+
+Rules the mock establishes:
+
+- **A line stays scannable.** Time, severity, source, message, and one short outcome. Correlation ids,
+  properties, and stack traces wait behind selection. A wall of detail in the stream is the failure mode
+  this screen has to avoid.
+- **The trailing outcome is composed by the UI** from a status code, a duration, or the most telling
+  property. The contract sends structured values, never a rendered `200 · 91 ms`.
+- **Structured logging is the point.** An event carries its message template and its properties
+  separately, so `{OrderId}` keeps `2048` as a value that can be searched and shown.
+- **Selection opens the rail; nothing is preselected** and it can be dismissed. A stack trace is
+  collapsed, and a missing one says so rather than leaving an empty block.
+- **Markers are the only cross-screen material.** A deployment or revision rule explains a change in what
+  follows and links to that release. A marker whose events have been filtered away is dropped, so the
+  stream never shows a rule explaining nothing.
+- **CI/CD execution logs stay out.** A workflow run's output belongs to that run on the Deployments
+  screen. This stream is application, runtime, and platform events.
+- **Live tail does not fabricate.** The toggle records whether the stream would follow new events and can
+  be paused; with a fixture behind it, nothing arrives, and the footer says only what is true.
+
+Sources are modelled as `application`, `runtime`, and `platform`. Runtime and platform events need Docker
+and Azure awareness respectively, so a real stream will be application-only at first. How events arrive is
+planned in `Console_Ops_Logs_Plan.md`, and the direction is decided: Console Ops keeps pulling. The first
+source is Azure Container Apps console logs, read through Log Analytics and normalized behind a port, so
+no inbound ingestion surface, collector endpoint, or per-project ingestion key is introduced.
+Application-pushed structured telemetry is a later decision, not a prerequisite.
+
+Two consequences that plan records for whoever builds it. The Logs query will be Console Ops' first
+pass-through provider read rather than a read of stored observations - bounded windows, a short response
+cache, and a per-project rate limit are what make that acceptable, and a provider failure must surface as
+`unavailable` rather than as an empty stream. And a revision name on a log row is evidence about the line
+that emitted it, never a claim about which revision is currently serving; that claim still needs the
+Container Apps control-plane API.
+
+### Add Project: import-first direction
+
+Decided 2026-08-14. Registration should discover whatever a provider already knows and ask the operator
+only for what no provider can know. The phased plan lives in `Console_Ops_Add_Project_Import_Plan.md`:
+Phase 0 is the information architecture and is implemented; Phase 1 adds repository discovery, Phase 2
+workflow discovery, Phase 3 pre-registration endpoint verification, and Phase 4 a confirmation step and
+Azure runtime import.
+
+Two rules from that plan bind any agent touching this screen. Discovery may prefill but never silently
+decide, so a suggested workflow is still confirmed by the operator. And no probe result may appear on
+this screen until an endpoint actually returns one - pre-registration verification is server side,
+through the existing probe safeguards, never from the browser.
 
 ## AMYL.Api reference policy
 

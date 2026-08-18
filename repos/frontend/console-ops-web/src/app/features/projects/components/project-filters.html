@@ -1,0 +1,57 @@
+<div class="search">
+  <co-icon name="search" [size]="15" />
+  <label class="co-sr-only" for="co-project-search">Search projects</label>
+  <input
+    id="co-project-search"
+    type="search"
+    placeholder="Search projects..."
+    [value]="query()"
+    (input)="onQueryInput($any($event.target).value)"
+  />
+</div>
+
+<div class="views" role="tablist" aria-label="Registry views">
+  @for (view of views; track view.value) {
+    <button
+      type="button"
+      role="tab"
+      class="view"
+      [class.is-active]="view.value === activeView()"
+      [attr.aria-selected]="view.value === activeView()"
+      (click)="viewChange.emit(view.value)"
+    >
+      {{ view.label }}
+    </button>
+  }
+</div>
+
+<div class="trailing">
+  <div class="scope">
+    <label class="co-sr-only" for="co-project-scope">Environment</label>
+    <select
+      id="co-project-scope"
+      [value]="scope() ?? ''"
+      (change)="onScopeSelect($any($event.target).value)"
+    >
+      @for (option of scopeOptions; track option.label) {
+        <option [value]="option.value ?? ''">{{ option.label }}</option>
+      }
+    </select>
+    <co-icon name="chevronDown" [size]="15" />
+  </div>
+
+  <button
+    type="button"
+    class="options"
+    aria-disabled="true"
+    title="Registry display options arrive with the project detail slice"
+    [attr.aria-label]="'Registry options'"
+  >
+    <co-icon name="sliders" [size]="16" />
+  </button>
+
+  <a class="add" routerLink="/projects/new">
+    <co-icon name="plus" [size]="15" [strokeWidth]="2" />
+    Add Project
+  </a>
+</div>

@@ -48,6 +48,18 @@ internal sealed class ProjectEnvironmentConfiguration : IEntityTypeConfiguration
             .HasColumnName("version_url")
             .HasMaxLength(ProjectRules.UrlMaxLength);
 
+        // Owned rather than two loose columns: the domain refuses half a log source, and this keeps that
+        // rule expressible in one place. Both columns are null together when no source is configured.
+        builder.OwnsOne(environment => environment.LogSource, logSource =>
+        {
+            logSource.Property(source => source.WorkspaceId)
+                .HasColumnName("azure_log_workspace_id");
+
+            logSource.Property(source => source.ContainerAppName)
+                .HasColumnName("azure_log_container_app_name")
+                .HasMaxLength(AzureLogSource.ContainerAppNameMaxLength);
+        });
+
         builder.HasIndex(environment => new { environment.ProjectId, environment.NormalizedName })
             .IsUnique()
             .HasDatabaseName("ux_project_environments_project_name");

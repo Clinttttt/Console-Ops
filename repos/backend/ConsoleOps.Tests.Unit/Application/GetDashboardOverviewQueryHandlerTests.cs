@@ -11,9 +11,63 @@ public sealed class GetDashboardOverviewQueryHandlerTests
     private const string CommitSha = "0123456789abcdef0123456789abcdef01234567";
 
     [Fact]
+    public async Task Handle_WithEnoughHealthChecks_ReportsObservedAvailability()
+    {
+        // 24 checks, three of them failures.
+        DashboardAvailabilityData[] availability =
+        [
+            .. Enumerable.Range(0, 21).Select(index => new DashboardAvailabilityData(
+                Guid.NewGuid(),
+                ApplicationHealthState.Healthy,
+                ObservedAt.AddMinutes(-index * 5))),
+            .. Enumerable.Range(0, 3).Select(index => new DashboardAvailabilityData(
+                Guid.NewGuid(),
+                ApplicationHealthState.Unreachable,
+                ObservedAt.AddMinutes(-120 - index * 5)))
+        ];
+        StubReadStore store = new(
+            new DashboardOverviewData([CreateHealthySurface()], [], availability));
+        GetDashboardOverviewQueryHandler handler =
+            new(store, new FixedTimeProvider(ObservedAt));
+
+        DashboardOverviewResponse response = await handler.Handle(
+            new GetDashboardOverviewQuery(),
+            CancellationToken.None);
+
+        DashboardUptimeWindowResponse uptime =
+            Assert.IsType<DashboardUptimeWindowResponse>(response.Summary.Uptime);
+        Assert.Equal(GetDashboardOverviewQueryHandler.UptimeWindowHours, uptime.WindowHours);
+        Assert.Equal(87.5d, uptime.Percentage);
+        Assert.Equal(24, uptime.Checks);
+        Assert.NotEmpty(uptime.Samples);
+        // The window is bounded, so the store never loads the whole history.
+        Assert.Equal(ObservedAt.AddHours(-24), store.RequestedAvailabilitySince);
+    }
+
+    [Fact]
+    public async Task Handle_WithTooFewHealthChecks_ReportsNoUptimeRatherThanAFlatteringFigure()
+    {
+        DashboardAvailabilityData[] availability =
+        [
+            .. Enumerable.Range(0, 4).Select(index => new DashboardAvailabilityData(
+                Guid.NewGuid(),
+                ApplicationHealthState.Healthy,
+                ObservedAt.AddMinutes(-index * 5)))
+        ];
+        GetDashboardOverviewQueryHandler handler = CreateHandler(
+            new DashboardOverviewData([CreateHealthySurface()], [], availability));
+
+        DashboardOverviewResponse response = await handler.Handle(
+            new GetDashboardOverviewQuery(),
+            CancellationToken.None);
+
+        Assert.Null(response.Summary.Uptime);
+    }
+
+    [Fact]
     public async Task Handle_WhenNoProjectsExist_ReturnsHonestUnknownState()
     {
-        GetDashboardOverviewQueryHandler handler = CreateHandler(new DashboardOverviewData([], []));
+        GetDashboardOverviewQueryHandler handler = CreateHandler(new DashboardOverviewData([], [], []));
 
         DashboardOverviewResponse response = await handler.Handle(
             new GetDashboardOverviewQuery(),
@@ -30,7 +84,7 @@ public sealed class GetDashboardOverviewQueryHandlerTests
     public async Task Handle_WhenAllCoreFactsAreAcceptable_ReturnsHealthyState()
     {
         GetDashboardOverviewQueryHandler handler = CreateHandler(
-            new DashboardOverviewData([CreateHealthySurface()], []));
+            new DashboardOverviewData([CreateHealthySurface()], [], []));
 
         DashboardOverviewResponse response = await handler.Handle(
             new GetDashboardOverviewQuery(),
@@ -61,7 +115,7 @@ public sealed class GetDashboardOverviewQueryHandlerTests
             ResponseSamples = []
         };
         GetDashboardOverviewQueryHandler handler = CreateHandler(
-            new DashboardOverviewData([sourceOnly], []));
+            new DashboardOverviewData([sourceOnly], [], []));
 
         DashboardOverviewResponse response = await handler.Handle(
             new GetDashboardOverviewQuery(),
@@ -126,8 +180,15 @@ public sealed class GetDashboardOverviewQueryHandlerTests
 
     private sealed class StubReadStore(DashboardOverviewData data) : IDashboardOverviewReadStore
     {
-        public Task<DashboardOverviewData> ReadAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(data);
+        public DateTimeOffset? RequestedAvailabilitySince { get; private set; }
+
+        public Task<DashboardOverviewData> ReadAsync(
+            DateTimeOffset availabilitySinceUtc,
+            CancellationToken cancellationToken)
+        {
+            RequestedAvailabilitySince = availabilitySinceUtc;
+            return Task.FromResult(data);
+        }
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset value) : TimeProvider

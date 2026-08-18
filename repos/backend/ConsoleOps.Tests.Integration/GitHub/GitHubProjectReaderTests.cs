@@ -84,7 +84,153 @@ public sealed class GitHubProjectReaderTests
                 == "/repos/Clinttttt/Console-Ops/commits?sha=main&per_page=1");
         Assert.Contains(requests, request =>
             request.Uri.PathAndQuery
-                == "/repos/Clinttttt/Console-Ops/actions/workflows/ci.yml/runs?branch=main&per_page=1");
+                == "/repos/Clinttttt/Console-Ops/actions/workflows/ci.yml/runs?branch=main&per_page=20");
+    }
+
+    [Fact]
+    public async Task ReadAsync_RecordsRunHistoryFromTheSameWorkflowRequest()
+    {
+        const string olderSha = "89abcdef0123456789abcdef0123456789abcdef";
+        RecordingHandler handler = new(request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/commits")
+                ? SourceResponse()
+                : JsonResponse($$"""
+                    {
+                      "workflow_runs": [
+                        {
+                          "id": 4102,
+                          "name": "Deploy",
+                          "status": "in_progress",
+                          "conclusion": null,
+                          "run_number": 42,
+                          "head_sha": "{{CommitSha}}",
+                          "head_branch": "main",
+                          "html_url": "https://github.com/owner/repository/actions/runs/4102",
+                          "actor": { "login": "ci-bot" },
+                          "run_started_at": "2026-08-14T05:01:00Z",
+                          "created_at": "2026-08-14T05:00:30Z",
+                          "updated_at": "2026-08-14T05:02:00Z"
+                        },
+                        {
+                          "id": 4101,
+                          "name": "Deploy",
+                          "status": "completed",
+                          "conclusion": "success",
+                          "run_number": 41,
+                          "head_sha": "{{olderSha}}",
+                          "head_branch": "main",
+                          "html_url": "https://github.com/owner/repository/actions/runs/4101",
+                          "actor": { "login": "ci-bot" },
+                          "created_at": "2026-08-13T05:00:00Z",
+                          "updated_at": "2026-08-13T05:02:30Z"
+                        }
+                      ]
+                    }
+                    """));
+        GitHubProjectReader reader = CreateReader(handler);
+
+        GitHubProjectReadResult result = await reader.ReadAsync(
+            new GitHubProjectReference("owner", "repository", "main", "deploy.yml"),
+            [],
+            CancellationToken.None);
+
+        Assert.Equal(2, result.WorkflowRuns.Count);
+
+        GitHubWorkflowRun inFlight = result.WorkflowRuns[0];
+        Assert.Equal(4102, inFlight.RunId);
+        Assert.Equal(42, inFlight.RunNumber);
+        Assert.Equal("deploy.yml", inFlight.WorkflowFile);
+        Assert.Equal("Deploy", inFlight.WorkflowName);
+        Assert.Equal("main", inFlight.Branch);
+        Assert.Equal(CommitSha, inFlight.CommitSha);
+        Assert.Equal(GitHubWorkflowState.InProgress, inFlight.State);
+        Assert.Equal(DateTimeOffset.Parse("2026-08-14T05:01:00Z"), inFlight.StartedAtUtc);
+        Assert.Null(inFlight.CompletedAtUtc);
+        Assert.Equal("ci-bot", inFlight.TriggeredBy);
+        Assert.Equal("https://github.com/owner/repository/actions/runs/4102", inFlight.RunUrl);
+        Assert.Equal(ObservedAt, inFlight.ObservedAtUtc);
+
+        GitHubWorkflowRun completed = result.WorkflowRuns[1];
+        Assert.Equal(GitHubWorkflowState.Passed, completed.State);
+        // No run_started_at, so the created instant stands in rather than leaving the release undated.
+        Assert.Equal(DateTimeOffset.Parse("2026-08-13T05:00:00Z"), completed.StartedAtUtc);
+        Assert.Equal(DateTimeOffset.Parse("2026-08-13T05:02:30Z"), completed.CompletedAtUtc);
+
+        // The newest run still answers "what is the workflow doing", from the same request.
+        Assert.Equal(
+            GitHubWorkflowState.InProgress,
+            Assert.IsType<GitHubWorkflowObservation>(result.Workflow.Observation).State);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task ReadAsync_DropsRunsThatCannotBeIdentifiedOrTrusted()
+    {
+        RecordingHandler handler = new(request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/commits")
+                ? SourceResponse()
+                : JsonResponse($$"""
+                    {
+                      "workflow_runs": [
+                        {
+                          "id": null,
+                          "status": "completed",
+                          "conclusion": "success",
+                          "head_sha": "{{CommitSha}}"
+                        },
+                        {
+                          "id": 9002,
+                          "status": "completed",
+                          "conclusion": "success",
+                          "head_sha": "abc1234"
+                        },
+                        {
+                          "id": 9003,
+                          "status": "completed",
+                          "conclusion": "success",
+                          "head_sha": "{{CommitSha}}",
+                          "html_url": "https://github.evil.example/owner/repository/actions/runs/9003"
+                        },
+                        {
+                          "id": 9004,
+                          "status": "completed",
+                          "conclusion": "success",
+                          "head_sha": "{{CommitSha}}",
+                          "html_url": "https://user:secret@github.com/owner/repository/actions/runs/9004"
+                        }
+                      ]
+                    }
+                    """));
+        GitHubProjectReader reader = CreateReader(handler);
+
+        GitHubProjectReadResult result = await reader.ReadAsync(
+            new GitHubProjectReference("owner", "repository", "main", "deploy.yml"),
+            [],
+            CancellationToken.None);
+
+        // Runs without an id or a full commit SHA cannot be reconciled later, so they are not recorded.
+        Assert.Equal(2, result.WorkflowRuns.Count);
+        Assert.All(result.WorkflowRuns, run => Assert.Equal(CommitSha, run.CommitSha));
+
+        // A link outside github.com, or one carrying credentials, is dropped rather than rendered.
+        Assert.All(result.WorkflowRuns, run => Assert.Null(run.RunUrl));
+
+        // The branch falls back to the branch that was queried when GitHub omits it.
+        Assert.All(result.WorkflowRuns, run => Assert.Equal("main", run.Branch));
+    }
+
+    [Fact]
+    public async Task ReadAsync_WithoutWorkflowConfiguration_RecordsNoReleases()
+    {
+        RecordingHandler handler = new(_ => SourceResponse());
+        GitHubProjectReader reader = CreateReader(handler);
+
+        GitHubProjectReadResult result = await reader.ReadAsync(
+            new GitHubProjectReference("owner", "repository", "main", null),
+            [],
+            CancellationToken.None);
+
+        Assert.Empty(result.WorkflowRuns);
     }
 
     [Fact]

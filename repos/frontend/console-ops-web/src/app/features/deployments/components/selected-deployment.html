@@ -1,0 +1,172 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Selected Deployment</h2>
+</header>
+
+@let selected = deployment();
+@if (selected === null) {
+  <p class="co-unavailable empty">Select a release to inspect its record.</p>
+} @else {
+  <div class="identity">
+    <co-project-mark [name]="selected.projectName" [tone]="tone()" [size]="30" />
+    <span class="title">{{ selected.projectName }}</span>
+    <span class="verdict"><co-status [cell]="verdict()" [showDetail]="false" /></span>
+  </div>
+
+  <dl class="rows">
+    <div class="row">
+      <dt>Repository</dt>
+      <dd>
+        <span class="co-mono">{{ selected.repository }}</span>
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Commit</dt>
+      <dd>
+        <span class="co-mono">{{ selected.commitShortSha }}</span>
+        <button
+          type="button"
+          class="copy"
+          (click)="copyCommit()"
+          [attr.aria-label]="'Copy full commit for ' + selected.projectName"
+        >
+          <co-icon [name]="copied() ? 'check' : 'copy'" [size]="14" />
+        </button>
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Branch</dt>
+      <dd>
+        <span class="co-mono">{{ selected.branch }}</span>
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Workflow</dt>
+      <dd>
+        @let run = runLabel();
+        @if (run === null) {
+          <span class="co-unavailable">Not configured</span>
+        } @else if (selected.workflowUrl === null) {
+          <span class="co-mono">{{ run }}</span>
+        } @else {
+          <a class="link" [href]="selected.workflowUrl" target="_blank" rel="noopener noreferrer">
+            <span class="co-mono">{{ run }}</span>
+            <co-icon name="externalLink" [size]="13" />
+          </a>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Result</dt>
+      <dd><co-status [cell]="result()" [showDetail]="false" /></dd>
+    </div>
+
+    <div class="row">
+      <dt>Duration</dt>
+      <dd>
+        @let duration = selected.durationSeconds | coDuration;
+        @if (duration === null) {
+          <span class="co-unavailable">Not reported</span>
+        } @else {
+          {{ duration }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Triggered by</dt>
+      <dd>
+        @if (selected.triggeredBy === null) {
+          <span class="co-unavailable">Unknown</span>
+        } @else {
+          {{ selected.triggeredBy }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Deployed</dt>
+      <dd>
+        {{ selected.deployedAt | date: 'MMM d, HH:mm' : 'UTC' }}
+        <span class="relative"> ({{ selected.deployedAt | coRelativeTime: observedAt() }}) </span>
+      </dd>
+    </div>
+  </dl>
+
+  <section class="evidence">
+    <h3 class="co-eyebrow">Observed Running</h3>
+
+    @if (environments().length === 0) {
+      <p class="co-unavailable">
+        No environment has reported this commit, so Console Ops cannot say where it is running.
+      </p>
+    } @else {
+      @for (environment of environments(); track environment.id) {
+        <article class="environment">
+          <div class="environment-head">
+            <co-environment-tag [name]="environment.name" [kind]="environment.kind" />
+            @if (environment.isCurrent) {
+              <span class="current" title="This environment still reports this commit"
+                >Current</span
+              >
+            }
+            <span class="seen">
+              first seen {{ environment.firstObservedAt | coRelativeTime: observedAt() }}
+            </span>
+          </div>
+
+          <dl class="rows is-compact">
+            <div class="row">
+              <dt>Health before</dt>
+              <dd><co-status [cell]="environment.healthBefore" [showDetail]="false" /></dd>
+            </div>
+
+            <div class="row">
+              <dt>Health after</dt>
+              <dd><co-status [cell]="environment.healthAfter" [showDetail]="false" /></dd>
+            </div>
+
+            <div class="row">
+              <dt>Version check</dt>
+              <dd><co-status [cell]="environment.versionCheck" [showDetail]="false" /></dd>
+            </div>
+          </dl>
+        </article>
+      }
+    }
+  </section>
+
+  <div class="actions">
+    @if (selected.workflowUrl === null) {
+      <span
+        class="button is-primary is-unavailable"
+        title="No trusted workflow run link was recorded for this release"
+      >
+        <co-icon name="ciCd" [size]="14" />
+        View Workflow
+      </span>
+    } @else {
+      <a
+        class="button is-primary"
+        [href]="selected.workflowUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <co-icon name="ciCd" [size]="14" />
+        View Workflow
+      </a>
+    }
+
+    <span
+      class="button is-unavailable"
+      aria-disabled="true"
+      title="Log access arrives in a later phase"
+    >
+      <co-icon name="fileText" [size]="14" />
+      View Logs
+    </span>
+  </div>
+}

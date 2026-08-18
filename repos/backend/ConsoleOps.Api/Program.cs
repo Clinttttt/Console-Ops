@@ -1,32 +1,22 @@
-using ConsoleOps.Api.Features.Dashboard;
-using ConsoleOps.Api.Features.Projects;
-using ConsoleOps.Api.Middleware;
+using ConsoleOps.Api.Extensions;
 using ConsoleOps.Application;
 using ConsoleOps.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddProblemDetails(options =>
-{
-    options.CustomizeProblemDetails = context =>
-        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
-});
+builder.Services.AddConsoleOpsProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddConsoleOpsRateLimiter();
+builder.Services.AddScheduledCollection(builder.Configuration);
+builder.Services.AddConsoleOpsConfigurationInspection();
 
 WebApplication app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseMiddleware<ExceptionMiddleware>();
-app.UseStatusCodePages();
-app.UseHttpsRedirection();
-app.MapDashboardEndpoints();
-app.MapProjectEndpoints();
+app.EnsureSafeExposure(builder.Configuration);
+app.UseConsoleOpsPipeline();
+app.MapConsoleOpsEndpoints();
 
 app.Run();
 

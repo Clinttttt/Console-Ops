@@ -27,8 +27,19 @@ export class DashboardOverviewStore {
     this.refresh();
   }
 
+  /**
+   * Reads the overview.
+   *
+   * Only the first read shows a loading state. A scheduled re-read must not blank a screen someone is
+   * looking at, and a failed re-read keeps the last observation rather than replacing it with nothing:
+   * the previous reading is still the most recent thing Console Ops knows.
+   */
   refresh(): void {
-    this.state.set('loading');
+    const isFirstRead = this.state() !== 'loaded';
+    if (isFirstRead) {
+      this.state.set('loading');
+    }
+
     this.dataSource
       .load()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -38,8 +49,10 @@ export class DashboardOverviewStore {
           this.state.set('loaded');
         },
         error: () => {
-          this.current.set(null);
-          this.state.set('unavailable');
+          if (isFirstRead) {
+            this.current.set(null);
+            this.state.set('unavailable');
+          }
         },
       });
   }

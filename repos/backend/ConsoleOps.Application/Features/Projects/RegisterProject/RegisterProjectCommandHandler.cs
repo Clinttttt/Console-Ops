@@ -21,7 +21,10 @@ public sealed class RegisterProjectCommandHandler(
                 Enum.Parse<EnvironmentKind>(environment.Kind, true),
                 environment.ApplicationUrl,
                 environment.HealthUrl,
-                environment.VersionUrl))
+                environment.VersionUrl,
+                AzureLogSource.Create(
+                    environment.LogSource?.WorkspaceId,
+                    environment.LogSource?.ContainerAppName)))
             .ToArray();
 
         Project project = Project.Create(

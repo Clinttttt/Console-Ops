@@ -82,6 +82,10 @@ internal sealed class RegisterProjectEnvironmentValidator : AbstractValidator<Re
         ValidateOptionalUrl(environment => environment.ApplicationUrl);
         ValidateOptionalUrl(environment => environment.HealthUrl);
         ValidateOptionalUrl(environment => environment.VersionUrl);
+
+        RuleFor(environment => environment.LogSource)
+            .SetValidator(new ProjectLogSourceValidator()!)
+            .When(environment => environment.LogSource is not null);
     }
 
     private static bool IsEnvironmentKind(string kind) =>

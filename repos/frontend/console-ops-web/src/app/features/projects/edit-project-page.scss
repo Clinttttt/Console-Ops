@@ -1,0 +1,208 @@
+:host {
+  display: block;
+  flex: 1;
+  padding: 0 var(--co-space-6) var(--co-space-7);
+}
+
+.notice {
+  padding: var(--co-space-6) 0;
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.back {
+  display: inline-block;
+  margin-top: var(--co-space-3);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-blue);
+}
+
+.panel {
+  max-width: 860px;
+  padding: var(--co-space-5) var(--co-space-6);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.section {
+  padding: var(--co-space-5) 0;
+  border-bottom: 1px solid var(--co-line);
+}
+
+.section:first-child {
+  padding-top: var(--co-space-2);
+}
+
+.section:last-of-type {
+  border-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--co-space-4) var(--co-space-5);
+  padding-top: var(--co-space-4);
+}
+
+.field.is-span {
+  grid-column: 1 / -1;
+}
+
+.help {
+  margin-top: var(--co-space-2);
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.environment {
+  margin: var(--co-space-4) 0 0;
+  padding: 0 var(--co-space-4) var(--co-space-4);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.environment-legend {
+  padding: 0 var(--co-space-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.new-badge {
+  margin-left: var(--co-space-2);
+  padding: 2px 6px;
+  border-radius: var(--co-radius-sm);
+  background: var(--co-surface-sunken);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--co-ink-muted);
+}
+
+.environment-head {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--co-space-2);
+}
+
+.remove {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+}
+
+.remove:hover:not(:disabled) {
+  color: var(--co-status-down);
+}
+
+.remove:disabled {
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}
+
+.add-environment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin-top: var(--co-space-4);
+  padding: 7px var(--co-space-4);
+  border: 1px dashed var(--co-line-strong);
+  border-radius: var(--co-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-ink);
+}
+
+.add-environment:hover {
+  background: var(--co-surface-sunken);
+}
+
+.submission-error {
+  margin-top: var(--co-space-4);
+  padding: var(--co-space-3) var(--co-space-4);
+  border: 1px solid rgba(198, 48, 48, 0.28);
+  border-radius: var(--co-radius-md);
+  background: rgba(198, 48, 48, 0.06);
+  font-size: 12px;
+  color: var(--co-status-down);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--co-space-3);
+  padding-top: var(--co-space-5);
+  border-top: 1px solid var(--co-line);
+}
+
+.primary {
+  padding: 10px var(--co-space-5);
+  border-radius: var(--co-radius-md);
+  background: var(--co-navy);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cancel,
+.cancel-archive {
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.cancel:hover,
+.cancel-archive:hover {
+  color: var(--co-ink);
+}
+
+/* Archiving is deliberate: it takes a second, explicit step that names the project. */
+.danger-zone {
+  margin-left: auto;
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--co-space-3);
+}
+
+.confirm-text {
+  max-width: 420px;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.danger {
+  padding: 8px var(--co-space-4);
+  border: 1px solid rgba(198, 48, 48, 0.4);
+  border-radius: var(--co-radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--co-status-down);
+  white-space: nowrap;
+}
+
+.danger:hover:not(:disabled) {
+  background: rgba(198, 48, 48, 0.06);
+}
+
+.danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -11,37 +11,62 @@
   display: flex;
   align-items: center;
   gap: var(--co-space-3);
-  padding: 0 var(--co-space-2) var(--co-space-5);
+  min-height: 52px;
+  padding: 0 var(--co-space-2) var(--co-space-4);
 }
 
 .mark {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--co-navy);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  flex: 0 0 64px;
+  width: 64px;
+  height: 52px;
+  overflow: hidden;
+}
+
+.mark-image {
+  display: block;
+  width: 76px;
+  max-width: none;
+  height: 76px;
+  object-fit: contain;
+}
+
+.brand.is-collapsed {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.brand.is-collapsed .mark {
+  flex-basis: 32px;
+  width: 32px;
+  height: 32px;
+}
+
+.brand.is-collapsed .mark-image {
+  width: 48px;
+  height: 48px;
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .brand-name {
   font-family: var(--co-font-display);
-  font-size: 17px;
-  line-height: 1.2;
+  font-size: 18px;
+  line-height: 1.15;
   color: var(--co-ink-strong);
 }
 
 .brand-tagline {
-  font-size: 10px;
+  margin-top: 2px;
+  font-size: 9.5px;
+  line-height: 1.25;
   color: var(--co-ink-muted);
+  white-space: nowrap;
 }
 
 .nav ul {

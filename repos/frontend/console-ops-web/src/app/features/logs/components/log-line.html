@@ -1,0 +1,24 @@
+@let entry = event();
+
+<button
+  type="button"
+  class="line"
+  [class.is-selected]="isSelected()"
+  [attr.aria-expanded]="isSelected()"
+  (click)="selectEvent.emit(entry.id)"
+>
+  <span class="co-dot" [attr.data-level]="dotLevel()" aria-hidden="true"></span>
+  <time class="time co-mono" [attr.datetime]="entry.occurredAt">
+    {{ entry.occurredAt | date: 'HH:mm:ss.SSS' : 'UTC' }}
+  </time>
+  <span class="level">{{ levelLabel() }}</span>
+  @if (sourceLabel() === null) {
+    <span class="source co-unavailable">&mdash;</span>
+  } @else {
+    <span class="source" [title]="entry.source">{{ sourceLabel() }}</span>
+  }
+  <span class="message" [title]="entry.message">{{ displayMessage() }}</span>
+  @if (trailing() !== null) {
+    <span class="outcome">{{ trailing() }}</span>
+  }
+</button>

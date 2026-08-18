@@ -1,0 +1,91 @@
+@if (environments().length === 0) {
+  <div class="empty">
+    <p class="co-unavailable">No environments match this view.</p>
+    <button type="button" class="reset" (click)="clearFilters.emit()">Clear filters</button>
+  </div>
+} @else {
+  @for (group of groups(); track group.kind) {
+    <section class="group">
+      <h2 class="group-head">
+        <span class="co-dot" [attr.data-level]="group.level"></span>
+        <span class="group-label">{{ group.label }}</span>
+        <span class="group-count">
+          {{ group.environments.length }}
+          {{ group.environments.length === 1 ? 'environment' : 'environments' }}
+        </span>
+      </h2>
+
+      <ul class="cards">
+        @for (environment of group.environments; track environment.id) {
+          <li>
+            <article
+              class="card"
+              tabindex="0"
+              [class.is-selected]="environment.id === selectedId()"
+              [attr.aria-selected]="environment.id === selectedId()"
+              (click)="selectEnvironment.emit(environment.id)"
+              (keydown.enter)="selectEnvironment.emit(environment.id)"
+              (keydown.space)="selectEnvironment.emit(environment.id); $event.preventDefault()"
+            >
+              <div class="identity">
+                <co-project-mark
+                  [name]="environment.projectName"
+                  [tone]="toneFor(environment.projectId)"
+                  [size]="30"
+                />
+                <span class="project-name">{{ environment.projectName }}</span>
+              </div>
+
+              <div class="environment">
+                <co-environment-tag [name]="environment.name" [kind]="environment.kind" />
+              </div>
+
+              <div class="url">
+                @if (environment.applicationUrl === null) {
+                  <span class="co-unavailable">No application URL</span>
+                } @else {
+                  <span class="url-value">{{ environment.applicationUrl }}</span>
+                }
+              </div>
+
+              <div class="checks">
+                @if (environment.observed === null) {
+                  <span class="co-unavailable not-observed">Not observed yet</span>
+                } @else {
+                  <co-status [cell]="environment.observed.health" [showDetail]="false" />
+                  <co-status [cell]="versionSyncCell(environment)" [showDetail]="false" />
+                }
+              </div>
+
+              <div class="actions">
+                @if (environment.applicationUrl === null) {
+                  <span class="icon-action is-unavailable" title="No application URL is configured">
+                    <co-icon name="externalLink" [size]="15" />
+                  </span>
+                } @else {
+                  <a
+                    class="icon-action"
+                    [href]="environment.applicationUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    (click)="$event.stopPropagation()"
+                    [attr.aria-label]="'Open ' + environment.projectName + ' ' + environment.name"
+                  >
+                    <co-icon name="externalLink" [size]="15" />
+                  </a>
+                }
+              </div>
+            </article>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  <footer class="list-footer">
+    <p class="count">
+      Showing {{ environments().length }} of {{ totalCount() }}
+      {{ totalCount() === 1 ? 'environment' : 'environments' }}
+    </p>
+  </footer>
+}

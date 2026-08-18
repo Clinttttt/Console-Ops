@@ -1,0 +1,55 @@
+<div class="search">
+  <co-icon name="search" [size]="15" />
+  <label class="co-sr-only" for="co-environment-search">Search environments or projects</label>
+  <input
+    id="co-environment-search"
+    type="search"
+    placeholder="Search environments or projects..."
+    [value]="query()"
+    (input)="queryChange.emit($any($event.target).value)"
+  />
+</div>
+
+<div class="views" role="group" aria-label="Environment kinds">
+  @for (view of views; track view.label) {
+    <button
+      type="button"
+      class="view"
+      [class.is-active]="view.value === activeScope()"
+      [attr.aria-pressed]="view.value === activeScope()"
+      (click)="selectKind(view.value)"
+    >
+      @if (view.value !== null) {
+        <span class="co-dot" [attr.data-level]="view.level"></span>
+      }
+      {{ view.label }}
+    </button>
+  }
+</div>
+
+<div class="trailing">
+  <div class="select">
+    <label class="co-sr-only" for="co-environment-project">Project</label>
+    <select
+      id="co-environment-project"
+      [value]="projectId() ?? ''"
+      (change)="onProjectSelect($any($event.target).value)"
+    >
+      <option value="">All Projects</option>
+      @for (project of projects(); track project.id) {
+        <option [value]="project.id">{{ project.name }}</option>
+      }
+    </select>
+    <co-icon name="chevronDown" [size]="15" />
+  </div>
+
+  <button
+    type="button"
+    class="add"
+    disabled
+    title="An environment is added by editing its project, which arrives with project editing"
+  >
+    <co-icon name="plus" [size]="15" [strokeWidth]="2" />
+    Add Environment
+  </button>
+</div>

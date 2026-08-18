@@ -1,0 +1,110 @@
+<!-- Discovery is asked for deliberately: closed, this component never calls Azure. -->
+<button type="button" class="trigger" [attr.aria-expanded]="open()" (click)="toggle()">
+  <co-icon name="azure" [size]="15" />
+  {{ open() ? 'Hide Azure applications' : 'Find in Azure' }}
+</button>
+
+@if (open()) {
+  <div class="panel">
+    <div class="search">
+      <co-icon name="search" [size]="15" />
+      <label class="co-sr-only" for="azure-log-source-search">Search Azure applications</label>
+      <input
+        id="azure-log-source-search"
+        type="search"
+        placeholder="Search by name or resource group..."
+        [value]="query()"
+        (input)="setQuery($any($event.target).value)"
+      />
+    </div>
+
+    @if (isLoading()) {
+      <p class="state">
+        <span class="co-spinner" aria-hidden="true"></span>
+        Reading your Azure resources...
+      </p>
+    } @else if (failed()) {
+      <div class="state">
+        @switch (failureReason()) {
+          @case ('credential') {
+            <p>
+              Azure rejected the identity Console Ops is using. Sign in with
+              <span class="co-mono">az login</span>, or configure a service principal with read
+              access.
+            </p>
+          }
+          @case ('rateLimited') {
+            <p>Azure rate limited the request. Try again shortly.</p>
+          }
+          @case ('apiUnavailable') {
+            <p>The Console Ops API is unavailable, so Azure could not be asked.</p>
+          }
+          @default {
+            <p>Azure could not be read. The fields above still accept values typed by hand.</p>
+          }
+        }
+        <button type="button" class="retry" (click)="retry()">Try again</button>
+      </div>
+    } @else {
+      @let result = page();
+      @if (result === null || result.sources.length === 0) {
+        <p class="state co-unavailable">No applications are visible to this Azure identity.</p>
+      } @else {
+        <!--
+          Grouped by service, because "why is my App Service not here?" is a question this panel has to
+          answer. A resource Console Ops cannot read is listed with the reason and cannot be chosen.
+        -->
+        @for (group of groups(); track group.platform) {
+          <p class="group-head">{{ group.label }}</p>
+          <ul class="apps">
+            @for (app of group.sources; track app.name + app.resourceGroup) {
+              <li>
+                @switch (app.status) {
+                  @case ('readable') {
+                    <button type="button" class="app" (click)="select(app)">
+                      <span class="app-name co-mono">{{ app.name }}</span>
+                      <span class="app-meta">
+                        {{ app.resourceGroup }}
+                        @if (app.environmentName !== null) {
+                          <span class="co-meta-dot" aria-hidden="true"></span>
+                          {{ app.environmentName }}
+                        }
+                      </span>
+                      <span class="app-note">Use</span>
+                    </button>
+                  }
+                  @case ('noWorkspace') {
+                    <span
+                      class="app is-unavailable"
+                      title="Nothing sends this application's logs to a Log Analytics workspace"
+                    >
+                      <span class="app-name co-mono">{{ app.name }}</span>
+                      <span class="app-meta">{{ app.resourceGroup }}</span>
+                      <span class="app-note co-unavailable">No log workspace</span>
+                    </span>
+                  }
+                  @default {
+                    <span
+                      class="app is-unavailable"
+                      title="Console Ops has no reader for this Azure service yet"
+                    >
+                      <span class="app-name co-mono">{{ app.name }}</span>
+                      <span class="app-meta">{{ app.resourceGroup }}</span>
+                      <span class="app-note co-unavailable">Not supported yet</span>
+                    </span>
+                  }
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (result.hasMore) {
+          <p class="state co-unavailable">
+            More applications exist than are listed. Search to narrow the list.
+          </p>
+        }
+      }
+    }
+  </div>
+}

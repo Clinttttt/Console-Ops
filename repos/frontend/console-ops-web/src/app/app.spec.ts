@@ -28,19 +28,31 @@ describe('App shell', () => {
 
   it('uses Console Ops branding', async () => {
     const host = await render();
+    const logo = host.querySelector<HTMLImageElement>('.mark-image');
 
     expect(host.textContent).toContain('Console Ops');
     expect(host.textContent).not.toContain('DevDeck');
+    expect(logo?.getAttribute('src')).toBe('/console-ops-logo.png');
+    expect(logo?.getAttribute('alt')).toBe('');
   });
 
-  it('exposes only the Overview destination as navigable', async () => {
+  it('exposes every destination as navigable now that Health is built', async () => {
     const host = await render();
     const navigable = Array.from(host.querySelectorAll('a.nav-item')).map((item) =>
       item.textContent?.trim(),
     );
 
-    expect(navigable).toEqual(['Overview']);
-    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(6);
+    expect(navigable).toEqual([
+      'Overview',
+      'Projects',
+      'Deployments',
+      'Health',
+      'Logs',
+      'Environments',
+      'Settings',
+    ]);
+    // Nothing is a dead end any more: an unrouted nav item names a destination that does not exist.
+    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(0);
   });
 
   it('shows partial visibility without inventing uptime history', async () => {
@@ -49,5 +61,43 @@ describe('App shell', () => {
     expect(host.textContent).toContain('Partial visibility');
     expect(host.textContent).toContain('Not recorded yet');
     expect(host.textContent).not.toContain('All Systems Operational');
+  });
+
+  it('reports observed availability with what it was measured from', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        {
+          provide: DashboardOverviewDataSource,
+          useValue: {
+            load: () =>
+              of({
+                ...DASHBOARD_OVERVIEW_FIXTURE,
+                summary: {
+                  ...DASHBOARD_OVERVIEW_FIXTURE.summary,
+                  uptime: {
+                    windowHours: 24,
+                    since: '2026-08-15T09:00:00Z',
+                    percentage: 99.7,
+                    checks: 288,
+                    samples: [100, 95.5, 100],
+                  },
+                },
+              }),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const host = await render();
+
+    expect(host.textContent).toContain('99.7%');
+    // The figure names its own basis, because sampled availability is not a guarantee.
+    expect(host.textContent).toContain('last 24h');
+    expect(host.textContent).toContain('288 checks');
+    expect(host.textContent).not.toContain('Not recorded yet');
+    expect(host.querySelector('co-sparkline')).not.toBeNull();
   });
 });

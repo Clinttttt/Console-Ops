@@ -174,6 +174,94 @@ namespace ConsoleOps.Infrastructure.Persistence.Migrations
                     b.ToTable("project_environments", (string)null);
                 });
 
+            modelBuilder.Entity("ConsoleOps.Infrastructure.Persistence.Deployments.DeploymentEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Branch")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("branch");
+
+                    b.Property<string>("CommitSha")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("commit_sha");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<long>("ExternalRunId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("external_run_id");
+
+                    b.Property<DateTimeOffset>("ObservedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at_utc");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("result");
+
+                    b.Property<int?>("RunNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("run_number");
+
+                    b.Property<string>("RunUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("run_url");
+
+                    b.Property<DateTimeOffset?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<string>("TriggeredBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("triggered_by");
+
+                    b.Property<string>("WorkflowFile")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("workflow_file");
+
+                    b.Property<string>("WorkflowName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("workflow_name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_deployments");
+
+                    b.HasIndex("StartedAtUtc")
+                        .HasDatabaseName("ix_deployments_started_at");
+
+                    b.HasIndex("ProjectId", "CommitSha")
+                        .HasDatabaseName("ix_deployments_project_commit_sha");
+
+                    b.HasIndex("ProjectId", "ExternalRunId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_deployments_project_external_run_id");
+
+                    b.ToTable("deployments", (string)null);
+                });
+
             modelBuilder.Entity("ConsoleOps.Infrastructure.Persistence.Monitoring.DependencyHealthObservationEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -534,6 +622,41 @@ namespace ConsoleOps.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_project_environments_projects_project_id");
+
+                    b.OwnsOne("ConsoleOps.Domain.Projects.AzureLogSource", "LogSource", b1 =>
+                        {
+                            b1.Property<Guid>("ProjectEnvironmentId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("ContainerAppName")
+                                .IsRequired()
+                                .HasMaxLength(32)
+                                .HasColumnType("character varying(32)")
+                                .HasColumnName("azure_log_container_app_name");
+
+                            b1.Property<Guid>("WorkspaceId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("azure_log_workspace_id");
+
+                            b1.HasKey("ProjectEnvironmentId");
+
+                            b1.ToTable("project_environments");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ProjectEnvironmentId");
+                        });
+
+                    b.Navigation("LogSource");
+                });
+
+            modelBuilder.Entity("ConsoleOps.Infrastructure.Persistence.Deployments.DeploymentEntity", b =>
+                {
+                    b.HasOne("ConsoleOps.Domain.Projects.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_deployments_projects_project_id");
                 });
 
             modelBuilder.Entity("ConsoleOps.Infrastructure.Persistence.Monitoring.DependencyHealthObservationEntity", b =>

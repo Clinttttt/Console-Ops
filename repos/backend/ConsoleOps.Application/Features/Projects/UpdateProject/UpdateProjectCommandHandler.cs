@@ -42,7 +42,10 @@ public sealed class UpdateProjectCommandHandler(
                 Enum.Parse<EnvironmentKind>(environment.Kind, true),
                 environment.ApplicationUrl,
                 environment.HealthUrl,
-                environment.VersionUrl))
+                environment.VersionUrl,
+                AzureLogSource.Create(
+                    environment.LogSource?.WorkspaceId,
+                    environment.LogSource?.ContainerAppName)))
             .ToArray();
 
         project.UpdateConfiguration(

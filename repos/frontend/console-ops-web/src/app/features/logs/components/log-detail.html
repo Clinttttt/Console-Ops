@@ -1,0 +1,149 @@
+<header class="section-head">
+  <h2 class="co-eyebrow">Event Detail</h2>
+  @if (event() !== null) {
+    <button type="button" class="dismiss" (click)="dismiss.emit()" aria-label="Close event detail">
+      <co-icon name="close" [size]="15" />
+    </button>
+  }
+</header>
+
+@let selected = event();
+@if (selected === null) {
+  <p class="co-unavailable empty">Select an event to inspect it.</p>
+} @else {
+  <div class="identity">
+    <span class="level" [attr.data-level]="levelTone()">{{ levelLabel() }}</span>
+    @if (selected.source !== null) {
+      <span class="source" [title]="selected.source">{{ shortSource() }}</span>
+    }
+    <button type="button" class="copy" (click)="copyMessage()" aria-label="Copy this event's text">
+      <co-icon [name]="copied() ? 'check' : 'copy'" [size]="14" />
+    </button>
+  </div>
+
+  <p class="message">{{ selected.message }}</p>
+
+  <dl class="rows">
+    <div class="row">
+      <dt>Timestamp</dt>
+      <dd>
+        <span class="co-mono">
+          {{ selected.occurredAt | date: 'MMM d, HH:mm:ss.SSS' : 'UTC' }}
+        </span>
+        UTC
+      </dd>
+    </div>
+
+    @let scopeValue = scope();
+    @if (scopeValue !== null) {
+      <div class="row">
+        <dt>Environment</dt>
+        <dd>
+          <co-environment-tag
+            [name]="scopeValue.environment.name"
+            [kind]="scopeValue.environment.kind"
+          />
+        </dd>
+      </div>
+    }
+
+    <div class="row">
+      <dt>Severity</dt>
+      <dd>
+        {{ levelLabel() }}
+        <!-- Console output has no severity column, so a parsed level says so rather than posing as declared. -->
+        @if (selected.levelIsDerived) {
+          <span class="co-unavailable">read from the line</span>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Source</dt>
+      <dd>
+        @if (selected.source === null) {
+          <span class="co-unavailable">No category in the line</span>
+        } @else {
+          {{ selected.source }}
+        }
+        @if (sourceKindLabel() !== null) {
+          <span class="co-meta-dot" aria-hidden="true"></span>
+          {{ sourceKindLabel() }}
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Stream</dt>
+      <dd>
+        @if (selected.stream === 'unknown') {
+          <span class="co-unavailable">Not reported</span>
+        } @else {
+          <span class="co-mono">{{ selected.stream }}</span>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Revision</dt>
+      <dd>
+        @if (selected.revision === null) {
+          <span class="co-unavailable">Not reported</span>
+        } @else {
+          <span class="co-mono id">{{ selected.revision }}</span>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Replica</dt>
+      <dd>
+        @if (selected.host === null) {
+          <span class="co-unavailable">Unknown</span>
+        } @else {
+          <span class="co-mono host">{{ selected.host }}</span>
+        }
+      </dd>
+    </div>
+
+    <div class="row">
+      <dt>Ingested</dt>
+      <dd>
+        @let delay = ingestionDelay();
+        @if (delay === null) {
+          <span class="co-unavailable">Not reported</span>
+        } @else {
+          {{ delay }} after it was written
+        }
+      </dd>
+    </div>
+  </dl>
+
+  @if (selected.stackTrace !== null) {
+    <section class="block">
+      <h3 class="co-eyebrow">Continuation</h3>
+      <p class="co-unavailable template">
+        The lines that followed this one, folded in so the stream stays readable.
+      </p>
+      <button
+        type="button"
+        class="trace-toggle"
+        [attr.aria-expanded]="stackTraceOpen()"
+        (click)="toggleStackTrace()"
+      >
+        {{ stackTraceOpen() ? 'Hide detail' : 'View detail' }}
+      </button>
+      @if (stackTraceOpen()) {
+        <pre class="stack-trace co-mono">{{ selected.stackTrace }}</pre>
+      }
+    </section>
+  }
+
+  <section class="block">
+    <h3 class="co-eyebrow">Correlation</h3>
+    <!-- Console lines carry no trace or request id. Saying so beats an empty field that looks broken. -->
+    <p class="co-unavailable">
+      Console output carries no trace or request id. Structured telemetry would add them.
+    </p>
+  </section>
+}

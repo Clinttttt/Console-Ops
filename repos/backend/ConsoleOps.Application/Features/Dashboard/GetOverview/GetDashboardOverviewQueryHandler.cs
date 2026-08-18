@@ -10,26 +10,69 @@ public sealed class GetDashboardOverviewQueryHandler(
     TimeProvider timeProvider)
     : IRequestHandler<GetDashboardOverviewQuery, DashboardOverviewResponse>
 {
+    /// <summary>
+    /// Availability window. Long enough to be meaningful, short enough that the figure describes the
+    /// system as it is now rather than as it was last week.
+    /// </summary>
+    internal const int UptimeWindowHours = 24;
+
     public async Task<DashboardOverviewResponse> Handle(
         GetDashboardOverviewQuery request,
         CancellationToken cancellationToken)
     {
-        DashboardOverviewData data = await readStore.ReadAsync(cancellationToken);
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        DateTimeOffset availabilitySince = now.AddHours(-UptimeWindowHours);
+        DashboardOverviewData data = await readStore.ReadAsync(availabilitySince, cancellationToken);
         SurfaceProjection[] surfaces = data.Surfaces
             .Select(CreateSurface)
             .ToArray();
         OperationalSummaryLevel summaryLevel = OperationalSummary.Calculate(
             surfaces.Select(surface => surface.Assessment).ToArray());
-        DashboardSystemSummaryResponse summary = CreateSummary(summaryLevel);
+        DashboardSystemSummaryResponse summary = CreateSummary(
+            summaryLevel,
+            CreateUptime(data.Availability, availabilitySince));
 
         return new DashboardOverviewResponse(
-            timeProvider.GetUtcNow(),
+            now,
             CreatePipeline(surfaces, summaryLevel),
             surfaces.Select(surface => surface.Response).ToArray(),
             CreateSystemState(surfaces),
             data.Activities.Select(CreateActivity).ToArray(),
             summary);
     }
+
+    /// <summary>
+    /// Availability across every monitored environment, from the health checks already recorded. The
+    /// domain decides whether there is enough evidence to report anything.
+    /// </summary>
+    private static DashboardUptimeWindowResponse? CreateUptime(
+        IReadOnlyList<DashboardAvailabilityData> availability,
+        DateTimeOffset sinceUtc)
+    {
+        UptimeReading? reading = Uptime.Calculate(
+            availability
+                .Select(point => new UptimeSample(ToCondition(point.State), point.ObservedAtUtc))
+                .ToArray(),
+            sinceUtc);
+
+        return reading is null
+            ? null
+            : new DashboardUptimeWindowResponse(
+                UptimeWindowHours,
+                reading.SinceUtc,
+                reading.Percentage,
+                reading.Checks,
+                reading.HourlySamples);
+    }
+
+    private static MonitoringCondition ToCondition(ApplicationHealthState state) => state switch
+    {
+        ApplicationHealthState.Healthy or ApplicationHealthState.Degraded =>
+            MonitoringCondition.Acceptable,
+        ApplicationHealthState.Unhealthy or ApplicationHealthState.Unreachable =>
+            MonitoringCondition.Failure,
+        _ => MonitoringCondition.Indeterminate
+    };
 
     private static SurfaceProjection CreateSurface(DashboardSurfaceData surface)
     {
@@ -314,7 +357,9 @@ public sealed class GetDashboardOverviewQueryHandler(
             activity.OccurredAtUtc);
     }
 
-    private static DashboardSystemSummaryResponse CreateSummary(OperationalSummaryLevel level) => new(
+    private static DashboardSystemSummaryResponse CreateSummary(
+        OperationalSummaryLevel level,
+        DashboardUptimeWindowResponse? uptime) => new(
         ToCamelCase(level),
         level switch
         {
@@ -324,7 +369,7 @@ public sealed class GetDashboardOverviewQueryHandler(
             OperationalSummaryLevel.Down => "Systems Down",
             _ => "System State Unknown"
         },
-        null);
+        uptime);
 
     private static DashboardStatusCellResponse CreateSummaryCell(OperationalSummaryLevel level) => level switch
     {

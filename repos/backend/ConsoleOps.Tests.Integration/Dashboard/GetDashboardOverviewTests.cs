@@ -194,6 +194,7 @@ public sealed class GetDashboardOverviewTests(ConsoleOpsApiFactory factory)
                     ObservedAtUtc.AddMinutes(-3),
                     ObservedAtUtc.AddMinutes(-1),
                     ObservedAtUtc)),
+                [],
                 []));
         }
     }

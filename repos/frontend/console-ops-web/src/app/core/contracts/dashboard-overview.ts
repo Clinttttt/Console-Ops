@@ -147,16 +147,30 @@ export interface ActivityEntry {
   readonly occurredAt: string;
 }
 
+/**
+ * Availability observed by Console Ops over a window, or `null` when too few checks exist for a figure
+ * to mean anything. This is availability as sampled by the collector, not a provider's uptime guarantee.
+ */
 export interface UptimeWindow {
-  readonly label: string;
-  /** Recent availability samples, oldest first. Empty when no history exists. */
+  /** Window length in hours. The UI decides the wording. */
+  readonly windowHours: number;
+  /** ISO-8601 UTC start of the window. */
+  readonly since: string;
+  /** Share of measured checks that were acceptable, to one decimal. */
+  readonly percentage: number;
+  /** Measured checks behind the figure, so the screen can say what it rests on. */
+  readonly checks: number;
+  /**
+   * Availability per hour, oldest first, for hours that contain checks. Hours with no check are absent
+   * rather than reported as zero.
+   */
   readonly samples: readonly number[];
 }
 
 export interface SystemSummary {
   readonly level: StatusLevel;
   readonly label: string;
-  /** `null` until health history supports the selected window and calculation. */
+  /** `null` until enough health checks have been recorded to support a figure. */
   readonly uptime: UptimeWindow | null;
 }
 
