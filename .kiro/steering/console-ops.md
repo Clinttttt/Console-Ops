@@ -61,8 +61,21 @@ Remaining work, blockers, and what must not be built yet are tracked in `docs/Co
 V1 is read-only: register/edit/archive projects, GitHub source + workflow state, health and version
 probes, deterministic version sync, dashboard query, transition-based activity, release history
 recorded from GitHub Actions workflow runs, observed availability computed from recorded health checks,
-and scheduled collection of all of the above. Deployment triggering, restart, rollback, Docker agents,
-and log ingestion are later phases — do not build them early.
+scheduled collection of all of the above, provider-backed application logs, and a configuration status
+report. Deployment triggering, restart, rollback, Docker agents, and log ingestion are later phases —
+do not build them early.
+
+Logs are **pulled** during the request, the one pass-through provider read in Console Ops: Azure
+Container Apps console output through Log Analytics, bounded by window, row cap and timeout. Never build
+an `ILoggerProvider`, an ingestion key, or an inbound collector. Framework chatter is excluded by
+default at information and below, never a warning or worse, and the count left out is always stated.
+An environment on a platform with no reader is reported as unsupported, never offered as a source.
+
+Settings describes **Console Ops itself** — integrations, collection, build — and never repeats project,
+environment, deployment or health facts, which have their own screens. Configuration is reported by key
+name only: no code path may read a value into a response. `Configured` and `Verified` are different
+claims, and only a provider answering earns the second. Nothing on that screen is editable while nothing
+there can be persisted at runtime.
 
 Collection is server side and scheduled (`Monitoring:Refresh`), sending the same command as the manual
 refresh endpoint so the two can never record different facts. The browser only re-reads stored data; it

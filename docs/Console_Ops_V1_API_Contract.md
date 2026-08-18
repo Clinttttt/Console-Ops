@@ -177,7 +177,31 @@ capabilities[]
     |-- succeeded
     `-- failure       operator wording, never a credential
 probed                whether credentials were tested
+about
+|-- version           assembly version of the running build
+|-- build             source revision, or null when the build recorded none
+|-- runtime           framework description
+`-- databaseSchema    upToDate | pendingMigrations | unknown
+collection
+|-- isEnabled         whether scheduled collection runs at all
+|-- intervalSeconds
+|-- lastSweepAt       null when none has run since start-up
+|-- lastSweepSucceeded
+|-- lastSweepMilliseconds
+|-- projectsRefreshed
+|-- projectsFailed
+`-- nextSweepAt       null when collection is off or nothing has run yet
 ```
+
+A sweep can also be asked for:
+
+```text
+POST /api/settings/collection/sweeps
+```
+
+It runs the same sweep the scheduled worker runs and reports how it went: `completedAt`, `succeeded`,
+`durationMilliseconds`, `projectsRefreshed`, `projectsFailed`. It contacts every configured provider, so it is
+a command rather than a read, and it is rate limited to 5 a minute.
 
 Rules:
 
@@ -195,6 +219,14 @@ Rules:
 - **A failed check is not a failed request.** One unreachable provider is reported as a failed connection and
   must not hide the state of the others; a probe that throws reports a check that could not be completed.
 - **Absent is not failure.** `connection: null` means no check ran, and the UI must not render it as a problem.
+- **Sweeps are remembered for one process.** A sweep describes Console Ops, not a project, so it is not written
+  to the observation tables. After a restart `lastSweepAt` is null and the screen says none has run since
+  start-up rather than filling one in.
+- **`nextSweepAt` is derived from the last sweep's start**, because the schedule's timer runs from there. It is
+  an expectation, shown as approximate, and null when collection is off - which is a configuration, not a fault.
+- **`about` is read from the running process**, never configured: version and revision from the assembly,
+  runtime from the framework description, schema from the pending-migration list. A database that could not be
+  asked reports `unknown`, which is not the same as `upToDate`.
 
 ## Transport rules
 - Use ISO-8601 UTC strings for instants and `DateTimeOffset` in .NET.
