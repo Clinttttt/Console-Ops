@@ -395,6 +395,21 @@ hand, reads the maximum window rather than widening the provider query.
 Azure's own log streaming or server-sent events are considered only if polling proves too slow in
 practice. No SignalR without a requirement.
 
+## Correction: a credential failure was escaping as a fault
+
+Reading logs threw `CredentialUnavailableException` out of the adapter and reached the operator as an unhandled
+500. The adapter mapped `RequestFailedException` - the provider refusing a query - but not the case where no
+token was ever obtained, which is Console Ops being unable to ask. It now reports `Logs.Unauthorized`, which the
+screen already words correctly. Pinned by `AzureMonitorLogReaderTests`.
+
+The cause was the ambient credential chain. `DefaultAzureCredential` tries the Visual Studio token service,
+which fails loudly when the signed-in account belongs to a different tenant than the subscription - a personal
+`live.com` account here - and that failure ended the chain before the Azure CLI session was tried. The chain is
+now bounded to the identities a service actually runs as: environment variables, a workload or managed identity,
+and the operator's Azure CLI or Azure PowerShell session. The Visual Studio and Visual Studio Code sources are
+excluded deliberately. Measured after the change: a log read returns in 3.8s, where the first call previously
+spent roughly five seconds probing credentials before failing.
+
 ## Discovery beyond Container Apps - built, and what it found
 
 Discovery now lists every Azure service Console Ops can **name**, not only the ones it can **read**. One

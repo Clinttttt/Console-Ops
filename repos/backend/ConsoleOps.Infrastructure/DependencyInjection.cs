@@ -98,17 +98,38 @@ public static class DependencyInjection
         });
     }
 
+    /// <summary>
+    /// The identity Console Ops reads Azure with: a service principal when all three keys are configured,
+    /// otherwise the ambient identity of the machine it runs on.
+    /// </summary>
+    /// <remarks>
+    /// The ambient chain is bounded rather than left at its defaults. Two sources are excluded deliberately:
+    /// the Visual Studio token service, which reports a failure loudly when the signed-in account belongs to a
+    /// different tenant than the subscription - observed here as an unhandled credential error on a log read -
+    /// and the Visual Studio Code source, which is deprecated. What remains are the identities a service
+    /// actually runs as: environment variables, a workload or managed identity, and the Azure CLI or Azure
+    /// PowerShell session of the operator running it. Excluding sources that cannot apply also shortens the
+    /// first call, which was measured at roughly five seconds of credential probing.
+    /// </remarks>
     private static TokenCredential ResolveAzureCredential(IConfiguration configuration)
     {
         string? tenantId = configuration["Azure:TenantId"];
         string? clientId = configuration["Azure:ClientId"];
         string? clientSecret = configuration["Azure:ClientSecret"];
 
-        return string.IsNullOrWhiteSpace(tenantId)
-            || string.IsNullOrWhiteSpace(clientId)
-            || string.IsNullOrWhiteSpace(clientSecret)
-            ? new DefaultAzureCredential()
-            : new ClientSecretCredential(tenantId.Trim(), clientId.Trim(), clientSecret.Trim());
+        if (!string.IsNullOrWhiteSpace(tenantId)
+            && !string.IsNullOrWhiteSpace(clientId)
+            && !string.IsNullOrWhiteSpace(clientSecret))
+        {
+            return new ClientSecretCredential(tenantId.Trim(), clientId.Trim(), clientSecret.Trim());
+        }
+
+        return new DefaultAzureCredential(new DefaultAzureCredentialOptions
+        {
+            ExcludeVisualStudioCredential = true,
+            ExcludeVisualStudioCodeCredential = true,
+            ExcludeInteractiveBrowserCredential = true,
+        });
     }
 
     /// <summary>

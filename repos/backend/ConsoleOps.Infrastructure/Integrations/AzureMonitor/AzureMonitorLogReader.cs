@@ -1,5 +1,6 @@
 using Azure;
 using Azure.Core;
+using Azure.Identity;
 using Azure.Monitor.Query;
 using Azure.Monitor.Query.Models;
 using ConsoleOps.Application.Integrations.AzureMonitor;
@@ -110,6 +111,16 @@ internal sealed class AzureMonitorLogReader(
         catch (RequestFailedException failure)
         {
             return ApplicationLogReadResult.Failed(MapFailure(failure), timeProvider.GetUtcNow());
+        }
+        catch (AuthenticationFailedException)
+        {
+            // The identity could not be established at all: no token was ever sent, so this is not the
+            // provider refusing the query but Console Ops being unable to ask. It is reported as unauthorized
+            // rather than escaping as a fault, because a screen must never render "could not authenticate" as
+            // an empty window.
+            return ApplicationLogReadResult.Failed(
+                ApplicationLogReadFailure.Unauthorized,
+                timeProvider.GetUtcNow());
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {

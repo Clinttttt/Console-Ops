@@ -1,5 +1,10 @@
 :host {
   display: block;
+  /*
+   * The picker follows the two fields it fills, so it owns the gap to them. Sitting flush under an input read
+   * as part of it rather than as a separate control.
+   */
+  margin-top: var(--co-space-3);
 }
 
 /* The picker owns its own trigger, so no screen has to restate this control. */
