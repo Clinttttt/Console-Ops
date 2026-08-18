@@ -226,8 +226,8 @@ public sealed class RefreshProjectCommandHandler(
         ICollection<ActivityWriteModel> activities)
     {
         MonitoringActivityType? healthActivity = MonitoringTransitions.DetectHealth(
-            baseline?.HealthState is null ? null : ToCondition(baseline.HealthState.Value),
-            ToCondition(current.Health.State));
+            baseline?.HealthState is null ? null : HealthConditions.From(baseline.HealthState.Value),
+            HealthConditions.From(current.Health.State));
         if (healthActivity is not null)
         {
             activities.Add(new ActivityWriteModel(

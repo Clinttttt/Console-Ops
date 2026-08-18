@@ -31,12 +31,7 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 ## Next
 
-1. **Health screen: make the mock real.** Built 2026-08-18 as a labelled design mock. Nothing it needs has to
-   be collected first: per-environment health, dependencies from the health payload, transitions, and the
-   availability window are all recorded already, so this is a read slice and the highest-value work that waits
-   on nobody. Needs a health query returning the summary, each environment with its checks and 24-hour window,
-   and recent transitions; then the mock adapter is deleted rather than kept as a fallback.
-2. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
+1. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
    not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in
@@ -47,15 +42,15 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    add a diagnostic setting on the site sending `AppServiceConsoleLogs`. Console Ops has read-only Azure
    access by rule and cannot do it. Once rows exist, the reader is a platform discriminator on the log source,
    a reader chosen by that platform, and a KQL query verified against those rows.
-3. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
+2. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
-4. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+3. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
    The field is `commit`, and a short SHA is rejected rather than guessed at.
-5. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+4. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
