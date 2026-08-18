@@ -18,7 +18,9 @@ import { HttpGitHubDiscoveryDataSource } from './core/data/http-github-discovery
 import { HttpLogStreamDataSource } from './core/data/http-log-stream.data-source';
 import { HttpProjectRegistryDataSource } from './core/data/http-project-registry.data-source';
 import { LogStreamDataSource } from './core/data/log-stream.data-source';
+import { MockSettingsDataSource } from './core/data/mock/mock-settings.data-source';
 import { ProjectRegistryDataSource } from './core/data/project-registry.data-source';
+import { SettingsDataSource } from './core/data/settings.data-source';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -46,5 +48,9 @@ export const appConfig: ApplicationConfig = {
     // Application logs read from each environment's provider. Console Ops holds the credential; the
     // browser only asks Console Ops.
     { provide: LogStreamDataSource, useClass: HttpLogStreamDataSource },
+
+    // Settings is a labelled design mock. Swap this for the HTTP adapter and delete the mock when the screen
+    // reads GET /api/settings/configuration; it must never stay as a fallback.
+    { provide: SettingsDataSource, useClass: MockSettingsDataSource },
   ],
 };

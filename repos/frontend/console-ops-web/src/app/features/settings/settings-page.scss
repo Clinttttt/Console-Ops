@@ -1,0 +1,224 @@
+:host {
+  display: block;
+  flex: 1;
+  padding: 0 var(--co-space-6) var(--co-space-7);
+}
+
+.notice,
+.action-failure {
+  padding: var(--co-space-6) 0;
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.action-failure {
+  padding: 0 0 var(--co-space-4);
+  color: var(--co-status-down);
+}
+
+/* Says what the screen is before anything on it is read. */
+.preview-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin: 0 0 var(--co-space-5);
+  padding: var(--co-space-3) var(--co-space-4);
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: var(--co-space-6);
+}
+
+.primary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-6);
+  min-width: 0;
+}
+
+.block > .co-eyebrow {
+  display: block;
+  margin-bottom: var(--co-space-3);
+}
+
+.card {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.interval,
+.sweep {
+  display: grid;
+  align-items: center;
+  gap: var(--co-space-5);
+  padding: var(--co-space-5);
+}
+
+.interval {
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+}
+
+.sweep {
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  border-top: 1px solid var(--co-line);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--co-ink-muted);
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.purpose {
+  font-size: 12px;
+  color: var(--co-ink-muted);
+}
+
+.value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  white-space: nowrap;
+}
+
+.source {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--co-space-5);
+  margin: 0;
+  min-width: 0;
+}
+
+.about {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--co-space-5);
+  margin: 0;
+  padding: var(--co-space-5);
+}
+
+.about .fact + .fact {
+  padding-left: var(--co-space-5);
+  border-left: 1px solid var(--co-line);
+}
+
+.fact {
+  min-width: 0;
+}
+
+dt {
+  font-size: 11px;
+  color: var(--co-ink-faint);
+}
+
+dd {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+/* The one action on the screen that changes anything, so it is the one filled control. */
+.collect {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 8px var(--co-space-5);
+  border-radius: var(--co-radius-md);
+  background: var(--co-navy);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.collect:hover:not(:disabled) {
+  background: var(--co-ink-strong);
+}
+
+.collect:disabled {
+  background: var(--co-line-strong);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-5);
+}
+
+.rail-card {
+  padding: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.rail-list {
+  margin: var(--co-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-list li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--co-space-3);
+  padding: 7px 0;
+  font-size: 12.5px;
+}
+
+.rail-icon {
+  display: inline-flex;
+  color: var(--co-ink-muted);
+}
+
+.rail-label {
+  color: var(--co-ink-strong);
+}
+
+.rail-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  color: var(--co-ink-muted);
+  white-space: nowrap;
+}
+
+.rail-note {
+  margin: var(--co-space-4) 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--co-ink-muted);
+}

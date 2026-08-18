@@ -20,7 +20,7 @@ const NAVIGATION: readonly NavigationItem[] = [
   { label: 'Health', icon: 'heartPulse', route: null },
   { label: 'Logs', icon: 'fileText', route: '/logs' },
   { label: 'Environments', icon: 'server', route: '/environments' },
-  { label: 'Settings', icon: 'gear', route: null },
+  { label: 'Settings', icon: 'gear', route: '/settings' },
 ];
 
 @Component({

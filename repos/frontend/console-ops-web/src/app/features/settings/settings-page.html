@@ -1,0 +1,219 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading configuration...</p>
+  }
+
+  @case ('unavailable') {
+    <p class="notice">
+      Console Ops could not read its own configuration, so nothing here would be trustworthy.
+    </p>
+  }
+
+  @default {
+    @if (isSampleData()) {
+      <!--
+        Stated rather than implied. A settings screen that looks authoritative while showing invented values is
+        worse than no screen, so the sample state is named at the top and this notice goes when the real read
+        lands.
+      -->
+      <p class="preview-notice">
+        <co-icon name="sliders" [size]="14" />
+        <strong>Sample data.</strong>
+        This screen is being designed. Values below are examples, not this instance's configuration.
+      </p>
+    }
+
+    @if (failure() !== null) {
+      <p class="action-failure">{{ failure() }}</p>
+    }
+
+    <div class="layout">
+      <div class="primary">
+        <section class="block">
+          <h2 class="co-eyebrow">Integrations</h2>
+          <div class="card">
+            @for (integration of integrations(); track integration.id) {
+              <co-integration-row
+                [integration]="integration"
+                [isTesting]="runningAction() === 'probe'"
+                (test)="test()"
+              />
+            }
+          </div>
+        </section>
+
+        @let sweep = collection();
+        @if (sweep !== null) {
+          <section class="block">
+            <h2 class="co-eyebrow">Collection</h2>
+            <div class="card">
+              <div class="interval">
+                <span class="mark" aria-hidden="true">
+                  <co-icon name="pulse" [size]="18" />
+                </span>
+                <span class="identity">
+                  <span class="name">Observation interval</span>
+                  <span class="purpose">
+                    Controls how frequently Console Ops refreshes configured project observations.
+                  </span>
+                </span>
+                <span class="value">{{ interval() }}</span>
+                <!--
+                  Read-only on purpose: the interval comes from application settings and cannot be changed at
+                  runtime, so the screen says where it comes from instead of offering a control that forgets.
+                -->
+                <span class="source co-unavailable">Set in application settings</span>
+              </div>
+
+              <div class="sweep">
+                <span class="mark" aria-hidden="true">
+                  <co-icon name="refresh" [size]="18" />
+                </span>
+
+                <dl class="facts">
+                  <div class="fact">
+                    <dt>Last sweep</dt>
+                    <dd>
+                      @if (sweep.lastSweepAt === null) {
+                        <span class="co-unavailable">None since start-up</span>
+                      } @else {
+                        <span class="co-mono">
+                          {{ sweep.lastSweepAt | date: 'HH:mm:ss' : 'UTC' }}
+                        </span>
+                      }
+                    </dd>
+                  </div>
+
+                  <div class="fact">
+                    <dt>Result</dt>
+                    <dd>
+                      @if (sweep.lastSweepSucceeded === null) {
+                        <span class="co-unavailable">Not observed yet</span>
+                      } @else {
+                        <span
+                          class="co-dot"
+                          [attr.data-level]="sweep.lastSweepSucceeded ? 'healthy' : 'down'"
+                          aria-hidden="true"
+                        ></span>
+                        {{ sweep.lastSweepSucceeded ? 'Completed successfully' : 'Failed' }}
+                      }
+                    </dd>
+                  </div>
+
+                  <div class="fact">
+                    <dt>Duration</dt>
+                    <dd>
+                      @if (sweepDuration() === null) {
+                        <span class="co-unavailable">Not measured</span>
+                      } @else {
+                        <span class="co-mono">{{ sweepDuration() }}</span>
+                      }
+                    </dd>
+                  </div>
+
+                  <div class="fact">
+                    <dt>Next sweep</dt>
+                    <dd>
+                      @if (sweep.nextSweepAt === null) {
+                        <span class="co-unavailable">Collection is off</span>
+                      } @else {
+                        <span class="co-mono">
+                          ~{{ sweep.nextSweepAt | date: 'HH:mm:ss' : 'UTC' }}
+                        </span>
+                      }
+                    </dd>
+                  </div>
+                </dl>
+
+                <button
+                  type="button"
+                  class="collect"
+                  [disabled]="runningAction() === 'collect'"
+                  (click)="collectNow()"
+                >
+                  @if (runningAction() === 'collect') {
+                    <span class="co-spinner" aria-hidden="true"></span>
+                    Collecting
+                  } @else {
+                    Refresh now
+                  }
+                </button>
+              </div>
+            </div>
+          </section>
+        }
+
+        @let build = about();
+        @if (build !== null) {
+          <section class="block">
+            <h2 class="co-eyebrow">About Console Ops</h2>
+            <div class="card">
+              <dl class="about">
+                <div class="fact">
+                  <dt>Version</dt>
+                  <dd class="co-mono">{{ build.version }}</dd>
+                </div>
+                <div class="fact">
+                  <dt>Build</dt>
+                  <dd>
+                    @if (build.build === null) {
+                      <span class="co-unavailable">Unknown</span>
+                    } @else {
+                      <span class="co-mono">{{ build.build }}</span>
+                    }
+                  </dd>
+                </div>
+                <div class="fact">
+                  <dt>Runtime</dt>
+                  <dd>{{ build.runtime }}</dd>
+                </div>
+                <div class="fact">
+                  <dt>Database schema</dt>
+                  <dd>
+                    <span
+                      class="co-dot"
+                      [attr.data-level]="
+                        build.databaseSchema === 'upToDate' ? 'healthy' : 'warning'
+                      "
+                      aria-hidden="true"
+                    ></span>
+                    {{ build.databaseSchema === 'upToDate' ? 'Up to date' : 'Migrations pending' }}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        }
+      </div>
+
+      <aside class="rail">
+        <section class="rail-card">
+          <h2 class="co-eyebrow">Configuration status</h2>
+          <ul class="rail-list">
+            @for (entry of rail(); track entry.label) {
+              <li>
+                <span class="rail-icon" aria-hidden="true">
+                  <co-icon [name]="entry.icon" [size]="16" />
+                </span>
+                <span class="rail-label">{{ entry.label }}</span>
+                <span class="rail-state">
+                  <span class="co-dot" [attr.data-level]="entry.level" aria-hidden="true"></span>
+                  {{ entry.state }}
+                </span>
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="rail-card">
+          <h2 class="co-eyebrow">Notes</h2>
+          <p class="rail-note">
+            Settings apply to Console Ops globally. Project-specific configuration lives in
+            <a class="co-inline-link" routerLink="/projects">Projects</a> and
+            <a class="co-inline-link" routerLink="/environments">Environments</a>.
+          </p>
+        </section>
+      </aside>
+    </div>
+  }
+}

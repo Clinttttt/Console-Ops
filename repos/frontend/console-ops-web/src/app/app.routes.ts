@@ -75,6 +75,15 @@ export const routes: Routes = [
     },
     loadComponent: () => import('./features/logs/logs-page').then((m) => m.LogsPage),
   },
+  {
+    path: 'settings',
+    title: 'Settings - Console Ops',
+    data: {
+      title: 'Settings',
+      subtitle: 'Configure Console Ops connections and observation behavior.',
+    },
+    loadComponent: () => import('./features/settings/settings-page').then((m) => m.SettingsPage),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'overview' },
   { path: '**', redirectTo: 'overview' },
 ];

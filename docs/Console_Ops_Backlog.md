@@ -54,7 +54,13 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 ## Blocked or deferred
 
-- **Settings screen.** Parked while its content is decided. The configuration status endpoint is built and is\n  the obvious first section: capability, state, and a Test connection action calling ?probe=true.\n- **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from
+- **Settings screen: make the mock real.** The screen exists as a labelled design mock covering Integrations,
+  Collection and About. Integrations can read `GET /api/settings/configuration` immediately, including the
+  `Test connection` probe. Collection needs the refresh worker to expose its last sweep, result and duration,
+  and About needs an assembly version, build sha and migration state. Delete the mock adapter as each lands.
+  Deliberately absent from the screen: project, environment, deployment and health facts, which have their own
+  screens; and any editable control, because nothing here can be persisted at runtime yet.
+- **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from
   data already collected: per-environment health, dependencies from the health payload, health
   transitions, and the availability window. Do not build it before that decision.
 - **Azure runtime awareness (V2).** Unlocks the runtime revision, the runtime target, and a `Current`

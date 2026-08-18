@@ -42,8 +42,16 @@ describe('App shell', () => {
       item.textContent?.trim(),
     );
 
-    expect(navigable).toEqual(['Overview', 'Projects', 'Deployments', 'Logs', 'Environments']);
-    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(2);
+    expect(navigable).toEqual([
+      'Overview',
+      'Projects',
+      'Deployments',
+      'Logs',
+      'Environments',
+      'Settings',
+    ]);
+    // Health remains a named destination without a route until its content is decided.
+    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(1);
   });
 
   it('shows partial visibility without inventing uptime history', async () => {

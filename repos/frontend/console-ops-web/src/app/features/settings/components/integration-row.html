@@ -1,0 +1,65 @@
+@let entry = integration();
+
+<span class="mark" aria-hidden="true">
+  <co-icon [name]="icon()" [size]="26" />
+</span>
+
+<span class="identity">
+  <span class="name">{{ entry.name }}</span>
+  <span class="purpose">{{ entry.purpose }}</span>
+</span>
+
+<dl class="facts">
+  <div class="fact">
+    <dt>Status</dt>
+    <dd>
+      <span class="co-dot" [attr.data-level]="status().level" aria-hidden="true"></span>
+      {{ status().label }}
+    </dd>
+  </div>
+
+  <div class="fact">
+    <dt>Verification</dt>
+    <dd>
+      @switch (entry.verification) {
+        @case ('verified') {
+          @if (entry.verifiedAt !== null) {
+            {{ entry.verifiedAt | date: 'HH:mm:ss' : 'UTC' }} UTC
+          } @else {
+            Verified
+          }
+        }
+        @case ('failed') {
+          <span class="failed">{{ entry.failure ?? 'The provider did not answer' }}</span>
+        }
+        @default {
+          <!-- Not the same as unverified: nothing has been asked yet, and saying otherwise would be a guess. -->
+          <span class="co-unavailable">Not yet probed</span>
+        }
+      }
+    </dd>
+  </div>
+
+  <div class="fact">
+    <dt>Authentication</dt>
+    <dd>
+      @if (entry.authentication === null) {
+        <span class="co-unavailable">Not configured</span>
+      } @else {
+        <!-- The mechanism, never the credential. -->
+        {{ entry.authentication }}
+      }
+    </dd>
+  </div>
+</dl>
+
+<span class="actions">
+  <button type="button" class="test" [disabled]="isTesting()" (click)="test.emit()">
+    @if (isTesting()) {
+      <span class="co-spinner" aria-hidden="true"></span>
+      Testing
+    } @else {
+      Test connection
+    }
+  </button>
+</span>
