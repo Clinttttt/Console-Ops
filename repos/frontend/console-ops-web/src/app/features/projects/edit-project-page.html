@@ -228,6 +228,22 @@
                 @if (errors.healthUrl !== null) {
                   <p class="error">{{ errors.healthUrl }}</p>
                 }
+                <!--
+                  Offered, not filled: this form holds saved configuration, so a page load must not change it.
+                -->
+                @let healthHint = suggestionFor(index, 'health');
+                @if (healthHint !== null) {
+                  <p class="co-section-note">
+                    Detected in <span class="co-mono">{{ healthHint.sourceFile }}</span>
+                    <button
+                      type="button"
+                      class="co-inline-link"
+                      (click)="applySuggestion(index, 'health', healthHint.url)"
+                    >
+                      Use
+                    </button>
+                  </p>
+                }
               </div>
 
               <div class="field">
@@ -243,6 +259,19 @@
                 />
                 @if (errors.versionUrl !== null) {
                   <p class="error">{{ errors.versionUrl }}</p>
+                }
+                @let versionHint = suggestionFor(index, 'version');
+                @if (versionHint !== null) {
+                  <p class="co-section-note">
+                    Detected in <span class="co-mono">{{ versionHint.sourceFile }}</span>
+                    <button
+                      type="button"
+                      class="co-inline-link"
+                      (click)="applySuggestion(index, 'version', versionHint.url)"
+                    >
+                      Use
+                    </button>
+                  </p>
                 }
               </div>
 

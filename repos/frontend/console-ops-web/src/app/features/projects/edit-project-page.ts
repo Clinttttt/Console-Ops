@@ -19,11 +19,19 @@ import {
   ProjectUpdateRequest,
 } from '../../core/contracts/project-update';
 import { AzureLogSource } from '../../core/contracts/azure-discovery';
+import { DetectedEndpoint } from '../../core/contracts/github-discovery';
+import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { AzureLogSourcePicker } from './components/azure-log-source-picker';
 import { toLogSource, validateOptionalLogSource } from './project-log-source-form';
 import { Icon } from '../../core/ui/icon';
+
+/** A detected endpoint resolved against an environment's address, ready to apply. */
+interface DetectedSuggestion {
+  readonly url: string;
+  readonly sourceFile: string;
+}
 
 type LoadState = 'loading' | 'loaded' | 'notFound' | 'unavailable';
 type SaveState = 'idle' | 'saving' | 'failed';
@@ -73,6 +81,7 @@ const ENVIRONMENT_KINDS: readonly { value: EnvironmentKind; label: string }[] = 
 })
 export class EditProjectPage {
   private readonly projects = inject(ProjectRegistryDataSource);
+  private readonly discovery = inject(GitHubDiscoveryDataSource);
   private readonly store = inject(ProjectRegistryStore);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -113,6 +122,15 @@ export class EditProjectPage {
   protected readonly environments = signal<readonly EnvironmentDraft[]>([]);
 
   private readonly loadedVersion = signal<number | null>(null);
+
+  /**
+   * Endpoints Console Ops found in the project''s repository, offered but never applied.
+   *
+   * Add Project fills an empty field because nothing can be lost there. This form holds configuration that is
+   * already stored, so filling on load would change a saved project without the operator asking for it. Here
+   * detection offers, and applying is a click.
+   */
+  protected readonly detected = signal<readonly DetectedEndpoint[]>([]);
 
   protected readonly saveState = signal<SaveState>('idle');
   protected readonly saveError = signal<string | null>(null);
@@ -156,11 +174,23 @@ export class EditProjectPage {
   /** Key of the environment whose removal is awaiting confirmation. */
   protected readonly removingKey = signal<string | null>(null);
 
-  /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
+  /**
+   * Fills what Azure knows about the chosen resource. Discovery prefills; it never decides.
+   *
+   * The address is only taken when the environment has none, so a URL the operator entered - or one already
+   * stored for this project - is never replaced by a resource they were only pointing at for its logs.
+   */
   protected applyLogSource(index: number, source: AzureLogSource): void {
+    const current = this.environments()[index];
+    const takeAddress =
+      source.applicationUrl !== null &&
+      current !== undefined &&
+      current.applicationUrl.trim() === '';
+
     this.updateEnvironment(index, {
       logContainerAppName: source.name,
       logWorkspaceId: source.workspaceId ?? '',
+      ...(takeAddress ? { applicationUrl: source.applicationUrl! } : {}),
     });
   }
 
@@ -301,6 +331,50 @@ export class EditProjectPage {
       });
   }
 
+  /**
+   * What an environment can be offered for a kind of endpoint, or <c>null</c> when nothing can be.
+   *
+   * A path is only useful here once there is an address to resolve it against, since this form stores full
+   * URLs. An environment with no application URL is offered nothing rather than a path it cannot use.
+   */
+  protected suggestionFor(index: number, kind: 'health' | 'version'): DetectedSuggestion | null {
+    const environment = this.environments()[index];
+    const endpoint = this.detected().find((candidate) => candidate.kind === kind);
+    if (environment === undefined || endpoint === undefined) {
+      return null;
+    }
+
+    const base = environment.applicationUrl.trim();
+    if (base === '' || validateOptionalHttpUrl(base) !== null) {
+      return null;
+    }
+
+    const url = new URL(endpoint.path, base).toString();
+    const current = kind === 'health' ? environment.healthUrl : environment.versionUrl;
+
+    return current.trim() === url ? null : { url, sourceFile: endpoint.sourceFile };
+  }
+
+  protected applySuggestion(index: number, kind: 'health' | 'version', url: string): void {
+    this.updateEnvironment(index, kind === 'health' ? { healthUrl: url } : { versionUrl: url });
+  }
+
+  /** Detection is optional: it fails quietly, and the operator types the URLs as before. */
+  private readEndpointsFromSource(project: ProjectListItem): void {
+    this.detected.set([]);
+    this.discovery
+      .detectEndpoints(
+        project.repository.owner,
+        project.repository.name,
+        project.repository.defaultBranch,
+      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => this.detected.set(result.endpoints),
+        error: () => this.detected.set([]),
+      });
+  }
+
   private applyLoaded(project: ProjectListItem): void {
     this.name.set(project.name);
     this.description.set(project.description ?? '');
@@ -309,6 +383,7 @@ export class EditProjectPage {
     this.defaultBranch.set(project.repository.defaultBranch);
     this.workflowFile.set(project.repository.workflowFile ?? '');
     this.loadedVersion.set(project.configurationVersion);
+    this.readEndpointsFromSource(project);
     this.environments.set(
       project.environments.map((environment) => ({
         key: environment.id,

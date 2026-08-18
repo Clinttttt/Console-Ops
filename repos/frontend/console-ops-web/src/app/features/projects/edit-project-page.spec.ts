@@ -7,13 +7,34 @@ import { Observable, of, throwError } from 'rxjs';
 
 import { ProjectListItem } from '../../core/contracts/project-registry';
 import { ProjectUpdateRequest } from '../../core/contracts/project-update';
+import { AzureLogSources } from '../../core/contracts/azure-discovery';
 import { AzureDiscoveryDataSource } from '../../core/data/azure-discovery.data-source';
+import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { PROJECT_REGISTRY_FIXTURE } from '../../core/data/mock/project-registry.fixture';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
 import { EditProjectPage } from './edit-project-page';
 
 @Component({ template: '' })
 class Destination {}
+
+/** One readable resource carrying an address, so choosing it can be exercised as an operator would. */
+const AZURE_SOURCES: AzureLogSources = {
+  sources: [
+    {
+      provider: 'azure',
+      platform: 'containerApp',
+      name: 'spinner-api-stg',
+      resourceGroup: 'spinner-staging-rg',
+      subscriptionId: '11111111-2222-3333-4444-555555555555',
+      location: 'southeastasia',
+      environmentName: 'spinner-env',
+      workspaceId: '07243cc3-1111-2222-3333-444455556666',
+      applicationUrl: 'https://spinner-api-stg.blueisland.southeastasia.azurecontainerapps.io',
+      status: 'readable',
+    },
+  ],
+  hasMore: false,
+};
 
 describe('EditProjectPage', () => {
   let harness: RouterTestingHarness;
@@ -37,7 +58,21 @@ describe('EditProjectPage', () => {
         // it is opened. A stub keeps these tests about the form.
         {
           provide: AzureDiscoveryDataSource,
-          useValue: { listLogSources: () => of({ containerApps: [], hasMore: false }) },
+          useValue: { listLogSources: () => of(AZURE_SOURCES) },
+        },
+        {
+          // The form reads the project''s repository for endpoint paths once it loads.
+          provide: GitHubDiscoveryDataSource,
+          useValue: {
+            detectEndpoints: () =>
+              of({
+                endpoints: [
+                  { kind: 'health', path: '/health', sourceFile: 'src/Api/Program.cs' },
+                  { kind: 'version', path: '/version', sourceFile: 'src/Api/Program.cs' },
+                ],
+                inspectedFileCount: 1,
+              }),
+          },
         },
         provideRouter([
           { path: 'projects/:projectId/edit', component: EditProjectPage },
@@ -127,6 +162,63 @@ describe('EditProjectPage', () => {
 
     expect(updateRequest!.environments[0].id).toBe(project.environments[0].id);
     expect(updateRequest!.environments[0].name).toBe('Production EU');
+  });
+
+  it('takes the address from Azure when the environment has none', async () => {
+    await type('#environment-url-0', '');
+
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .trigger')!.click();
+    await harness.fixture.whenStable();
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .app')!.click();
+    await harness.fixture.whenStable();
+
+    // The same fill Add Project performs, so one form does not know things the other refuses to use.
+    expect(host.querySelector<HTMLInputElement>('#environment-url-0')?.value).toBe(
+      'https://spinner-api-stg.blueisland.southeastasia.azurecontainerapps.io',
+    );
+    expect(host.querySelector<HTMLInputElement>('#environment-log-app-0')?.value).toBe(
+      'spinner-api-stg',
+    );
+  });
+
+  it('keeps a stored address when a resource is chosen only for its logs', async () => {
+    const stored = host.querySelector<HTMLInputElement>('#environment-url-0')!.value;
+
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .trigger')!.click();
+    await harness.fixture.whenStable();
+    host.querySelector<HTMLButtonElement>('co-azure-log-source-picker .app')!.click();
+    await harness.fixture.whenStable();
+
+    expect(host.querySelector<HTMLInputElement>('#environment-url-0')?.value).toBe(stored);
+  });
+
+  it('offers a detected endpoint without changing saved configuration', async () => {
+    const health = () => host.querySelector<HTMLInputElement>('#environment-health-0')!;
+
+    // Nothing is offered while the field already says what detection found.
+    expect(host.textContent).not.toContain('Detected in');
+
+    await type('#environment-health-0', '');
+    expect(host.textContent).toContain('Detected in');
+    expect(health().value).toBe('');
+
+    const use = Array.from(host.querySelectorAll<HTMLButtonElement>('.co-inline-link')).find(
+      (button) => button.textContent?.trim() === 'Use',
+    )!;
+    use.click();
+    await harness.fixture.whenStable();
+
+    // The path is resolved against this environment's own address, since the form stores full URLs.
+    expect(health().value).toBe('https://api.spinner.example/health');
+  });
+
+  it('offers nothing for an environment with no address to resolve against', async () => {
+    await type('#environment-health-0', '');
+    expect(host.textContent).toContain('Detected in');
+
+    await type('#environment-url-0', '');
+
+    expect(host.textContent).not.toContain('Detected in');
   });
 
   it('refuses a name that has been emptied', async () => {
