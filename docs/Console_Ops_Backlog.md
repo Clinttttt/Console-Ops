@@ -58,9 +58,11 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 - **Settings screen is real.** Integrations, Collection and About all read Console Ops' own state; the mock is
   deleted. Deliberately absent: project, environment, deployment and health facts, which have their own
   screens; and any editable control, because nothing here can be persisted at runtime yet.
-- **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from
-  data already collected: per-environment health, dependencies from the health payload, health
-  transitions, and the availability window. Do not build it before that decision.
+- **Health screen: make the mock real.** Built 2026-08-18 as a labelled design mock: a summary strip, Active
+  Issues, the current list with state filters, and a rail carrying the selected environment's checks, its 24-hour
+  window and recent transitions. Every fact it needs is already collected - per-environment health, dependencies
+  from the health payload, transitions, and the availability window - so this is a read slice rather than new
+  collection. Delete the mock adapter when it lands.
 - **Azure runtime awareness (V2).** Unlocks the runtime revision, the runtime target, and a `Current`
   release derived from the runtime itself rather than only from `/version`. Also unlocks the platform
   source on the Logs screen (revision activated, image pull failure, replica problems).

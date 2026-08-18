@@ -36,7 +36,7 @@ describe('App shell', () => {
     expect(logo?.getAttribute('alt')).toBe('');
   });
 
-  it('exposes the shipped destinations as navigable and the rest as planned', async () => {
+  it('exposes every destination as navigable now that Health is built', async () => {
     const host = await render();
     const navigable = Array.from(host.querySelectorAll('a.nav-item')).map((item) =>
       item.textContent?.trim(),
@@ -46,12 +46,13 @@ describe('App shell', () => {
       'Overview',
       'Projects',
       'Deployments',
+      'Health',
       'Logs',
       'Environments',
       'Settings',
     ]);
-    // Health remains a named destination without a route until its content is decided.
-    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(1);
+    // Nothing is a dead end any more: an unrouted nav item names a destination that does not exist.
+    expect(host.querySelectorAll('.nav-item.is-planned').length).toBe(0);
   });
 
   it('shows partial visibility without inventing uptime history', async () => {

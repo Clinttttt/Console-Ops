@@ -1,0 +1,301 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading recorded health...</p>
+  }
+
+  @case ('unavailable') {
+    <p class="notice">
+      Console Ops could not read its recorded health checks, so nothing here would be trustworthy.
+    </p>
+  }
+
+  @default {
+    @if (isSampleData()) {
+      <!--
+        Stated before anything else is read. A health screen that invents a verdict is the most dangerous screen
+        in the product, so the sample state is named and this notice goes when the real read lands.
+      -->
+      <p class="preview-notice">
+        <co-icon name="sliders" [size]="14" />
+        <strong>Sample data.</strong>
+        This screen is being designed. The states below are examples, not observed health.
+      </p>
+    }
+
+    <div class="layout">
+      <div class="primary">
+        @let counts = summary();
+        @if (counts !== null) {
+          <section class="strip">
+            <span class="count">
+              <span class="co-dot" data-level="healthy" aria-hidden="true"></span>
+              Healthy <strong>{{ counts.healthy }}</strong>
+            </span>
+            <span class="count">
+              <span class="co-dot" data-level="warning" aria-hidden="true"></span>
+              Degraded <strong>{{ counts.degraded }}</strong>
+            </span>
+            <span class="count">
+              <span class="co-dot" data-level="down" aria-hidden="true"></span>
+              Down <strong>{{ counts.down }}</strong>
+            </span>
+            <span class="checked">
+              <co-icon name="pulse" [size]="14" />
+              @if (counts.lastCheckedAt === null) {
+                <span class="co-unavailable">Nothing checked yet</span>
+              } @else {
+                Last checked {{ counts.lastCheckedAt | date: 'HH:mm:ss' : 'UTC' }} UTC
+              }
+            </span>
+          </section>
+        }
+
+        @if (activeIssues().length > 0) {
+          <section class="block">
+            <h2 class="section-heading">Active Issues</h2>
+            @for (issue of activeIssues(); track issue.id) {
+              <div class="issue">
+                <co-project-mark
+                  [name]="issue.projectName"
+                  [tone]="toneFor(issue.projectId)"
+                  [size]="30"
+                />
+                <span class="issue-identity">
+                  <span class="name">{{ issue.projectName }} / {{ issue.environmentName }}</span>
+                  <co-status [cell]="checkCell(issue.state)" [showDetail]="false" />
+                </span>
+
+                <dl class="issue-facts">
+                  <div class="fact">
+                    <dt>Failing for</dt>
+                    <dd>
+                      @if (failingFor(issue) === null) {
+                        <span class="co-unavailable">Not recorded</span>
+                      } @else {
+                        <span class="co-mono">{{ failingFor(issue) }}</span>
+                      }
+                    </dd>
+                  </div>
+                  <div class="fact">
+                    <dt>Consecutive failures</dt>
+                    <dd class="co-mono">{{ issue.consecutiveFailures }}</dd>
+                  </div>
+                  <div class="fact">
+                    <dt>Last healthy</dt>
+                    <dd>
+                      @if (issue.lastHealthyAt === null) {
+                        <span class="co-unavailable">Never</span>
+                      } @else {
+                        <span class="co-mono">
+                          {{ issue.lastHealthyAt | date: 'HH:mm:ss' : 'UTC' }}
+                        </span>
+                      }
+                    </dd>
+                  </div>
+                </dl>
+
+                <!-- Logs own the lines; Health only points at the moment the failure began. -->
+                <a class="co-inline-link" routerLink="/logs">
+                  View logs
+                  <co-icon name="arrowRight" [size]="14" />
+                </a>
+              </div>
+            }
+          </section>
+        }
+
+        <section class="block">
+          <div class="list-head">
+            <h2 class="section-heading">Current Health</h2>
+            <div class="filters" role="group" aria-label="Filter by state">
+              <button
+                type="button"
+                class="filter"
+                [class.is-active]="stateFilter() === null"
+                (click)="setStateFilter(null)"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="filter"
+                [class.is-active]="stateFilter() === 'healthy'"
+                (click)="setStateFilter('healthy')"
+              >
+                <span class="co-dot" data-level="healthy" aria-hidden="true"></span>
+                Healthy
+              </button>
+              <button
+                type="button"
+                class="filter"
+                [class.is-active]="stateFilter() === 'failing'"
+                (click)="setStateFilter('failing')"
+              >
+                <span class="co-dot" data-level="warning" aria-hidden="true"></span>
+                Failing
+              </button>
+              <button
+                type="button"
+                class="filter"
+                [class.is-active]="stateFilter() === 'unreachable'"
+                (click)="setStateFilter('unreachable')"
+              >
+                <span class="co-dot" data-level="unknown" aria-hidden="true"></span>
+                Unreachable
+              </button>
+            </div>
+          </div>
+
+          @if (environments().length === 0) {
+            <p class="empty co-unavailable">No environment is in that state.</p>
+          } @else {
+            <div class="rows">
+              @for (environment of environments(); track environment.id) {
+                <co-health-row
+                  [environment]="environment"
+                  [isSelected]="environment.id === selected()?.id"
+                  [observedAt]="observedAt()"
+                  (selectEnvironment)="select($event)"
+                />
+              }
+            </div>
+          }
+        </section>
+      </div>
+
+      <aside class="rail">
+        <section class="rail-card">
+          <h2 class="co-eyebrow">Health detail</h2>
+          @let chosen = selected();
+          @if (chosen === null) {
+            <p class="rail-empty co-unavailable">Select an environment to inspect it.</p>
+          } @else {
+            <div class="rail-identity">
+              <co-project-mark
+                [name]="chosen.projectName"
+                [tone]="toneFor(chosen.projectId)"
+                [size]="26"
+              />
+              <span class="name">{{ chosen.projectName }} / {{ chosen.environmentName }}</span>
+              <co-status [cell]="selectedVerdict()" [showDetail]="false" />
+            </div>
+
+            <dl class="rows-detail">
+              <div class="row">
+                <dt>Healthy for</dt>
+                <dd>
+                  @if (healthyFor(chosen) === null) {
+                    <span class="co-unavailable">Not currently healthy</span>
+                  } @else {
+                    <span class="co-mono">{{ healthyFor(chosen) }}</span>
+                  }
+                </dd>
+              </div>
+              <div class="row">
+                <dt>Last checked</dt>
+                <dd>
+                  @if (chosen.checkedAt === null) {
+                    <span class="co-unavailable">Never</span>
+                  } @else {
+                    <span class="co-mono">{{ chosen.checkedAt | date: 'HH:mm:ss' : 'UTC' }}</span>
+                  }
+                </dd>
+              </div>
+              <div class="row">
+                <dt>Response</dt>
+                <dd>
+                  @if (chosen.responseMilliseconds === null) {
+                    <span class="co-unavailable">Not reported</span>
+                  } @else {
+                    <span class="co-mono">{{ chosen.responseMilliseconds }} ms</span>
+                  }
+                </dd>
+              </div>
+            </dl>
+
+            <div class="block-detail">
+              <h3 class="co-eyebrow">Checks</h3>
+              <ul class="check-list">
+                @for (check of selectedChecks(); track check.name) {
+                  <li>
+                    <span
+                      class="co-dot"
+                      [attr.data-level]="check.cell.level"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="check-name">{{ check.name }}</span>
+                    <span class="check-state">{{ check.cell.label }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+
+            <div class="block-detail">
+              <h3 class="co-eyebrow">Last 24 hours</h3>
+              <dl class="rows-detail">
+                <div class="row">
+                  <dt>Availability</dt>
+                  <dd>
+                    @if (chosen.window.availabilityPercentage === null) {
+                      <!-- Below the minimum sample, a percentage would be a guess dressed as a measurement. -->
+                      <span class="co-unavailable">Too few checks</span>
+                    } @else {
+                      <span class="co-mono">{{ chosen.window.availabilityPercentage }}%</span>
+                    }
+                  </dd>
+                </div>
+                <div class="row">
+                  <dt>Failed checks</dt>
+                  <dd>
+                    @if (chosen.window.failedChecks === null) {
+                      <span class="co-unavailable">Not recorded</span>
+                    } @else {
+                      <span class="co-mono">{{ chosen.window.failedChecks }}</span>
+                    }
+                  </dd>
+                </div>
+                <div class="row">
+                  <dt>Longest outage</dt>
+                  <dd>
+                    @if (chosen.window.longestOutageSeconds === null) {
+                      <span class="co-unavailable">None recorded</span>
+                    } @else {
+                      <span class="co-mono">{{ chosen.window.longestOutageSeconds }} sec</span>
+                    }
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            <a class="co-inline-link rail-link" routerLink="/logs">
+              View related logs
+              <co-icon name="arrowRight" [size]="14" />
+            </a>
+          }
+        </section>
+
+        <section class="rail-card">
+          <h2 class="co-eyebrow">Recent state changes</h2>
+          @if (stateChanges().length === 0) {
+            <p class="rail-empty co-unavailable">No transition has been recorded yet.</p>
+          } @else {
+            <ul class="changes">
+              @for (change of stateChanges(); track change.at + change.description) {
+                <li>
+                  <span class="co-dot" [attr.data-level]="change.level" aria-hidden="true"></span>
+                  <span class="change-time co-mono">{{ change.at | date: 'HH:mm' : 'UTC' }}</span>
+                  <span class="change-what">
+                    <span class="change-where">
+                      {{ change.projectName }} / {{ change.environmentName }}
+                    </span>
+                    <span class="change-detail">{{ change.description }}</span>
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </aside>
+    </div>
+  }
+}

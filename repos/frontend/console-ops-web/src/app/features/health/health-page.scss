@@ -1,0 +1,279 @@
+:host {
+  display: block;
+  flex: 1;
+  padding: 0 var(--co-space-6) var(--co-space-7);
+}
+
+.notice {
+  padding: var(--co-space-6) 0;
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.preview-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin: 0 0 var(--co-space-5);
+  padding: var(--co-space-3) var(--co-space-4);
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: var(--co-space-6);
+}
+
+.primary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-6);
+  min-width: 0;
+}
+
+/* The counts an operator reads first: how many are fine, how many are not, and how fresh that is. */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-6);
+  padding: var(--co-space-4) var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.count,
+.checked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+}
+
+.count strong {
+  font-size: 13.5px;
+  color: var(--co-ink-strong);
+}
+
+.checked {
+  margin-left: auto;
+}
+
+.section-heading {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-4);
+}
+
+.filters {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 5px var(--co-space-3);
+  border-radius: var(--co-radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+}
+
+.filter.is-active {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-strong);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+}
+
+.empty {
+  padding: var(--co-space-6) 0;
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* An issue states its scale: how long, how many, and when it was last fine. */
+.issue {
+  display: grid;
+  grid-template-columns: 30px minmax(150px, 1fr) auto auto;
+  align-items: center;
+  gap: var(--co-space-5);
+  padding: var(--co-space-4) var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.issue-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.issue-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(96px, max-content));
+  gap: var(--co-space-5);
+  margin: 0;
+}
+
+.fact {
+  min-width: 0;
+}
+
+dt {
+  font-size: 11px;
+  color: var(--co-ink-faint);
+}
+
+dd {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-5);
+}
+
+.rail-card {
+  padding: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.rail-empty {
+  margin: var(--co-space-4) 0 0;
+  font-size: 12.5px;
+}
+
+.rail-identity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--co-space-3);
+  margin-top: var(--co-space-4);
+}
+
+.rows-detail {
+  margin: var(--co-space-3) 0 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--co-space-3);
+  padding: 4px 0;
+  min-width: 0;
+}
+
+.block-detail {
+  margin-top: var(--co-space-4);
+  padding-top: var(--co-space-4);
+  border-top: 1px solid var(--co-line);
+}
+
+.check-list,
+.changes {
+  margin: var(--co-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-list li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--co-space-3);
+  padding: 4px 0;
+  font-size: 12.5px;
+}
+
+.check-name {
+  color: var(--co-ink-strong);
+}
+
+.check-state {
+  color: var(--co-ink-muted);
+}
+
+.changes li {
+  display: grid;
+  grid-template-columns: 8px 40px minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--co-space-3);
+  padding: var(--co-space-2) 0;
+  font-size: 12px;
+}
+
+.change-time {
+  color: var(--co-ink-muted);
+}
+
+.change-what {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.change-where {
+  color: var(--co-ink-strong);
+}
+
+.change-detail {
+  color: var(--co-ink-muted);
+}
+
+.rail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin-top: var(--co-space-4);
+}

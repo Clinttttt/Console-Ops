@@ -1,0 +1,84 @@
+:host {
+  display: block;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 30px minmax(150px, 1fr) minmax(0, 1.5fr) auto 15px;
+  align-items: center;
+  gap: var(--co-space-5);
+  width: 100%;
+  padding: var(--co-space-4) var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+  text-align: left;
+}
+
+.row:hover {
+  border-color: var(--co-line-strong);
+}
+
+/* Selection is a border rather than a wash: the row's own dots carry the only colour that means anything. */
+.row.is-selected {
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.checks {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.checks li {
+  display: grid;
+  grid-template-columns: 8px 84px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--co-space-3);
+  font-size: 11.5px;
+}
+
+.check-name {
+  color: var(--co-ink);
+}
+
+.check-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  color: var(--co-ink-muted);
+  white-space: nowrap;
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.checked {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.open {
+  display: inline-flex;
+  color: var(--co-ink-faint);
+}

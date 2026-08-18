@@ -67,6 +67,15 @@ export const routes: Routes = [
       import('./features/environments/environments-page').then((m) => m.EnvironmentsPage),
   },
   {
+    path: 'health',
+    title: 'Health - Console Ops',
+    data: {
+      title: 'Health',
+      subtitle: 'Current application and dependency state across monitored environments.',
+    },
+    loadComponent: () => import('./features/health/health-page').then((m) => m.HealthPage),
+  },
+  {
     path: 'logs',
     title: 'Logs - Console Ops',
     data: {
