@@ -23,6 +23,15 @@ public sealed record DashboardStatusCellResponse(
     string Label,
     string? Detail);
 
+/// <param name="DeployedVersion">
+/// The version an environment reported, or <c>null</c> when none was read. Null alone does not say why, which is
+/// what <paramref name="VersionState"/> is for.
+/// </param>
+/// <param name="VersionState">
+/// <c>available</c>, <c>unknown</c>, or <c>notConfigured</c>. Sent because the screen previously rendered every
+/// missing version as "Not configured", which told an operator to fix configuration that was already correct: an
+/// endpoint answering 401, or answering with HTML, is configured and unreadable, not unconfigured.
+/// </param>
 public sealed record DashboardProjectSurfaceResponse(
     Guid Id,
     string Name,
@@ -32,6 +41,7 @@ public sealed record DashboardProjectSurfaceResponse(
     DashboardStatusCellResponse Health,
     DateTimeOffset? HealthObservedAt,
     DashboardDeployedVersionResponse? DeployedVersion,
+    string VersionState,
     DashboardVersionSyncResponse VersionSync,
     DashboardResponseMeasurementResponse Response);
 

@@ -42,12 +42,25 @@
           <td>
             @let version = project.deployedVersion;
             @if (version === null) {
-              <span
-                class="co-unavailable"
-                title="No version endpoint is configured for this project"
-              >
-                Not configured
-              </span>
+              @if (project.versionState === 'notConfigured') {
+                <span
+                  class="co-unavailable"
+                  title="No version endpoint is configured for this environment"
+                >
+                  Not configured
+                </span>
+              } @else {
+                <!--
+                  Configured but unreadable is a different fact from unconfigured, and saying the wrong one sends
+                  an operator to check settings that are already correct.
+                -->
+                <span
+                  class="co-unavailable"
+                  title="A version endpoint is configured, but no version has been read from it"
+                >
+                  Not reported
+                </span>
+              }
             } @else {
               <div class="commit">
                 <span class="co-mono">{{ version.commitShortSha }}</span>

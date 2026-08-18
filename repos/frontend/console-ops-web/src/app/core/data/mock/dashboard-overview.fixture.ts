@@ -55,6 +55,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
       },
       health: { level: 'healthy', label: 'Healthy', detail: null },
       healthObservedAt: '2026-08-13T18:24:00Z',
+      versionState: 'available',
       deployedVersion: {
         application: 'Spinner.Api',
         version: '1.4.2',
@@ -105,6 +106,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
       },
       health: { level: 'healthy', label: 'Healthy', detail: null },
       healthObservedAt: '2026-08-13T18:24:00Z',
+      versionState: 'available',
       deployedVersion: {
         application: 'StallTrack',
         version: '2.1.0',
@@ -151,6 +153,7 @@ export const DASHBOARD_OVERVIEW_FIXTURE: DashboardOverview = {
       },
       health: { level: 'unknown', label: 'Not configured', detail: 'No health endpoint' },
       healthObservedAt: null,
+      versionState: 'notConfigured',
       deployedVersion: null,
       versionSync: {
         state: 'notConfigured',

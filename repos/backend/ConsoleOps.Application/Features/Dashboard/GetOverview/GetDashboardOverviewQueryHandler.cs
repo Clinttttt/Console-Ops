@@ -141,6 +141,8 @@ public sealed class GetDashboardOverviewQueryHandler(
             CreateHealthCell(healthState),
             health?.ObservedAtUtc,
             deployedVersion,
+            // Why there is no version, so the screen never blames configuration for an unreadable endpoint.
+            ToCamelCase(version?.State ?? ApplicationVersionState.NotConfigured),
             new DashboardVersionSyncResponse(
                 ToCamelCase(syncState),
                 source?.CommitSha,

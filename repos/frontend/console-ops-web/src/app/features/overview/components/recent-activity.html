@@ -7,7 +7,7 @@
   <p class="empty co-unavailable">No activity recorded yet.</p>
 } @else {
   <ol class="timeline">
-    @for (entry of entries(); track entry.id; let first = $first) {
+    @for (entry of visible(); track entry.id; let first = $first) {
       <li class="entry">
         <span class="marker" [class.is-latest]="first" aria-hidden="true"></span>
 
@@ -30,6 +30,10 @@
   </ol>
 
   <div class="footer">
+    @if (hidden() > 0) {
+      <!-- The rail is a sample, not the history, so it says what it is leaving out. -->
+      <span class="more co-unavailable">{{ hidden() }} older not shown</span>
+    }
     <span class="co-inline-link is-unavailable" title="Activity screen - planned for a later slice">
       View all activity
       <co-icon name="arrowRight" [size]="15" />
