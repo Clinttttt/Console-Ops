@@ -159,6 +159,43 @@ Rules:
 - **Filter text is escaped** into the query as a literal, never concatenated, because it arrives from a form.
 - Discovery may prefill but never decide: the two configuration fields stay editable after a pick.
 
+## Settings configuration status
+
+`GET /api/settings/configuration` reports what Console Ops has been configured with. Added because a missing
+GitHub token once presented as an empty repository list, which is a diagnosis nobody can make from a screen.
+
+```text
+observedAt
+capabilities[]
+|-- capability: Database | Source and CI | Azure | Exposure | Collection
+|-- state: configured | missing | default
+|-- keys[]
+|   |-- key           name only, such as GitHub:Token
+|   |-- state         configured | missing
+|   `-- required      whether this deployment needs it
+`-- connection        null unless probe=true, or when no check exists for the capability
+    |-- succeeded
+    `-- failure       operator wording, never a credential
+probed                whether credentials were tested
+```
+
+Rules:
+
+- **Names only, never values**, not even redacted ones. No code path reads a value into the response, and a
+  test sets a sentinel into three keys and asserts the body does not contain it.
+- **Cheap by default.** The plain read inspects configuration only, measured at under a second. `?probe=true`
+  additionally contacts each provider - a database connection, a GitHub call, an Azure token - measured at
+  about five seconds on a cold Azure credential. A screen loads with the cheap read and offers the probe as an
+  explicit action.
+- **`state` is a verdict about a capability**, from the worst of its keys. A missing required key decides it. A
+  key that is optional and unset reads as `default`, because something else stands in for it: the ambient
+  Azure identity, or a built-in value.
+- **`required` is contextual.** `Api:Key` is required only when Console Ops is bound somewhere other than
+  loopback, decided by the same `NetworkExposure` rule as the startup guard so the two cannot drift.
+- **A failed check is not a failed request.** One unreachable provider is reported as a failed connection and
+  must not hide the state of the others; a probe that throws reports a check that could not be completed.
+- **Absent is not failure.** `connection: null` means no check ran, and the UI must not render it as a problem.
+
 ## Transport rules
 - Use ISO-8601 UTC strings for instants and `DateTimeOffset` in .NET.
 - Use `null` when a fact could not be established. Do not use zero, an empty SHA, or the current time

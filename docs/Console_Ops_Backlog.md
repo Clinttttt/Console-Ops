@@ -24,6 +24,7 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Newest-first stream, per-line rendering, composed request lines | Real |
 | Live tail following a scope from a time cursor | Real |
 | Azure discovery across Container Apps and App Service, with per-resource status | Real |
+| Configuration status by key name, with an opt-in credential probe | Real |
 
 ## Next
 
@@ -41,23 +42,19 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 2. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
-3. **Settings: configuration status.** A small endpoint reporting `Configured` / `Missing` **by key name
-   only** for the keys Console Ops needs (`GitHub:Token`, `ConnectionStrings:DefaultConnection`,
-   `Api:Key`, `Monitoring:Refresh`, and the Azure credential keys). Never a value.
-   Would have diagnosed the missing GitHub token instantly.
-4. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+3. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
    The field is `commit`, and a short SHA is rejected rather than guessed at.
-5. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+4. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
 
 ## Blocked or deferred
 
-- **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from
+- **Settings screen.** Parked while its content is decided. The configuration status endpoint is built and is\n  the obvious first section: capability, state, and a Test connection action calling ?probe=true.\n- **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from
   data already collected: per-environment health, dependencies from the health payload, health
   transitions, and the availability window. Do not build it before that decision.
 - **Azure runtime awareness (V2).** Unlocks the runtime revision, the runtime target, and a `Current`

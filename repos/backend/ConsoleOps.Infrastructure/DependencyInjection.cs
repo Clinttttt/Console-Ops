@@ -9,9 +9,11 @@ using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
 using ConsoleOps.Application.Integrations.AzureMonitor;
+using ConsoleOps.Application.Integrations.Diagnostics;
 using ConsoleOps.Application.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Integrations.ApplicationMonitoring;
 using ConsoleOps.Infrastructure.Integrations.AzureMonitor;
+using ConsoleOps.Infrastructure.Integrations.Diagnostics;
 using ConsoleOps.Infrastructure.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Persistence;
 using ConsoleOps.Infrastructure.Persistence.Repositories;
@@ -48,8 +50,22 @@ public static class DependencyInjection
             client.Timeout = Timeout.InfiniteTimeSpan)
             .ConfigurePrimaryHttpMessageHandler(() =>
                 ProbeHttpMessageHandlerFactory.Create(allowedPrivateHosts));
+        AddIntegrationProbes(services, configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// Credential checks for the configuration status report. Registered as a set so the report asks whatever
+    /// probes exist, and adding an integration does not mean editing the report.
+    /// </summary>
+    private static void AddIntegrationProbes(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<IIntegrationProbe, DatabaseProbe>();
+        services.AddScoped<IIntegrationProbe, AzureCredentialProbe>();
+        services.AddScoped<IIntegrationProbe, GitHubTokenProbe>();
+        services.AddHttpClient(nameof(GitHubTokenProbe), client =>
+            ConfigureGitHubClient(client, configuration));
     }
 
     /// <summary>
@@ -102,6 +118,13 @@ public static class DependencyInjection
     {
         client.BaseAddress = new Uri("https://api.github.com/");
         client.Timeout = TimeSpan.FromSeconds(GetGitHubTimeoutSeconds(configuration));
+
+        // GitHub rejects a request with no User-Agent, and the API version is negotiated by Accept. Both are
+        // set here rather than per call so a new caller cannot forget them: the first one that did was answered
+        // with 403 and reported it as a token without access.
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(GitHubProjectReader.UserAgent);
+        client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 
         string? token = configuration["GitHub:Token"];
         if (!string.IsNullOrWhiteSpace(token))

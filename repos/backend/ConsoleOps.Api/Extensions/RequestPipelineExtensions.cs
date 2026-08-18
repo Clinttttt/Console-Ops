@@ -4,6 +4,7 @@ using ConsoleOps.Api.Features.Deployments;
 using ConsoleOps.Api.Features.GitHub;
 using ConsoleOps.Api.Features.Logs;
 using ConsoleOps.Api.Features.Projects;
+using ConsoleOps.Api.Features.Settings;
 using ConsoleOps.Api.Middleware;
 using ConsoleOps.Api.Security;
 
@@ -42,6 +43,7 @@ public static class RequestPipelineExtensions
         app.MapGitHubEndpoints();
         app.MapLogEndpoints();
         app.MapProjectEndpoints();
+        app.MapSettingsEndpoints();
 
         return app;
     }

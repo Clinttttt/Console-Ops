@@ -10,6 +10,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddConsoleOpsRateLimiter();
 builder.Services.AddScheduledCollection(builder.Configuration);
+builder.Services.AddConsoleOpsConfigurationInspection();
 
 WebApplication app = builder.Build();
 
