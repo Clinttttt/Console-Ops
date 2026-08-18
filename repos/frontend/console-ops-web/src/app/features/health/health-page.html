@@ -10,18 +10,6 @@
   }
 
   @default {
-    @if (isSampleData()) {
-      <!--
-        Stated before anything else is read. A health screen that invents a verdict is the most dangerous screen
-        in the product, so the sample state is named and this notice goes when the real read lands.
-      -->
-      <p class="preview-notice">
-        <co-icon name="sliders" [size]="14" />
-        <strong>Sample data.</strong>
-        This screen is being designed. The states below are examples, not observed health.
-      </p>
-    }
-
     <div class="layout">
       <div class="primary">
         @let counts = summary();

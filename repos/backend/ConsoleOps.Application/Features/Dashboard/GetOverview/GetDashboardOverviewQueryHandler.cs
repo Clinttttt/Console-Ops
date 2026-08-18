@@ -51,7 +51,7 @@ public sealed class GetDashboardOverviewQueryHandler(
     {
         UptimeReading? reading = Uptime.Calculate(
             availability
-                .Select(point => new UptimeSample(ToCondition(point.State), point.ObservedAtUtc))
+                .Select(point => new UptimeSample(HealthConditions.From(point.State), point.ObservedAtUtc))
                 .ToArray(),
             sinceUtc);
 
@@ -64,15 +64,6 @@ public sealed class GetDashboardOverviewQueryHandler(
                 reading.Checks,
                 reading.HourlySamples);
     }
-
-    private static MonitoringCondition ToCondition(ApplicationHealthState state) => state switch
-    {
-        ApplicationHealthState.Healthy or ApplicationHealthState.Degraded =>
-            MonitoringCondition.Acceptable,
-        ApplicationHealthState.Unhealthy or ApplicationHealthState.Unreachable =>
-            MonitoringCondition.Failure,
-        _ => MonitoringCondition.Indeterminate
-    };
 
     private static SurfaceProjection CreateSurface(DashboardSurfaceData surface)
     {

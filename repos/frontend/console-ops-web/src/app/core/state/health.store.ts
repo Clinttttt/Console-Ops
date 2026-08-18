@@ -25,7 +25,6 @@ export class HealthStore {
   readonly summary = computed(() => this.current()?.summary ?? null);
   readonly environments = computed(() => this.current()?.environments ?? []);
   readonly stateChanges = computed(() => this.current()?.stateChanges ?? []);
-  readonly isSampleData = computed(() => this.current()?.isSampleData ?? false);
 
   read(): void {
     if (untracked(this.state) !== 'loaded') {

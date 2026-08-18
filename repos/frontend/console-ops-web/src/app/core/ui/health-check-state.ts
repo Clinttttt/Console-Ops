@@ -7,16 +7,12 @@ import { HealthCheckState } from '../contracts/health';
  * Health, Overview, Projects and Deployments all render these states, and the whole point of a single mapping is
  * that an environment cannot read `Unhealthy` on one screen and `Down` on another.
  *
- * `Running` is deliberately its own verdict rather than a shade of healthy: a process that answers is running,
- * but only a health endpoint can claim it is healthy. `Not configured` is not a failure, and `Unknown` means no
- * check exists - never "probably fine".
+ * `Not configured` is not a failure, and `Unknown` means no check exists - never "probably fine".
  */
 export function healthCheckCell(state: HealthCheckState): StatusCell {
   switch (state) {
     case 'healthy':
       return { level: 'healthy', label: 'Healthy', detail: null };
-    case 'running':
-      return { level: 'running', label: 'Running', detail: null };
     case 'degraded':
       return { level: 'warning', label: 'Degraded', detail: null };
     case 'unhealthy':

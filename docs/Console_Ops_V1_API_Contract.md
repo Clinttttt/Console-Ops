@@ -228,6 +228,49 @@ Rules:
   runtime from the framework description, schema from the pending-migration list. A database that could not be
   asked reports `unknown`, which is not the same as `upToDate`.
 
+## Health overview contract
+
+`GET /api/health` reports the recorded health of every active environment. Reads only: it reports what
+collection already wrote, so opening the screen never causes an application to be probed.
+
+```text
+observedAt
+summary
+|-- healthy | degraded | down     counts by what an operator would act on
+`-- lastCheckedAt                 null when nothing has been checked at all
+environments[]
+|-- id, projectId, projectName, environmentName, environmentKind
+|-- state                         the seven states, camel case; unknown when no check exists
+|-- checkedAt                     null when never checked
+|-- responseMilliseconds
+|-- checks[]                      the application's own check first, then each dependency it reported
+|   |-- name, kind                kind is a display hint: application | database | cache | external | unknown
+|   |-- state
+|   `-- responseMilliseconds      the application reports a round trip; a dependency reports only a state
+|-- healthySince | failingSince   the current unbroken run, derived from the sequence, null when it does not apply
+|-- consecutiveFailures
+|-- lastHealthyAt
+`-- window                        the last 24 hours
+    |-- availabilityPercentage    null below the minimum sample
+    |-- checks | failedChecks
+    `-- longestOutageSeconds      null when nothing failed, which is not the same as zero
+stateChanges[]                    transitions as recorded, newest first
+```
+
+Rules:
+
+- **An unchecked environment is not healthy.** It reports `unknown` with a null `checkedAt`, and is counted in
+  none of the summary columns: it is not evidence of being up or down.
+- **A run is derived from the sequence, not stored.** `healthySince` is null unless the latest check is healthy,
+  and a run that began before the window reports its earliest known check rather than claiming more.
+- **Availability comes from one definition**, shared with the dashboard: a degraded application answered, so it
+  counts as served, while an indeterminate check counts on neither side. Below the minimum sample there is no
+  figure at all.
+- **Transitions are read, never re-derived.** They were recorded at the moment they happened, which is the only
+  honest way to report a change after the fact.
+- **Degraded is an active issue but counts as available.** Those answer different questions and both are true.
+- **Dependencies are what the application said.** An empty list means it reported none, not that all is well.
+
 ## Transport rules
 - Use ISO-8601 UTC strings for instants and `DateTimeOffset` in .NET.
 - Use `null` when a fact could not be established. Do not use zero, an empty SHA, or the current time

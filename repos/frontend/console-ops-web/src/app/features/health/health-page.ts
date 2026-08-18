@@ -36,7 +36,6 @@ export class HealthPage {
   protected readonly loadState = this.store.loadState;
   protected readonly summary = this.store.summary;
   protected readonly stateChanges = this.store.stateChanges;
-  protected readonly isSampleData = this.store.isSampleData;
   protected readonly observedAt = this.store.observedAt;
 
   protected readonly stateFilter = signal<StateFilter>(null);
