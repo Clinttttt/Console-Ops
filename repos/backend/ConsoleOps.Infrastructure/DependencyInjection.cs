@@ -61,6 +61,7 @@ public static class DependencyInjection
     /// </summary>
     private static void AddIntegrationProbes(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<IConsoleOpsBuildInfo, ConsoleOpsBuildInfo>();
         services.AddScoped<IIntegrationProbe, DatabaseProbe>();
         services.AddScoped<IIntegrationProbe, AzureCredentialProbe>();
         services.AddScoped<IIntegrationProbe, GitHubTokenProbe>();

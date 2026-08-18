@@ -39,7 +39,6 @@ export class SettingsPage {
   protected readonly integrations = this.store.integrations;
   protected readonly collection = this.store.collection;
   protected readonly about = this.store.about;
-  protected readonly isSampleData = this.store.isSampleData;
   protected readonly failure = this.store.failure;
   protected readonly runningAction = this.store.runningAction;
 
@@ -92,6 +91,14 @@ export class SettingsPage {
         state: collection.isEnabled ? 'Running' : 'Off',
         level: collection.isEnabled ? 'healthy' : 'unknown',
       });
+    } else {
+      // Not the same as off: Console Ops does not record its sweeps yet, so it has nothing to report.
+      entries.push({
+        label: 'Collection',
+        icon: 'refresh',
+        state: 'Not reported',
+        level: 'unknown',
+      });
     }
 
     const about = this.about();
@@ -99,12 +106,24 @@ export class SettingsPage {
       entries.push({
         label: 'Database',
         icon: 'database',
-        state: about.databaseSchema === 'upToDate' ? 'Up to date' : 'Migrations pending',
+        state: this.schemaLabel(),
         level: about.databaseSchema === 'upToDate' ? 'healthy' : 'warning',
       });
     }
 
     return entries;
+  });
+
+  protected readonly schemaLabel = computed(() => {
+    switch (this.about()?.databaseSchema) {
+      case 'upToDate':
+        return 'Up to date';
+      case 'pendingMigrations':
+        return 'Migrations pending';
+      default:
+        // The database could not be asked, which is not the same as being up to date.
+        return 'Unknown';
+    }
   });
 
   protected test(): void {

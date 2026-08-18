@@ -15,10 +15,20 @@ public sealed record GetConfigurationStatusQuery(bool Probe = false)
 /// One entry per thing Console Ops needs configured, so the screen reports capabilities rather than keys.
 /// </param>
 /// <param name="Probed">Whether credentials were tested, so the UI never implies a test that did not run.</param>
+/// <param name="About">Which build is running, and whether its schema matches.</param>
 public sealed record ConfigurationStatusResponse(
     DateTimeOffset ObservedAt,
     IReadOnlyList<CapabilityStatusResponse> Capabilities,
-    bool Probed);
+    bool Probed,
+    AboutConsoleOpsResponse About);
+
+/// <param name="Build">The source revision the build came from, or <c>null</c> when it recorded none.</param>
+/// <param name="DatabaseSchema"><c>upToDate</c>, <c>pendingMigrations</c>, or <c>unknown</c>.</param>
+public sealed record AboutConsoleOpsResponse(
+    string Version,
+    string? Build,
+    string Runtime,
+    string DatabaseSchema);
 
 /// <param name="State">
 /// <c>configured</c>, <c>missing</c>, or <c>default</c>. The worst state among the capability's keys, because
@@ -51,6 +61,7 @@ public sealed record ConnectionCheckResponse(bool Succeeded, string? Failure);
 public sealed class GetConfigurationStatusQueryHandler(
     IConfigurationInspector inspector,
     IEnumerable<IIntegrationProbe> probes,
+    IConsoleOpsBuildInfo buildInfo,
     TimeProvider timeProvider)
     : IRequestHandler<GetConfigurationStatusQuery, Result<ConfigurationStatusResponse>>
 {
@@ -76,10 +87,13 @@ public sealed class GetConfigurationStatusQueryHandler(
             .OrderBy(capability => capability.Capability, StringComparer.Ordinal)
             .ToArray();
 
+        ConsoleOpsBuild build = await buildInfo.ReadAsync(cancellationToken);
+
         return Result<ConfigurationStatusResponse>.Success(new ConfigurationStatusResponse(
             timeProvider.GetUtcNow(),
             capabilities,
-            request.Probe));
+            request.Probe,
+            new AboutConsoleOpsResponse(build.Version, build.Build, build.Runtime, build.SchemaState)));
     }
 
     /// <summary>

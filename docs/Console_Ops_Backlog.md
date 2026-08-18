@@ -54,10 +54,10 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 ## Blocked or deferred
 
-- **Settings screen: make the mock real.** The screen exists as a labelled design mock covering Integrations,
-  Collection and About. Integrations can read `GET /api/settings/configuration` immediately, including the
-  `Test connection` probe. Collection needs the refresh worker to expose its last sweep, result and duration,
-  and About needs an assembly version, build sha and migration state. Delete the mock adapter as each lands.
+- **Settings: the Collection section.** Integrations and About read real data and the mock is deleted. Collection
+  is the one section still absent: `ProjectRefreshWorker` does not record its sweeps, so there is nothing to
+  report. It needs the worker to keep its last sweep instant, outcome and duration, and to expose the next due
+  time; then the section replaces its explanatory note. `Refresh now` becomes real at the same time.
   Deliberately absent from the screen: project, environment, deployment and health facts, which have their own
   screens; and any editable control, because nothing here can be persisted at runtime yet.
 - **Health screen.** Parked at the operator's request while its content is decided. Mostly feasible from

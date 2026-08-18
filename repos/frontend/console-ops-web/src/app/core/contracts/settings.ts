@@ -73,11 +73,10 @@ export interface SettingsSnapshot {
   /** ISO-8601 UTC composition time. Relative times are measured against it. */
   readonly observedAt: string;
   readonly integrations: readonly Integration[];
-  readonly collection: CollectionSettings;
-  readonly about: AboutConsoleOps;
   /**
-   * `true` while the screen is backed by sample data rather than by Console Ops' own configuration. The screen
-   * must say so plainly: a settings page that looks authoritative and is invented is worse than no page.
+   * `null` while Console Ops does not record its own sweeps. The screen says the section is not reported yet
+   * rather than showing figures nothing observed.
    */
-  readonly isSampleData: boolean;
+  readonly collection: CollectionSettings | null;
+  readonly about: AboutConsoleOps;
 }

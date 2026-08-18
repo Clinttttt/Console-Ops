@@ -8,7 +8,6 @@ import { SettingsPage } from './settings-page';
 
 const SNAPSHOT: SettingsSnapshot = {
   observedAt: '2026-08-18T16:19:00.000Z',
-  isSampleData: true,
   integrations: [
     {
       id: 'github',
@@ -97,11 +96,6 @@ describe('SettingsPage', () => {
     await render();
   });
 
-  it('says it is sample data rather than looking authoritative', () => {
-    // A settings screen showing invented values without saying so is worse than no screen.
-    expect(host.textContent).toContain('Sample data');
-  });
-
   it('separates a configured provider from a verified one', () => {
     // The distinction the screen exists for: a present key is not evidence that anything works.
     expect(rowFor('GitHub')?.textContent).toContain('Verified');
@@ -162,21 +156,19 @@ describe('SettingsPage', () => {
           authentication: null,
         },
       ],
-      collection: {
-        ...SNAPSHOT.collection,
-        isEnabled: false,
-        lastSweepAt: null,
-        lastSweepSucceeded: null,
-        lastSweepMilliseconds: null,
-        nextSweepAt: null,
-      },
-      about: { ...SNAPSHOT.about, build: null, databaseSchema: 'pendingMigrations' },
+      collection: null,
+      about: { ...SNAPSHOT.about, build: null, databaseSchema: 'unknown' },
     });
 
     expect(rowFor('Azure')?.textContent).toContain('Not configured');
-    expect(host.textContent).toContain('None since start-up');
-    expect(host.textContent).toContain('Not observed yet');
-    expect(host.textContent).toContain('Collection is off');
-    expect(host.textContent).toContain('Migrations pending');
+    // Collection has no endpoint yet, so the section says so instead of showing figures nothing observed.
+    expect(host.textContent).toContain('does not record its own collection sweeps yet');
+    expect(host.textContent).not.toContain('Completed successfully');
+    // A database that could not be asked is unknown, which is not the same as up to date.
+    expect(host.textContent).toContain('Unknown');
+    const rail = Array.from(host.querySelectorAll('.rail-list li')).map((entry) =>
+      entry.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(rail).toContain('Collection Not reported');
   });
 });

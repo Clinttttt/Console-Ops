@@ -10,19 +10,6 @@
   }
 
   @default {
-    @if (isSampleData()) {
-      <!--
-        Stated rather than implied. A settings screen that looks authoritative while showing invented values is
-        worse than no screen, so the sample state is named at the top and this notice goes when the real read
-        lands.
-      -->
-      <p class="preview-notice">
-        <co-icon name="sliders" [size]="14" />
-        <strong>Sample data.</strong>
-        This screen is being designed. Values below are examples, not this instance's configuration.
-      </p>
-    }
-
     @if (failure() !== null) {
       <p class="action-failure">{{ failure() }}</p>
     }
@@ -43,9 +30,18 @@
         </section>
 
         @let sweep = collection();
-        @if (sweep !== null) {
-          <section class="block">
-            <h2 class="co-eyebrow">Collection</h2>
+        <section class="block">
+          <h2 class="co-eyebrow">Collection</h2>
+          @if (sweep === null) {
+            <!-- The worker does not record its sweeps yet, so the section says that rather than inventing them. -->
+            <div class="card">
+              <p class="absent co-unavailable">
+                Console Ops does not record its own collection sweeps yet, so there is nothing to
+                report here. The interval is set by
+                <span class="co-mono">Monitoring:Refresh</span> in application settings.
+              </p>
+            </div>
+          } @else {
             <div class="card">
               <div class="interval">
                 <span class="mark" aria-hidden="true">
@@ -140,8 +136,8 @@
                 </button>
               </div>
             </div>
-          </section>
-        }
+          }
+        </section>
 
         @let build = about();
         @if (build !== null) {
@@ -177,7 +173,7 @@
                       "
                       aria-hidden="true"
                     ></span>
-                    {{ build.databaseSchema === 'upToDate' ? 'Up to date' : 'Migrations pending' }}
+                    {{ schemaLabel() }}
                   </dd>
                 </div>
               </dl>

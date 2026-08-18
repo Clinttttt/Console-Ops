@@ -57,6 +57,18 @@ interface IconDefinition {
   readonly paths: readonly string[];
   /** Brand marks are filled rather than stroked. */
   readonly filled?: true;
+  /**
+   * A brand mark drawn in its own colours rather than in the surrounding ink.
+   *
+   * Flat fills rather than a gradient on purpose: a gradient needs a definition with an id, and the same icon
+   * appears several times on a screen, so ids would collide. Two facets read as the mark at the sizes used here.
+   */
+  readonly brand?: readonly BrandLayer[];
+}
+
+interface BrandLayer {
+  readonly d: string;
+  readonly fill: string;
 }
 
 const CIRCLE = (cx: number, cy: number, r: number): string =>
@@ -113,7 +125,13 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
   },
   azure: {
     filled: true,
+    // The Azure "A" in Azure's own blues: the descending stroke in the primary blue, the trailing leg in the
+    // lighter facet. The monochrome path stays as the fallback for anywhere the brand layers are not drawn.
     paths: ['M12 3.4 4.2 20.6h5.1L12 13.9l2.7 6.7h5.1L12 3.4Z'],
+    brand: [
+      { d: 'M12 3.4 4.2 20.6h5.1L12 13.9Z', fill: '#0078D4' },
+      { d: 'M12 3.4 12 13.9l2.7 6.7h5.1Z', fill: '#50E6FF' },
+    ],
   },
   docker: {
     filled: true,
@@ -258,8 +276,15 @@ const ICONS: Readonly<Record<IconName, IconDefinition>> = {
       [attr.role]="label() === null ? 'presentation' : 'img'"
       [attr.aria-label]="label()"
     >
-      @for (path of definition().paths; track $index) {
-        <path [attr.d]="path" />
+      @let brand = definition().brand;
+      @if (brand === undefined) {
+        @for (path of definition().paths; track $index) {
+          <path [attr.d]="path" />
+        }
+      } @else {
+        @for (layer of brand; track $index) {
+          <path [attr.d]="layer.d" [attr.fill]="layer.fill" stroke="none" />
+        }
       }
     </svg>
   `,
