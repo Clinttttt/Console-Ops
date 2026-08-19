@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 import { StatusCell } from '../../../core/contracts/dashboard-overview';
-import { Workflow, WorkflowRunJob } from '../../../core/contracts/workflows';
+import { ManualRunSupport, Workflow, WorkflowRunJob } from '../../../core/contracts/workflows';
 import { DurationPipe } from '../../../core/ui/duration.pipe';
 import { RouterLink } from '@angular/router';
 
@@ -33,6 +33,10 @@ export class WorkflowDetail {
   readonly jobs = input<readonly WorkflowRunJob[]>([]);
   readonly jobsState = input<'idle' | 'loading' | 'unavailable' | 'loaded'>('idle');
 
+  /** Established from the workflow definition on selection, rather than taken from the inventory. */
+  readonly manualRun = input<ManualRunSupport>('unknown');
+  readonly manualRunReading = input(false);
+
   protected readonly icon = computed<IconName>(() =>
     this.workflow().classification === 'deployment' ? 'rocket' : 'ciCd',
   );
@@ -47,8 +51,9 @@ export class WorkflowDetail {
     this.workflow().classification === 'deployment' ? 'Deployment' : 'Unclassified',
   );
 
-  protected readonly manualRun = computed(() => {
-    switch (this.workflow().manualRun) {
+  /** How the reading reads, or `null` while it is not established. */
+  protected readonly manualRunLabel = computed(() => {
+    switch (this.manualRun()) {
       case 'supported':
         return 'Supported';
       case 'unavailable':

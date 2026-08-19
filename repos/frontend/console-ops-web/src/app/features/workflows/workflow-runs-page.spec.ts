@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 
 import {
+  ManualRunSupportReading,
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
@@ -103,6 +104,10 @@ class StubWorkflows extends WorkflowsDataSource {
   override loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]> {
     this.jobRequests.push({ projectId, runId });
     return this.jobs;
+  }
+
+  override loadManualRunSupport(): Observable<ManualRunSupportReading> {
+    return of({ manualRun: 'unknown', definitionPath: '.github/workflows/ci.yml' });
   }
 }
 

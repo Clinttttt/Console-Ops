@@ -18,6 +18,11 @@ internal static class WorkflowErrors
         "No registered project owns that run.",
         ErrorType.NotFound);
 
+    internal static readonly Error WorkflowPathRequired = new(
+        "Workflows.WorkflowPathRequired",
+        "The workflow's definition path is required to read whether it can be run manually.",
+        ErrorType.Validation);
+
     internal static Error From(GitHubReadFailure failure) => failure switch
     {
         GitHubReadFailure.NotFound => new Error(

@@ -80,6 +80,14 @@ public sealed record GitHubRunJob(
 
 public sealed record GitHubRunJobs(IReadOnlyList<GitHubRunJob> Jobs);
 
+/// <param name="SupportsManualRun">
+/// <c>true</c> or <c>false</c> where the workflow's trigger declaration was read, and <c>null</c> where it was
+/// not. Unknown is a real answer: it means Console Ops could not establish the fact, which is different from
+/// establishing that a manual run is unavailable.
+/// </param>
+/// <param name="DefinitionPath">The file the answer was read from, so a claim can be checked.</param>
+public sealed record GitHubManualRunSupport(bool? SupportsManualRun, string DefinitionPath);
+
 /// <summary>
 /// Reads a repository's automation and how it executed, for the Workflows screen.
 /// </summary>
@@ -121,6 +129,19 @@ public interface IGitHubWorkflowInventory
         string repository,
         long workflowId,
         int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether one workflow declares a manual dispatch trigger, read from its own definition.
+    /// </summary>
+    /// <remarks>
+    /// A separate read because the listing does not report triggers and the answer costs one request for the
+    /// file. Made for the workflow an operator selected rather than for every workflow on a page.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubManualRunSupport>> ReadManualRunSupportAsync(
+        string owner,
+        string repository,
+        string workflowPath,
         CancellationToken cancellationToken);
 
     /// <summary>

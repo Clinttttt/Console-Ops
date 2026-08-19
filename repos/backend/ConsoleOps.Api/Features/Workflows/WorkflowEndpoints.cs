@@ -1,6 +1,7 @@
 using ConsoleOps.Api.Extensions;
 using ConsoleOps.Application.Abstractions.Messaging;
 using ConsoleOps.Application.Features.Workflows.GetInventory;
+using ConsoleOps.Application.Features.Workflows.GetManualRunSupport;
 using ConsoleOps.Application.Features.Workflows.GetRunJobs;
 using ConsoleOps.Application.Features.Workflows.GetRuns;
 using MediatR;
@@ -17,6 +18,7 @@ public static class WorkflowEndpoints
         workflows.MapGetWorkflowInventoryEndpoint();
         workflows.MapGetWorkflowRunsEndpoint();
         workflows.MapGetWorkflowRunJobsEndpoint();
+        workflows.MapGetManualRunSupportEndpoint();
         return endpoints;
     }
 }
@@ -106,6 +108,39 @@ internal static class GetWorkflowRunJobsEndpoint
     {
         Result<WorkflowRunJobsResponse> result = await sender.Send(
             new GetWorkflowRunJobsQuery(projectId, runId),
+            cancellationToken);
+
+        return result.ToHttpResult();
+    }
+}
+
+internal static class GetManualRunSupportEndpoint
+{
+    public static RouteGroupBuilder MapGetManualRunSupportEndpoint(this RouteGroupBuilder workflows)
+    {
+        workflows.MapGet("/projects/{projectId:guid}/workflows/{workflowId:long}/manual-run", Handle)
+            .WithName("GetWorkflowManualRunSupport")
+            .WithSummary("Reports whether one workflow declares a manual dispatch trigger.")
+            .WithDescription(
+                "Read from the workflow's own definition, because GitHub's listing does not report triggers. "
+                + "Costs one request per workflow, so it is read for the workflow an operator selected rather "
+                + "than for every workflow on the page. A definition that could not be read reports unknown "
+                + "rather than claiming a manual run is unavailable.")
+            .Produces<ManualRunSupportResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        return workflows;
+    }
+
+    private static async Task<IResult> Handle(
+        Guid projectId,
+        long workflowId,
+        string path,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<ManualRunSupportResponse> result = await sender.Send(
+            new GetManualRunSupportQuery(projectId, workflowId, path),
             cancellationToken);
 
         return result.ToHttpResult();

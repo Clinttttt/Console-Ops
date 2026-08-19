@@ -59,23 +59,18 @@
       Run logs
     </span>
 
-    @switch (item.manualRun) {
-      @case ('supported') {
-        <span
-          class="run is-unavailable"
-          title="Manual runs are a later phase: Console Ops reads workflows before it starts them"
-        >
-          Run
-        </span>
-      }
-      @case ('unknown') {
-        <span
-          class="co-unavailable manual"
-          title="The provider has not reported whether this workflow can be run manually"
-        >
-          Run unknown
-        </span>
-      }
+    <!--
+      Nothing here for a workflow whose dispatch support has not been established. The inventory cannot know it -
+      a trigger is declared in the definition - and repeating "unknown" on every row states the same
+      non-answer as many times as there are workflows. It is established on selection and shown in the panel.
+    -->
+    @if (item.manualRun === 'supported') {
+      <span
+        class="run is-unavailable"
+        title="Manual runs are a later phase: Console Ops reads workflows before it starts them"
+      >
+        Run
+      </span>
     }
   </span>
 </div>

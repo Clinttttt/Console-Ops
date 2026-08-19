@@ -27,6 +27,9 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     /// <summary>Upper bound on run history, whatever a caller asks for. History is recent, not exhaustive.</summary>
     private const int MaximumRunPageSize = 50;
 
+    /// <summary>A workflow definition is a small file; anything larger is not one worth scanning.</summary>
+    private const int MaximumDefinitionBytes = 256 * 1024;
+
     /// <summary>
     /// How many latest-run reads are in flight at once.
     /// </summary>
@@ -136,6 +139,36 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
         bool hasMore = response.Value.TotalCount > runs.Length || response.HasNextPage;
 
         return GitHubFactResult<GitHubRunPage>.Success(new GitHubRunPage(runs, hasMore));
+    }
+
+    public async Task<GitHubFactResult<GitHubManualRunSupport>> ReadManualRunSupportAsync(
+        string owner,
+        string repository,
+        string workflowPath,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(workflowPath);
+
+        string path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}"
+            + $"/contents/{EscapePath(workflowPath)}";
+        GitHubReadResponse<ContentDto> response =
+            await GitHubRead.GetAsync<ContentDto>(httpClient, path, cancellationToken);
+
+        if (response.Value is null)
+        {
+            return GitHubFactResult<GitHubManualRunSupport>.Failed(
+                response.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        string? definition = Decode(response.Value);
+
+        // A file that could not be decoded leaves the answer unknown rather than claiming a manual run is
+        // unavailable, which would hide a workflow an operator relies on.
+        return GitHubFactResult<GitHubManualRunSupport>.Success(new GitHubManualRunSupport(
+            definition is null ? null : WorkflowTriggerScan.DeclaresManualDispatch(definition),
+            workflowPath));
     }
 
     public async Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(
@@ -251,6 +284,38 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>Each path segment is escaped, so a workflow in a folder is still addressed correctly.</summary>
+    private static string EscapePath(string path) =>
+        string.Join('/', path.Trim().Split('/').Select(Uri.EscapeDataString));
+
+    /// <summary>
+    /// The file as text, or <c>null</c> when it did not arrive in a form worth reading.
+    /// </summary>
+    /// <remarks>
+    /// Bounded: a workflow definition is a small file, and a caller must not be able to make Console Ops pull an
+    /// arbitrary blob into memory by pointing at a large path.
+    /// </remarks>
+    private static string? Decode(ContentDto content)
+    {
+        if (content.Content is not { Length: > 0 } encoded
+            || !string.Equals(content.Encoding, "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            byte[] bytes = Convert.FromBase64String(encoded.Replace("\n", string.Empty));
+            return bytes.Length > MaximumDefinitionBytes
+                ? null
+                : System.Text.Encoding.UTF8.GetString(bytes);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
     private sealed record WorkflowsDto(WorkflowDto[]? Workflows);
 
     private sealed record WorkflowDto(long Id, string? Name, string? Path, string? State);
@@ -274,6 +339,8 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
         [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record ActorDto(string? Login);
+
+    private sealed record ContentDto(string? Content, string? Encoding);
 
     private sealed record JobsDto(JobDto[]? Jobs);
 

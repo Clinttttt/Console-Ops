@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 
 import {
   ManualRunSupport,
+  ManualRunSupportReading,
   Workflow,
   WorkflowClassification,
   WorkflowInventory,
@@ -72,6 +73,12 @@ interface RunsPayload {
   readonly hasMore: boolean;
 }
 
+/** The wire shape of `GET /api/workflows/projects/{id}/workflows/{id}/manual-run`. */
+interface ManualRunPayload {
+  readonly manualRun: string;
+  readonly definitionPath: string;
+}
+
 interface RunJobsPayload {
   readonly runId: string;
   readonly jobs: readonly JobPayload[];
@@ -104,6 +111,26 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
         `/api/workflows/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/jobs`,
       )
       .pipe(map((payload) => payload.jobs.map(toJob)));
+  }
+
+  override loadManualRunSupport(
+    projectId: string,
+    workflowId: string,
+    workflowPath: string,
+  ): Observable<ManualRunSupportReading> {
+    return this.http
+      .get<ManualRunPayload>(
+        `/api/workflows/projects/${encodeURIComponent(projectId)}/workflows/${encodeURIComponent(
+          workflowId,
+        )}/manual-run`,
+        { params: { path: workflowPath } },
+      )
+      .pipe(
+        map((payload) => ({
+          manualRun: toManualRun(payload.manualRun),
+          definitionPath: payload.definitionPath,
+        })),
+      );
   }
 
   override loadRuns(projectId: string, workflowId: string): Observable<WorkflowRunHistory> {

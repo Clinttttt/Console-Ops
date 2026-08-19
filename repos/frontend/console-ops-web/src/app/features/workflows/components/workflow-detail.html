@@ -85,10 +85,13 @@
   <div class="fact">
     <dt>Manual run</dt>
     <dd>
-      @if (manualRun() === null) {
+      @if (manualRunReading()) {
+        <span class="co-unavailable">Reading the definition...</span>
+      } @else if (manualRunLabel() === null) {
+        <!-- Unknown, not unavailable: Console Ops failed to establish the fact rather than establishing it. -->
         <span class="co-unavailable">Unknown</span>
       } @else {
-        {{ manualRun() }}
+        {{ manualRunLabel() }}
       }
     </dd>
   </div>
