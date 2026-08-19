@@ -94,10 +94,10 @@ describe('WorkflowsPage', () => {
 
     // Reported unavailable: no action at all, rather than a button that cannot work.
     expect(rowFor('CI')!.querySelector('.run')).toBeNull();
-    expect(rowFor('CI')?.textContent).not.toContain('Manual run unknown');
+    expect(rowFor('CI')?.textContent).not.toContain('Run unknown');
 
     // Never asked: stated as unknown, which is not the same as knowing it cannot be run.
-    expect(rowFor('Publish Collector APK')?.textContent).toContain('Manual run unknown');
+    expect(rowFor('Publish Collector APK')?.textContent).toContain('Run unknown');
   });
 
   it('names run history and workflow logs as planned instead of linking nowhere', () => {

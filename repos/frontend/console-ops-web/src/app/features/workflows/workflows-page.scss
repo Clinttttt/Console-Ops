@@ -2,6 +2,8 @@
   display: block;
   flex: 1;
   min-width: 0;
+  /* The page inset every other screen uses. Without it the content ran to the viewport edges. */
+  padding: 0 var(--co-space-6) var(--co-space-7);
 }
 
 .notice {

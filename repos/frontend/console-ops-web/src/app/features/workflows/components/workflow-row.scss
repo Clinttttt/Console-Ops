@@ -24,7 +24,7 @@
 
 .pick {
   display: grid;
-  grid-template-columns: 34px minmax(150px, 1.2fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  grid-template-columns: 34px minmax(140px, 1fr) minmax(104px, 0.62fr) minmax(150px, 0.78fr);
   align-items: center;
   gap: var(--co-space-5);
   flex: 1;
@@ -74,25 +74,33 @@
 }
 
 .sep {
-  padding: 0 var(--co-space-2);
+  padding: 0 5px;
   color: var(--co-ink-faint);
 }
 
+/*
+  A reserved trailing slot, so "Runs" and "Run logs" sit in the same column whether or not the provider
+  reported manual dispatch. Right-aligning them made every second row's links land somewhere different.
+*/
 .actions {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: auto auto 84px;
   align-items: center;
+  justify-items: end;
   gap: var(--co-space-4);
   flex-shrink: 0;
 }
 
 .manual {
   font-size: 11.5px;
+  text-align: right;
 }
 
 /* Shaped like the action it will become, so the layout does not move when running is built. */
 .run {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 5px var(--co-space-4);
   font-size: 12px;
   font-weight: 600;
