@@ -1,0 +1,125 @@
+:host {
+  display: block;
+  padding: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin-top: var(--co-space-3);
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--co-ink-muted);
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  flex-shrink: 0;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: grid;
+  gap: var(--co-space-3);
+  margin: var(--co-space-5) 0 0;
+  padding: var(--co-space-5) 0 0;
+  border-top: 1px solid var(--co-line);
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: var(--co-space-4);
+  align-items: baseline;
+}
+
+dt {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--co-ink);
+  overflow-wrap: anywhere;
+}
+
+.path {
+  font-size: 11.5px;
+}
+
+.co-eyebrow + .jobs {
+  margin-top: var(--co-space-3);
+}
+
+.jobs {
+  display: grid;
+  gap: var(--co-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-eyebrow {
+  margin-top: var(--co-space-5);
+  padding-top: var(--co-space-5);
+  border-top: 1px solid var(--co-line);
+}
+
+.co-eyebrow:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.job-note {
+  margin: var(--co-space-3) 0 0;
+  font-size: 12px;
+}
+
+.job {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--co-space-3);
+  color: var(--co-ink-muted);
+}
+
+.job-name {
+  font-size: 12.5px;
+  color: var(--co-ink);
+  overflow-wrap: anywhere;
+}
+
+.job-duration {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-4);
+  margin-top: var(--co-space-5);
+  padding-top: var(--co-space-5);
+  border-top: 1px solid var(--co-line);
+}

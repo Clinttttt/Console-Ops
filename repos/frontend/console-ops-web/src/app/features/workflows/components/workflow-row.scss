@@ -1,0 +1,114 @@
+:host {
+  display: block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-4);
+  padding-right: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.row:hover {
+  border-color: var(--co-line-strong);
+}
+
+/* Selection is a border rather than a wash: the status dots carry the only colour that means anything. */
+.row.is-selected {
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+.pick {
+  display: grid;
+  grid-template-columns: 34px minmax(140px, 1fr) minmax(104px, 0.62fr) minmax(150px, 0.78fr);
+  align-items: center;
+  gap: var(--co-space-5);
+  flex: 1;
+  min-width: 0;
+  padding: var(--co-space-4) var(--co-space-5);
+  text-align: left;
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--co-ink-muted);
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.identity,
+.state,
+.source {
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.sub,
+.when {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.source {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.sep {
+  padding: 0 5px;
+  color: var(--co-ink-faint);
+}
+
+/*
+  A reserved trailing slot, so "Runs" and "Run logs" sit in the same column whether or not the provider
+  reported manual dispatch. Right-aligning them made every second row's links land somewhere different.
+*/
+.actions {
+  display: grid;
+  grid-template-columns: auto auto 84px;
+  align-items: center;
+  justify-items: end;
+  gap: var(--co-space-4);
+  flex-shrink: 0;
+}
+
+.manual {
+  font-size: 11.5px;
+  text-align: right;
+}
+
+/* Shaped like the action it will become, so the layout does not move when running is built. */
+.run {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px var(--co-space-4);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.run.is-unavailable {
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}

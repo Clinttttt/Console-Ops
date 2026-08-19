@@ -1,0 +1,147 @@
+@let item = workflow();
+@let run = item.latestRun;
+
+<p class="co-eyebrow">Selected workflow</p>
+
+<div class="head">
+  <span class="glyph" aria-hidden="true">
+    <co-icon [name]="icon()" [size]="17" />
+  </span>
+  <span class="title">{{ item.name }}</span>
+  @if (run !== null) {
+    <co-status [cell]="runCell()" [showDetail]="false" />
+  }
+</div>
+
+<dl class="facts">
+  <div class="fact">
+    <dt>Repository</dt>
+    <dd>{{ projectName() }}</dd>
+  </div>
+  <div class="fact">
+    <dt>Type</dt>
+    <dd>{{ classification() }}</dd>
+  </div>
+
+  <div class="fact">
+    <dt>Path</dt>
+    <dd class="co-mono path">{{ item.path }}</dd>
+  </div>
+  <div class="fact">
+    <dt>State</dt>
+    <dd>
+      @if (item.state === 'disabled') {
+        <span class="co-unavailable">Disabled</span>
+      } @else {
+        Active
+      }
+    </dd>
+  </div>
+
+  @if (run === null) {
+    <div class="fact">
+      <dt>Latest run</dt>
+      <dd class="co-unavailable">No run recorded</dd>
+    </div>
+  } @else {
+    <div class="fact">
+      <dt>Latest run</dt>
+      <dd class="co-mono">#{{ run.number }}</dd>
+    </div>
+    <div class="fact">
+      <dt>Branch</dt>
+      <dd class="co-mono">{{ run.branch }}</dd>
+    </div>
+    <div class="fact">
+      <dt>Commit</dt>
+      <dd class="co-mono">{{ run.commitShortSha }}</dd>
+    </div>
+    <div class="fact">
+      <dt>Trigger</dt>
+      <dd class="co-mono">{{ trigger(run.trigger) }}</dd>
+    </div>
+    <div class="fact">
+      <dt>Actor</dt>
+      <dd>{{ run.actor }}</dd>
+    </div>
+    <div class="fact">
+      <dt>Started</dt>
+      <dd>{{ run.startedAt | date: 'MMM d, HH:mm' : 'UTC' }} UTC</dd>
+    </div>
+    <div class="fact">
+      <dt>Duration</dt>
+      <dd>
+        @let duration = run.durationSeconds | coDuration;
+        @if (duration === null) {
+          <!-- A run still going has no duration, and reporting one would be inventing an end. -->
+          <span class="co-unavailable">Still running</span>
+        } @else {
+          <span class="co-mono">{{ duration }}</span>
+        }
+      </dd>
+    </div>
+  }
+
+  <div class="fact">
+    <dt>Manual run</dt>
+    <dd>
+      @if (manualRun() === null) {
+        <span class="co-unavailable">Unknown</span>
+      } @else {
+        {{ manualRun() }}
+      }
+    </dd>
+  </div>
+</dl>
+
+@if (run !== null) {
+  <p class="co-eyebrow">Latest run overview</p>
+  @switch (jobsState()) {
+    @case ('loading') {
+      <p class="co-unavailable job-note">Reading jobs...</p>
+    }
+    @case ('unavailable') {
+      <!-- Named, because a run whose jobs could not be read is not a run without jobs. -->
+      <p class="co-unavailable job-note">The jobs of this run could not be read.</p>
+    }
+    @default {
+      @if (jobs().length === 0) {
+        <p class="co-unavailable job-note">This run reports no jobs.</p>
+      }
+    }
+  }
+  <ul class="jobs">
+    @for (job of jobs(); track job.name) {
+      <li class="job">
+        <co-icon [name]="jobIcon(job)" [size]="15" />
+        <span class="job-name">{{ job.name }}</span>
+        <co-status [cell]="jobCell(job)" [showDetail]="false" />
+        <span class="job-duration co-mono">
+          @let jobDuration = job.durationSeconds | coDuration;
+          @if (jobDuration === null) {
+            <span class="co-unavailable">&mdash;</span>
+          } @else {
+            {{ jobDuration }}
+          }
+        </span>
+      </li>
+    }
+  </ul>
+}
+
+<div class="panel-actions">
+  <!--
+    Both are named as planned rather than rendered as controls that do nothing. Run history is the next slice;
+    starting a workflow is a later phase, because Console Ops reads automation before it operates it.
+  -->
+  <span class="co-inline-link is-unavailable" title="Run history - planned for a later slice">
+    View runs
+    <co-icon name="arrowRight" [size]="15" />
+  </span>
+  <span
+    class="co-inline-link is-unavailable"
+    title="Starting a workflow is a later phase, after read-only inventory is proven"
+  >
+    Run workflow
+  </span>
+</div>

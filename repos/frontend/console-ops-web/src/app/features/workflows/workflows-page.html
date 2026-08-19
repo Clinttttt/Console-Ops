@@ -1,0 +1,190 @@
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading workflow inventory...</p>
+  }
+
+  @case ('unavailable') {
+    <p class="notice">
+      Workflow inventory unavailable. Console Ops could not read repository workflows, so nothing
+      here would be trustworthy.
+    </p>
+  }
+
+  @default {
+    @if (isSampleData()) {
+      <!-- Stated by the payload, not decided here, so sample data can never be presented as observed. -->
+      <p class="sample">
+        <co-icon name="sliders" [size]="14" />
+        <strong>Sample data.</strong>
+        This screen is being designed. The workflows and runs below are examples, not automation
+        Console Ops has read.
+      </p>
+    }
+
+    <div class="controls">
+      <div class="search">
+        <co-icon name="search" [size]="15" />
+        <label class="co-sr-only" for="workflow-search">Search workflows</label>
+        <input
+          id="workflow-search"
+          type="search"
+          placeholder="Search workflows..."
+          [value]="search()"
+          (input)="setSearch($any($event.target).value)"
+        />
+      </div>
+
+      <!--
+        Only the types Console Ops can prove. Offering CI, Maintenance and Release chips would imply it knows
+        those classifications, which it does not until an operator says so.
+      -->
+      <div class="filters" role="group" aria-label="Filter by type">
+        <button
+          type="button"
+          class="filter"
+          [class.is-active]="typeFilter() === null"
+          (click)="setTypeFilter(null)"
+        >
+          All
+        </button>
+        <button
+          type="button"
+          class="filter"
+          [class.is-active]="typeFilter() === 'deployment'"
+          (click)="setTypeFilter('deployment')"
+        >
+          Deployment
+        </button>
+        <button
+          type="button"
+          class="filter"
+          [class.is-active]="typeFilter() === 'unclassified'"
+          (click)="setTypeFilter('unclassified')"
+        >
+          Unclassified
+        </button>
+      </div>
+
+      <div class="project">
+        <label class="co-sr-only" for="workflow-project">Filter by project</label>
+        <select
+          id="workflow-project"
+          [value]="projectFilter() ?? ''"
+          (change)="setProjectFilter($any($event.target).value)"
+        >
+          <option value="">All projects</option>
+          @for (option of projectOptions(); track option.id) {
+            <option [value]="option.id">{{ option.name }}</option>
+          }
+        </select>
+        <co-icon name="chevronDown" [size]="15" />
+      </div>
+
+      <!--
+        Named where the reference places it, but not offered: starting a workflow is a later phase, and a
+        prominent control that silently does nothing is worse than one that says what it is waiting for.
+      -->
+      <span
+        class="dispatch is-unavailable"
+        title="Starting a workflow is a later phase, after read-only inventory is proven"
+      >
+        <co-icon name="plus" [size]="15" />
+        Run workflow
+      </span>
+    </div>
+
+    <div class="layout">
+      <div class="primary">
+        <p class="co-eyebrow">Workflow inventory</p>
+
+        @if (groups().length === 0) {
+          <p class="empty">
+            @if (isFiltered()) {
+              No workflow matches these filters.
+              <button type="button" class="co-inline-link" (click)="clearFilters()">
+                Clear filters
+              </button>
+            } @else {
+              No workflows found. The connected repositories do not currently expose any.
+            }
+          </p>
+        } @else {
+          @for (group of groups(); track group.projectId) {
+            <section class="group">
+              <div class="group-head">
+                <co-project-mark
+                  [name]="group.projectName"
+                  [tone]="toneFor(group.projectId)"
+                  [size]="30"
+                />
+                <span class="group-identity">
+                  <span class="group-name">{{ group.projectName }}</span>
+                  <span class="group-count co-unavailable">
+                    {{ group.workflows.length }}
+                    {{ group.workflows.length === 1 ? 'workflow' : 'workflows' }}
+                  </span>
+                </span>
+              </div>
+
+              @if (group.readFailure !== null) {
+                <!--
+                  A repository Console Ops could not read is not a repository without automation, and saying so
+                  would send an operator looking for missing workflows instead of a rejected token.
+                -->
+                <p class="group-failure co-unavailable">
+                  @switch (group.readFailure) {
+                    @case ('unauthorized') {
+                      GitHub rejected the configured token for this repository.
+                    }
+                    @case ('notFound') {
+                      GitHub does not expose this repository to the configured token.
+                    }
+                    @case ('rateLimited') {
+                      GitHub rate limited the request. Try again shortly.
+                    }
+                    @default {
+                      GitHub could not be read for this repository.
+                    }
+                  }
+                </p>
+              }
+
+              <div class="rows">
+                @for (workflow of group.workflows; track workflow.id) {
+                  <co-workflow-row
+                    [workflow]="workflow"
+                    [selected]="isSelected(workflow)"
+                    [readAt]="readAt()"
+                    (choose)="select($event)"
+                  />
+                }
+              </div>
+            </section>
+          }
+
+          <p class="tally co-unavailable">
+            Showing {{ shownCount() }} of {{ totalCount() }}
+            {{ totalCount() === 1 ? 'workflow' : 'workflows' }}
+          </p>
+        }
+      </div>
+
+      <aside class="rail">
+        @let choice = selected();
+        @if (choice === null) {
+          <div class="placeholder">
+            <p class="co-eyebrow">Selected workflow</p>
+            <p class="co-unavailable">Select a workflow to inspect it.</p>
+          </div>
+        } @else {
+          <co-workflow-detail
+            [workflow]="choice.workflow"
+            [projectName]="choice.projectName"
+            [jobs]="selectedJobs()"
+            [jobsState]="jobsState()"
+          />
+        }
+      </aside>
+    </div>
+  }
+}

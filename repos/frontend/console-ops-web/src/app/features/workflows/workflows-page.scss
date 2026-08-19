@@ -1,0 +1,219 @@
+:host {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  /* The page inset every other screen uses. Without it the content ran to the viewport edges. */
+  padding: 0 var(--co-space-6) var(--co-space-7);
+}
+
+.notice {
+  padding: var(--co-space-6) 0;
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+/* Same treatment the Health screen used while it was sample data, so the disclosure reads as one thing. */
+.sample {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin: 0 0 var(--co-space-5);
+  padding: var(--co-space-3) var(--co-space-4);
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.sample strong {
+  color: var(--co-ink-strong);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-4);
+  margin-bottom: var(--co-space-6);
+}
+
+.search {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  flex: 1;
+  max-width: 280px;
+  padding: 0 var(--co-space-4);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  color: var(--co-ink-muted);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--co-space-3) 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+}
+
+.search input:focus {
+  outline: none;
+}
+
+.filters {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  padding: 5px var(--co-space-3);
+  border-radius: var(--co-radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+}
+
+.filter.is-active {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-strong);
+}
+
+.project {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0 var(--co-space-4);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  color: var(--co-ink-muted);
+}
+
+.project select {
+  padding: var(--co-space-3) 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  appearance: none;
+}
+
+.project select:focus {
+  outline: none;
+}
+
+/* Shaped like the primary action it will become, so the row does not reflow when running is built. */
+.dispatch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  flex-shrink: 0;
+  padding: var(--co-space-3) var(--co-space-4);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.dispatch.is-unavailable {
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: var(--co-space-6);
+}
+
+.primary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-5);
+  min-width: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+}
+
+.group + .group {
+  margin-top: var(--co-space-5);
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+}
+
+.group-name {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.group-count {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+}
+
+.empty,
+.tally,
+.group-failure {
+  font-size: 12px;
+}
+
+.group-failure {
+  margin: 0;
+  padding: var(--co-space-4) var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.empty {
+  padding: var(--co-space-5) 0;
+  color: var(--co-ink-muted);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-5);
+}
+
+.placeholder {
+  padding: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+  font-size: 12.5px;
+}

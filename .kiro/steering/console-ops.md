@@ -12,7 +12,8 @@ CI/CD status, deployed version, runtime health, environment configuration, and a
 1. `docs/Console_Ops_Project_Context.md` — product behavior and scope (what/why).
 2. `docs/Console_Ops_Architecture.md` — implementation rules and boundaries (how).
 3. `docs/Console_Ops_V1_API_Contract.md` — approved V1 transport and integration semantics.
-4. `AGENTS.md` — shared agent contract, identical intent for every agent (Kiro, Codex, Claude).
+4. `docs/Console_Ops_Workflows_Context.md` — product authority for the Workflows feature.
+5. `AGENTS.md` — shared agent contract, identical intent for every agent (Kiro, Codex, Claude).
 
 If this file ever disagrees with those documents, the documents win and this file must be corrected.
 Never let two agents encode different rules: change the docs first, then the steering.
@@ -80,6 +81,14 @@ there can be persisted at runtime.
 Collection is server side and scheduled (`Monitoring:Refresh`), sending the same command as the manual
 refresh endpoint so the two can never record different facts. The browser only re-reads stored data; it
 never polls a provider, and no screen invents a staleness verdict.
+
+Workflows is the automation workspace: what repository automation exists and how it executed. It is not a second
+Deployments screen — Deployments answers which release reached an environment. Classification is honest: a
+workflow reads as a deployment only where an operator configured it as an environment's primary deployment
+workflow, everything else stays `Unclassified`, and no type, icon, or risk level is inferred from a workflow's
+name or trigger. Workflow execution logs belong to Workflows; application logs belong to Logs. A run action
+appears only where the provider reports manual dispatch, and starting workflows is a later phase than reading
+them. `docs/Console_Ops_Workflows_Context.md` is the product authority.
 
 Release history records what GitHub proves — a run built a commit and ended a certain way — and links it
 to an environment only through that environment's own version observation. Never store or infer which

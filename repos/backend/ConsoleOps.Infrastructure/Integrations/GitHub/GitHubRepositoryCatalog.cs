@@ -323,78 +323,12 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
     private static string EscapePath(string path) =>
         string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
 
-    private async Task<GitHubReadResponse<T>> GetAsync<T>(
+    /// <summary>Every read goes through the shared GitHub request, so failure means the same thing here.</summary>
+    private Task<GitHubReadResponse<T>> GetAsync<T>(
         string relativePath,
         CancellationToken cancellationToken)
-        where T : class
-    {
-        try
-        {
-            using HttpRequestMessage request = new(HttpMethod.Get, relativePath);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-            request.Headers.UserAgent.ParseAdd(GitHubProjectReader.UserAgent);
-            request.Headers.Add("X-GitHub-Api-Version", GitHubProjectReader.ApiVersion);
-
-            using HttpResponseMessage response = await httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return GitHubReadResponse<T>.Failed(MapFailure(response));
-            }
-
-            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            T? value = await JsonSerializer.DeserializeAsync<T>(
-                stream,
-                SerializerOptions,
-                cancellationToken);
-
-            return value is null
-                ? GitHubReadResponse<T>.Failed(GitHubReadFailure.InvalidResponse)
-                : GitHubReadResponse<T>.Success(value, HasNextPage(response));
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return GitHubReadResponse<T>.Failed(GitHubReadFailure.Unavailable);
-        }
-        catch (HttpRequestException)
-        {
-            return GitHubReadResponse<T>.Failed(GitHubReadFailure.Unavailable);
-        }
-        catch (JsonException)
-        {
-            return GitHubReadResponse<T>.Failed(GitHubReadFailure.InvalidResponse);
-        }
-        catch (NotSupportedException)
-        {
-            return GitHubReadResponse<T>.Failed(GitHubReadFailure.InvalidResponse);
-        }
-    }
-
-    private static bool HasNextPage(HttpResponseMessage response) =>
-        response.Headers.TryGetValues("Link", out IEnumerable<string>? links)
-        && links.Any(link => link.Contains("rel=\"next\"", StringComparison.OrdinalIgnoreCase));
-
-    private static GitHubReadFailure MapFailure(HttpResponseMessage response)
-    {
-        if (response.StatusCode == HttpStatusCode.TooManyRequests
-            || response.Headers.TryGetValues("X-RateLimit-Remaining", out IEnumerable<string>? values)
-            && values.Contains("0", StringComparer.Ordinal))
-        {
-            return GitHubReadFailure.RateLimited;
-        }
-
-        return response.StatusCode switch
-        {
-            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => GitHubReadFailure.Unauthorized,
-            HttpStatusCode.NotFound => GitHubReadFailure.NotFound,
-            >= HttpStatusCode.InternalServerError => GitHubReadFailure.Unavailable,
-            _ => GitHubReadFailure.InvalidResponse
-        };
-    }
-
+        where T : class =>
+        GitHubRead.GetAsync<T>(httpClient, relativePath, cancellationToken);
     private static GitHubWorkflowRunConclusion MapConclusion(string? status, string? conclusion) =>
         status?.Trim().ToLowerInvariant() switch
         {
@@ -449,16 +383,6 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
     private sealed record GitHubLatestRun(
         GitHubWorkflowRunConclusion Conclusion,
         DateTimeOffset? CompletedAtUtc);
-
-    private sealed record GitHubReadResponse<T>(T? Value, GitHubReadFailure? Failure, bool HasNextPage)
-        where T : class
-    {
-        public static GitHubReadResponse<T> Success(T value, bool hasNextPage) =>
-            new(value, null, hasNextPage);
-
-        public static GitHubReadResponse<T> Failed(GitHubReadFailure failure) =>
-            new(null, failure, false);
-    }
 
     private sealed record GitHubRepositoryDto(
         string? Name,

@@ -31,10 +31,23 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Version state distinguishes not configured from configured but never read | Real |
 | Application URL read from Azure, filling registration and editing | Real |
 | Endpoint paths detected from repository source, offered in both project forms | Real |
+| Workflows screen: provider-backed inventory with each workflow's latest run | Real |
+| Workflow run jobs, read for the selected workflow | Real |
 
 ## Next
 
-1. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
+1. **Workflows: run history, then run detail.** The inventory is real; `Runs` and `Run logs` are still named as
+   planned because those screens do not exist. Run history is a list per workflow (number, status, conclusion,
+   branch, commit, trigger, actor, duration); run detail adds jobs and steps. The jobs read already exists and
+   is proven live, so run detail is mostly presentation. Manual dispatch is a later phase and needs the workflow
+   definition read to know whether it is supported at all - until then `manualRun` is honestly `unknown` and no
+   run action is offered.
+   Two follow-ups this slice deliberately left: **`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
+   `IGitHubWorkflowInventory.ListWorkflowsAsync` both list workflows** for different callers and should converge
+   on one read now that the richer one is proven; and **a deployment workflow is recorded against the project,
+   not an environment**, so no environment is named on the screen - the feature context wants zero or one per
+   environment, which is a domain change.
+2. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
    not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in
@@ -45,10 +58,10 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    add a diagnostic setting on the site sending `AppServiceConsoleLogs`. Console Ops has read-only Azure
    access by rule and cannot do it. Once rows exist, the reader is a platform discriminator on the log source,
    a reader chosen by that platform, and a KQL query verified against those rows.
-2. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
+3. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
-3. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+4. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
@@ -56,11 +69,11 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    projects: StallTrack's `/version` answers `200` with the Angular application, Spinner's answers `401`, and
    EEMO's `301`s - all three are configured and unreadable, which the Overview now reports as `Not reported`
    rather than as unconfigured.
-4. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
+5. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
    projects hold health checks against the same host and their verdicts can never disagree. They deploy from
    different repositories, which argues for keeping both projects - but only one should own the health check,
    or EEMO should become an environment of StallTrack. Undecided, and recorded so it is not rediscovered.
-5. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+6. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
