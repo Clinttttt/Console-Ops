@@ -16,6 +16,11 @@ import {
   WorkflowRunJob,
   WorkflowRunStep,
 } from '../../core/contracts/workflows';
+import {
+  ACTIVE_PROVIDER_REFRESH_INTERVAL_MS,
+  IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+  providerRefresh,
+} from '../../core/state/auto-refresh';
 import { WorkflowRunHistoryStore } from '../../core/state/workflow-run-history.store';
 import { WorkflowsStore } from '../../core/state/workflows.store';
 import { DurationPipe } from '../../core/ui/duration.pipe';
@@ -82,6 +87,17 @@ export class WorkflowRunsPage implements OnInit {
     if (this.inventory.loadState() !== 'loaded') {
       this.inventory.read();
     }
+
+    // A run in progress advances on its own here: the steps an operator is watching are the whole point of this
+    // screen, so it follows them rather than waiting to be reloaded. Registered here because the refresh needs
+    // an injection context; the route inputs it reads are set before the first tick.
+    providerRefresh(
+      () => this.history.refresh(this.projectId(), this.workflowId()),
+      () =>
+        this.history.hasRunningRun()
+          ? ACTIVE_PROVIDER_REFRESH_INTERVAL_MS
+          : IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+    );
   }
 
   ngOnInit(): void {

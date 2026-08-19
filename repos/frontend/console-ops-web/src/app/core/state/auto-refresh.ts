@@ -9,6 +9,74 @@ import { DestroyRef, inject } from '@angular/core';
 export const READ_REFRESH_INTERVAL_MS = 30_000;
 
 /**
+ * How often a screen re-reads while something it is showing is still moving.
+ *
+ * Short, because a run in progress is the one thing an operator watches. Paired with
+ * {@link IDLE_PROVIDER_REFRESH_INTERVAL_MS} so a settled screen costs a fraction of that.
+ */
+export const ACTIVE_PROVIDER_REFRESH_INTERVAL_MS = 10_000;
+
+/** How often a screen re-reads once nothing is moving. */
+export const IDLE_PROVIDER_REFRESH_INTERVAL_MS = 60_000;
+
+/**
+ * Re-reads a screen whose data is read from a provider during the request, on an interval it chooses.
+ *
+ * Separate from {@link autoRefresh} because that one re-reads observations Console Ops already recorded, which
+ * costs a database query. This one costs a provider request against a shared rate limit, so the caller supplies
+ * the interval and is expected to shorten it only while something is actually running - and to re-read what is
+ * moving rather than everything on the page.
+ *
+ * A hidden tab is not polled, and returning to one re-reads immediately rather than waiting out an interval.
+ *
+ * Must be called from an injection context, so the timer and listener are torn down with the caller.
+ */
+export function providerRefresh(read: () => void, intervalMs: () => number): void {
+  const destroyRef = inject(DestroyRef);
+
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return;
+  }
+
+  const isVisible = (): boolean => document.visibilityState !== 'hidden';
+  let timer: number | undefined;
+  let first = true;
+
+  // Chained rather than a fixed interval, so a run starting shortens the next wait instead of the one after it.
+  const schedule = (): void => {
+    // The first wait is the short one: the page has only just asked for its data and does not yet know whether
+    // anything is running, and waiting out the idle interval to find out would miss the start of a run.
+    const wait = first ? ACTIVE_PROVIDER_REFRESH_INTERVAL_MS : intervalMs();
+    first = false;
+
+    timer = window.setTimeout(() => {
+      if (isVisible()) {
+        read();
+      }
+
+      schedule();
+    }, wait);
+  };
+
+  const onVisibilityChange = (): void => {
+    if (isVisible()) {
+      read();
+    }
+  };
+
+  schedule();
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  destroyRef.onDestroy(() => {
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+    }
+
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  });
+}
+
+/**
  * Re-reads a screen's data on an interval while the operator is looking at it.
  *
  * This only re-reads what the API has already recorded; it never asks the API to contact a provider.

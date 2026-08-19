@@ -69,6 +69,44 @@ export class WorkflowRunHistoryStore {
       });
   }
 
+  /** Whether any run in the list, or the open run, has not finished. */
+  readonly hasRunningRun = computed(() => this.runs().some((run) => run.status !== 'completed'));
+
+  /**
+   * Re-reads the history, and the open run's jobs while that run is still going.
+   *
+   * Does not blank the screen or close what is open: a refresh that discarded the operator's place would make
+   * watching a run worse than reloading the page. The jobs cache is bypassed for a running run, because its job
+   * and step states are the thing being watched.
+   */
+  refresh(projectId: string, workflowId: string): void {
+    this.dataSource
+      .loadRuns(projectId, workflowId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (history) => this.history.set(history),
+        // A failed refresh keeps what is on screen: it is a moment out of date, not wrong.
+        error: () => undefined,
+      });
+
+    const runId = untracked(this.openRun);
+    if (runId === null || !this.isRunning(runId)) {
+      return;
+    }
+
+    this.dataSource
+      .loadRunJobs(projectId, runId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (jobs) => this.jobsByRun.update((current) => ({ ...current, [runId]: jobs })),
+        error: () => undefined,
+      });
+  }
+
+  private isRunning(runId: string): boolean {
+    return untracked(this.runs).some((run) => run.id === runId && run.status !== 'completed');
+  }
+
   /** Opens a run's jobs, or closes it again. A run already read is not asked for twice. */
   toggleRun(projectId: string, runId: string): void {
     if (untracked(this.openRun) === runId) {

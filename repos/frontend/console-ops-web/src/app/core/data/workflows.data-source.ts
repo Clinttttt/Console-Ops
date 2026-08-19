@@ -25,7 +25,11 @@ export abstract class WorkflowsDataSource {
   abstract loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]>;
 
   /** Recent runs of one workflow, read when an operator asks for its history. */
-  abstract loadRuns(projectId: string, workflowId: string): Observable<WorkflowRunHistory>;
+  abstract loadRuns(
+    projectId: string,
+    workflowId: string,
+    limit?: number,
+  ): Observable<WorkflowRunHistory>;
 
   /**
    * Whether one workflow declares a manual dispatch trigger.

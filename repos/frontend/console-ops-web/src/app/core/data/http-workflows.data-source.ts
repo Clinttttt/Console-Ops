@@ -144,12 +144,18 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
       );
   }
 
-  override loadRuns(projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
+  override loadRuns(
+    projectId: string,
+    workflowId: string,
+    limit?: number,
+  ): Observable<WorkflowRunHistory> {
     return this.http
       .get<RunsPayload>(
         `/api/workflows/projects/${encodeURIComponent(projectId)}/workflows/${encodeURIComponent(
           workflowId,
         )}/runs`,
+        // A live refresh asks for one run: the page already has the rest, and the API clamps this anyway.
+        limit === undefined ? {} : { params: { limit } },
       )
       .pipe(
         map((payload) => ({

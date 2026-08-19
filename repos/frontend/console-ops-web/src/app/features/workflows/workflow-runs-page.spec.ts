@@ -9,6 +9,7 @@ import {
   WorkflowRunJob,
 } from '../../core/contracts/workflows';
 import { WorkflowsDataSource } from '../../core/data/workflows.data-source';
+import { WorkflowRunHistoryStore } from '../../core/state/workflow-run-history.store';
 import { WorkflowRunsPage } from './workflow-runs-page';
 
 const READ_AT = '2026-08-19T07:05:00.000Z';
@@ -300,6 +301,32 @@ describe('WorkflowRunsPage', () => {
     button.click();
     await fixture.whenStable();
     expect(queued.querySelectorAll('.step').length).toBe(0);
+  });
+
+  it('follows a running run without being reloaded, and re-reads its steps', async () => {
+    runRow('937')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const before = dataSource.jobRequests.length;
+    // #937 is still going, so a refresh re-reads the history and that run's jobs. Serving its jobs from the
+    // cache would freeze the steps an operator is watching.
+    TestBed.inject(WorkflowRunHistoryStore).refresh('eemo', '101');
+    await fixture.whenStable();
+
+    expect(dataSource.runRequests.length).toBeGreaterThan(1);
+    expect(dataSource.jobRequests.length).toBe(before + 1);
+  });
+
+  it('does not re-read the jobs of a run that has finished', async () => {
+    runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const before = dataSource.jobRequests.length;
+    TestBed.inject(WorkflowRunHistoryStore).refresh('eemo', '101');
+    await fixture.whenStable();
+
+    // A finished run's jobs cannot change, so asking again would spend a request for the same answer.
+    expect(dataSource.jobRequests.length).toBe(before);
   });
 
   it('offers the provider run only where one was reported', async () => {

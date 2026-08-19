@@ -1,6 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
 import { Workflow, WorkflowClassification } from '../../core/contracts/workflows';
+import {
+  ACTIVE_PROVIDER_REFRESH_INTERVAL_MS,
+  IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+  providerRefresh,
+} from '../../core/state/auto-refresh';
 import { WorkflowsStore } from '../../core/state/workflows.store';
 import { Icon } from '../../core/ui/icon';
 import { ProjectMark, ProjectMarkTone } from '../../core/ui/project-mark';
@@ -55,6 +60,16 @@ export class WorkflowsPage {
 
   constructor() {
     this.store.read();
+
+    // A run in progress is what an operator watches, so the screen follows it instead of waiting to be
+    // reloaded. While something is running it re-reads only the workflows that are running.
+    providerRefresh(
+      () => this.store.refresh(),
+      () =>
+        this.store.hasRunningWorkflow()
+          ? ACTIVE_PROVIDER_REFRESH_INTERVAL_MS
+          : IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+    );
   }
 
   /** Projects to offer in the filter, from the inventory rather than from a separate list. */
