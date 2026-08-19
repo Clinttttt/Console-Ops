@@ -1,0 +1,106 @@
+:host {
+  display: block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-4);
+  padding-right: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.row:hover {
+  border-color: var(--co-line-strong);
+}
+
+/* Selection is a border rather than a wash: the status dots carry the only colour that means anything. */
+.row.is-selected {
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+.pick {
+  display: grid;
+  grid-template-columns: 34px minmax(150px, 1.2fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--co-space-5);
+  flex: 1;
+  min-width: 0;
+  padding: var(--co-space-4) var(--co-space-5);
+  text-align: left;
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--co-ink-muted);
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.identity,
+.state,
+.source {
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.sub,
+.when {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.source {
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.sep {
+  padding: 0 var(--co-space-2);
+  color: var(--co-ink-faint);
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-4);
+  flex-shrink: 0;
+}
+
+.manual {
+  font-size: 11.5px;
+}
+
+/* Shaped like the action it will become, so the layout does not move when running is built. */
+.run {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px var(--co-space-4);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.run.is-unavailable {
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}

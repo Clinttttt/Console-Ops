@@ -46,6 +46,7 @@ describe('App shell', () => {
       'Overview',
       'Projects',
       'Deployments',
+      'Workflows',
       'Health',
       'Logs',
       'Environments',

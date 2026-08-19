@@ -1,0 +1,82 @@
+@let item = workflow();
+@let run = item.latestRun;
+
+<div class="row" [class.is-selected]="selected()">
+  <button type="button" class="pick" (click)="select()">
+    <span class="glyph" aria-hidden="true">
+      <co-icon [name]="icon()" [size]="17" />
+    </span>
+
+    <span class="identity">
+      <span class="name">{{ item.name }}</span>
+      <span class="sub">
+        @if (item.primaryDeploymentFor !== null) {
+          <!-- Named only because an operator configured it, never because the name sounds like a deployment. -->
+          Primary deployment · {{ item.primaryDeploymentFor }}
+        } @else if (item.state === 'disabled') {
+          <span class="co-unavailable">Disabled at the provider</span>
+        } @else {
+          <span class="co-unavailable">Unclassified</span>
+        }
+      </span>
+    </span>
+
+    <span class="state">
+      @if (run === null) {
+        <span class="co-unavailable">No run recorded</span>
+      } @else {
+        <co-status [cell]="runCell()" [showDetail]="false" />
+        <span class="when co-unavailable">
+          {{ run.completedAt ?? run.startedAt | coRelativeTime: readAt() }}
+        </span>
+      }
+    </span>
+
+    <span class="source co-mono">
+      @if (run === null) {
+        <span class="co-unavailable">&mdash;</span>
+      } @else {
+        {{ run.branch }}
+        <span class="sep" aria-hidden="true">|</span>
+        {{ run.commitShortSha }}
+        <span class="sep" aria-hidden="true">|</span>
+        {{ trigger(run.trigger) }}
+      }
+    </span>
+  </button>
+
+  <span class="actions">
+    <!--
+      Run history and workflow logs are separate screens that do not exist yet, so they are named as planned
+      rather than offered as links that go nowhere.
+    -->
+    <span class="co-inline-link is-unavailable" title="Run history - planned for a later slice"
+      >Runs</span
+    >
+    <span
+      class="co-inline-link is-unavailable"
+      title="Workflow execution logs - planned for a later slice. Application logs are on the Logs screen."
+    >
+      Run logs
+    </span>
+
+    @switch (item.manualRun) {
+      @case ('supported') {
+        <span
+          class="run is-unavailable"
+          title="Manual runs are a later phase: Console Ops reads workflows before it starts them"
+        >
+          Run
+        </span>
+      }
+      @case ('unknown') {
+        <span
+          class="co-unavailable manual"
+          title="The provider has not reported whether this can be run"
+        >
+          Manual run unknown
+        </span>
+      }
+    }
+  </span>
+</div>

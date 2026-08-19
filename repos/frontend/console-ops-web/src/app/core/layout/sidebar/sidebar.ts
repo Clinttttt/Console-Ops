@@ -17,6 +17,7 @@ const NAVIGATION: readonly NavigationItem[] = [
   { label: 'Overview', icon: 'home', route: '/overview' },
   { label: 'Projects', icon: 'stacks', route: '/projects' },
   { label: 'Deployments', icon: 'rocket', route: '/deployments' },
+  { label: 'Workflows', icon: 'ciCd', route: '/workflows' },
   { label: 'Health', icon: 'heartPulse', route: '/health' },
   { label: 'Logs', icon: 'fileText', route: '/logs' },
   { label: 'Environments', icon: 'server', route: '/environments' },

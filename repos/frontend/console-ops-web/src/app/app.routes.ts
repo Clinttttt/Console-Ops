@@ -57,6 +57,15 @@ export const routes: Routes = [
       import('./features/deployments/deployments-page').then((m) => m.DeploymentsPage),
   },
   {
+    path: 'workflows',
+    title: 'Workflows - Console Ops',
+    data: {
+      title: 'Workflows',
+      subtitle: 'Automation inventory and recent run activity across your connected repositories.',
+    },
+    loadComponent: () => import('./features/workflows/workflows-page').then((m) => m.WorkflowsPage),
+  },
+  {
     path: 'environments',
     title: 'Environments - Console Ops',
     data: {
