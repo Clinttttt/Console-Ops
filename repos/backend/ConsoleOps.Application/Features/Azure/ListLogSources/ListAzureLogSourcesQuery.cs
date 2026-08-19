@@ -26,6 +26,11 @@ public sealed record AzureLogSourcesResponse(
 /// cannot find their App Service has no way to tell "Azure does not have it" from "Console Ops does not look
 /// for it" - but it must never be offered as though it would work.
 /// </param>
+/// <param name="ApplicationUrl">
+/// The resource''s public address as Azure reports it, or <c>null</c> when it has none Console Ops could reach -
+/// a container app whose ingress is internal resolves only inside its own network. Registering a project can
+/// offer it instead of asking an operator to copy a generated host name by hand.
+/// </param>
 public sealed record AzureLogSourceResponse(
     string Provider,
     string Platform,
@@ -35,6 +40,7 @@ public sealed record AzureLogSourceResponse(
     string? Location,
     string? EnvironmentName,
     Guid? WorkspaceId,
+    string? ApplicationUrl,
     string Status);
 
 /// <summary>
@@ -71,6 +77,7 @@ public sealed class ListAzureLogSourcesQueryHandler(IAzureLogSourceCatalog catal
                 source.Location,
                 source.EnvironmentName,
                 source.WorkspaceId,
+                source.ApplicationUrl,
                 Status(source)))
             .ToArray();
 

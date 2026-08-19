@@ -126,6 +126,21 @@ export class AddProjectPage {
     () => this.detected().find((endpoint) => endpoint.kind === 'version') ?? null,
   );
 
+  /** Where a field's current value came from, so a filled field still shows its provenance. */
+  protected readonly healthSource = computed(() => {
+    const suggestion = this.detectedHealth();
+    return suggestion !== null && this.healthEndpoint().trim() === suggestion.path
+      ? suggestion
+      : null;
+  });
+
+  protected readonly versionSource = computed(() => {
+    const suggestion = this.detectedVersion();
+    return suggestion !== null && this.versionEndpoint().trim() === suggestion.path
+      ? suggestion
+      : null;
+  });
+
   /** A suggestion is only worth offering while the field does not already say the same thing. */
   protected readonly healthSuggestion = computed(() => {
     const suggestion = this.detectedHealth();
@@ -183,6 +198,14 @@ export class AddProjectPage {
   protected readonly baseUrl = signal('');
   protected readonly healthEndpoint = signal('');
   protected readonly versionEndpoint = signal('');
+
+  /** Whether the operator has typed in the field, so discovery never overwrites their own value. */
+  protected readonly baseUrlEdited = signal(false);
+  protected readonly healthEdited = signal(false);
+  protected readonly versionEdited = signal(false);
+
+  /** The Azure resource a filled base URL came from, so the form says where the value originated. */
+  protected readonly baseUrlSource = signal<string | null>(null);
   protected readonly submissionState = signal<SubmissionState>('idle');
   protected readonly submissionError = signal<string | null>(null);
 
@@ -212,12 +235,34 @@ export class AddProjectPage {
     this.environmentName().trim() === '' ? 'An environment name is required.' : null,
   );
 
-  protected readonly baseUrlError = computed(() => validateHttpUrl(this.baseUrl().trim()));
+  /**
+   * The Base URL carries the requirement that a relative endpoint depends on it.
+   *
+   * The endpoint fields used to report "Add a Base URL before using a relative endpoint", which marked a field
+   * the operator had just filled correctly - often from our own detected suggestion - as the thing in error. A
+   * path of `/health` is valid; what is missing is the host it hangs off, so the incomplete field says so.
+   */
+  protected readonly baseUrlError = computed(() => {
+    const invalid = validateHttpUrl(this.baseUrl().trim());
+    if (invalid !== null) {
+      return invalid;
+    }
+
+    return this.baseUrl().trim() === '' && this.hasRelativeEndpoint()
+      ? 'Required to resolve a relative endpoint, or clear the endpoints to register without monitoring.'
+      : null;
+  });
+
+  private readonly hasRelativeEndpoint = computed(
+    () =>
+      this.healthEndpoint().trim().startsWith('/') || this.versionEndpoint().trim().startsWith('/'),
+  );
+
   protected readonly healthEndpointError = computed(() =>
-    validateEndpoint(this.healthEndpoint().trim(), this.baseUrl().trim()),
+    validateEndpoint(this.healthEndpoint().trim()),
   );
   protected readonly versionEndpointError = computed(() =>
-    validateEndpoint(this.versionEndpoint().trim(), this.baseUrl().trim()),
+    validateEndpoint(this.versionEndpoint().trim()),
   );
 
   /** Optional: where this environment's container logs can be read from. */
@@ -228,9 +273,21 @@ export class AddProjectPage {
   );
 
   /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
+  /**
+   * Choosing a resource fills what Azure knows about it, including the address it answers on.
+   *
+   * The host name of an App Service or container app is generated and unguessable, so an operator otherwise
+   * copies it out of the portal by hand. It is only offered when Azure reports one Console Ops could reach,
+   * and it never replaces a base URL the operator has already supplied.
+   */
   protected applyLogSource(source: AzureLogSource): void {
     this.logContainerAppName.set(source.name);
     this.logWorkspaceId.set(source.workspaceId ?? '');
+
+    if (source.applicationUrl !== null && !this.baseUrlEdited() && this.baseUrl().trim() === '') {
+      this.baseUrl.set(source.applicationUrl);
+      this.baseUrlSource.set(source.name);
+    }
   }
 
   protected readonly isValid = computed(
@@ -376,13 +433,34 @@ export class AddProjectPage {
       .detectEndpoints(repository.owner, repository.name, repository.defaultBranch)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (result) => this.detected.set(result.endpoints),
+        next: (result) => {
+          this.detected.set(result.endpoints);
+          this.fillDetectedEndpoints(result.endpoints);
+        },
         // Detection is optional: without it the operator simply types the paths.
         error: () => this.detected.set([]),
       });
   }
 
-  /** Applying a suggestion is the operator's decision; detection never fills a field on its own. */
+  /**
+   * Detection fills an endpoint field the operator has not touched.
+   *
+   * Reading a path out of the repository and then asking them to click "Use" made them confirm a fact they did
+   * not supply and could not dispute. Filling it removes the step while leaving the decision theirs: the field
+   * stays editable, it says where the value came from, and a field they have typed in is never overwritten.
+   */
+  private fillDetectedEndpoints(endpoints: readonly DetectedEndpoint[]): void {
+    for (const endpoint of endpoints) {
+      const field = endpoint.kind === 'health' ? this.healthEndpoint : this.versionEndpoint;
+      const edited = endpoint.kind === 'health' ? this.healthEdited : this.versionEdited;
+
+      if (!edited() && field().trim() === '') {
+        field.set(endpoint.path);
+      }
+    }
+  }
+
+  /** Offered only after the operator has edited the field away from what detection found. */
   protected applyHealthSuggestion(): void {
     const suggestion = this.detectedHealth();
     if (suggestion !== null) {
@@ -489,12 +567,10 @@ function validateHttpUrl(value: string): string | null {
   return null;
 }
 
-function validateEndpoint(value: string, baseUrl: string): string | null {
+/** A relative path is valid on its own; whether it can be resolved is the Base URL's requirement to state. */
+function validateEndpoint(value: string): string | null {
   if (value === '') return null;
-
-  if (value.startsWith('/')) {
-    return baseUrl === '' ? 'Add a Base URL before using a relative endpoint.' : null;
-  }
+  if (value.startsWith('/')) return null;
 
   return validateHttpUrl(value) === null ? null : 'Use a path such as /health, or an absolute URL.';
 }

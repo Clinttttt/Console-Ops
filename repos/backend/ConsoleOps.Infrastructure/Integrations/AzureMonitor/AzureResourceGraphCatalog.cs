@@ -82,7 +82,8 @@ internal sealed class AzureResourceGraphCatalog(
                     row.SubscriptionId?.Trim() ?? string.Empty,
                     NullIfWhiteSpace(row.Location),
                     NullIfWhiteSpace(row.EnvironmentName),
-                    ParseWorkspaceId(row.WorkspaceId)))
+                    ParseWorkspaceId(row.WorkspaceId),
+                    ComposeApplicationUrl(row)))
                 .ToArray();
             bool hasMore = payload.TotalRecords > sources.Length
                 || string.Equals(payload.ResultTruncated, "true", StringComparison.OrdinalIgnoreCase);
@@ -143,6 +144,32 @@ internal sealed class AzureResourceGraphCatalog(
             ? AzureLogPlatform.AppService
             : AzureLogPlatform.ContainerApp;
 
+    /// <summary>
+    /// The resource''s public address, or <c>null</c> when it has none Console Ops could reach.
+    /// <para>
+    /// A container app FQDN is only offered when ingress is external. An internal ingress resolves inside the
+    /// managed environment''s network, so handing it to an operator as an application URL would produce a
+    /// project whose health check can never succeed.
+    /// </para>
+    /// <para>
+    /// https is assumed because both platforms terminate TLS on the assigned host name and neither serves
+    /// plain http there.
+    /// </para>
+    /// </summary>
+    private static string? ComposeApplicationUrl(ResourceGraphRow row)
+    {
+        string? host = NullIfWhiteSpace(row.HostName);
+        if (host is null)
+        {
+            return null;
+        }
+
+        bool reachable = ParsePlatform(row.Platform) == AzureLogPlatform.AppService
+            || string.Equals(row.IngressExternal?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+
+        return reachable ? $"https://{host}" : null;
+    }
+
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -165,5 +192,7 @@ internal sealed class AzureResourceGraphCatalog(
         string? SubscriptionId,
         string? Location,
         string? EnvironmentName,
-        string? WorkspaceId);
+        string? WorkspaceId,
+        string? HostName,
+        string? IngressExternal);
 }

@@ -233,11 +233,19 @@
             inputmode="url"
             placeholder="https://api.spinnerapp.com"
             [value]="baseUrl()"
-            (input)="baseUrl.set($any($event.target).value)"
+            (input)="
+              baseUrl.set($any($event.target).value);
+              baseUrlEdited.set(true);
+              baseUrlSource.set(null)
+            "
             [attr.aria-invalid]="baseUrlError() !== null"
           />
           @if (baseUrlError() !== null) {
             <p class="error">{{ baseUrlError() }}</p>
+          } @else if (baseUrlSource() !== null) {
+            <p class="suggestion">
+              From Azure resource <span class="co-mono">{{ baseUrlSource() }}</span>
+            </p>
           }
         </div>
 
@@ -251,13 +259,14 @@
               type="text"
               placeholder="/health"
               [value]="healthEndpoint()"
-              (input)="healthEndpoint.set($any($event.target).value)"
+              (input)="healthEndpoint.set($any($event.target).value); healthEdited.set(true)"
               [attr.aria-invalid]="healthEndpointError() !== null"
             />
             @if (healthEndpointError() !== null) {
               <p class="error">{{ healthEndpointError() }}</p>
             }
             @let healthHint = healthSuggestion();
+            @let healthFrom = healthSource();
             @if (healthHint !== null) {
               <p class="suggestion">
                 Detected <span class="co-mono">{{ healthHint.path }}</span> in
@@ -265,6 +274,10 @@
                 <button type="button" class="suggestion-action" (click)="applyHealthSuggestion()">
                   Use
                 </button>
+              </p>
+            } @else if (healthFrom !== null) {
+              <p class="suggestion">
+                Detected in <span class="co-mono">{{ healthFrom.sourceFile }}</span>
               </p>
             }
           </div>
@@ -278,13 +291,14 @@
               type="text"
               placeholder="/version"
               [value]="versionEndpoint()"
-              (input)="versionEndpoint.set($any($event.target).value)"
+              (input)="versionEndpoint.set($any($event.target).value); versionEdited.set(true)"
               [attr.aria-invalid]="versionEndpointError() !== null"
             />
             @if (versionEndpointError() !== null) {
               <p class="error">{{ versionEndpointError() }}</p>
             }
             @let versionHint = versionSuggestion();
+            @let versionFrom = versionSource();
             @if (versionHint !== null) {
               <p class="suggestion">
                 Detected <span class="co-mono">{{ versionHint.path }}</span> in
@@ -292,6 +306,10 @@
                 <button type="button" class="suggestion-action" (click)="applyVersionSuggestion()">
                   Use
                 </button>
+              </p>
+            } @else if (versionFrom !== null) {
+              <p class="suggestion">
+                Detected in <span class="co-mono">{{ versionFrom.sourceFile }}</span>
               </p>
             }
           </div>

@@ -27,7 +27,10 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Configuration status by key name, with an opt-in credential probe | Real |
 | Observation retention: a bounded batched sweep with a stated window | Real |
 | Settings screen: integrations, collection, retention and build state | Real |
-| Health screen | Labelled design mock; every fact it needs is already collected |
+| Health screen: recorded checks, runs, availability and transitions | Real |
+| Version state distinguishes not configured from configured but never read | Real |
+| Application URL read from Azure, filling registration and editing | Real |
+| Endpoint paths detected from repository source, offered in both project forms | Real |
 
 ## Next
 
@@ -49,8 +52,15 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
-   The field is `commit`, and a short SHA is rejected rather than guessed at.
-4. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+   The field is `commit`, and a short SHA is rejected rather than guessed at. Measured on the registered
+   projects: StallTrack's `/version` answers `200` with the Angular application, Spinner's answers `401`, and
+   EEMO's `301`s - all three are configured and unreadable, which the Overview now reports as `Not reported`
+   rather than as unconfigured.
+4. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
+   projects hold health checks against the same host and their verdicts can never disagree. They deploy from
+   different repositories, which argues for keeping both projects - but only one should own the health check,
+   or EEMO should become an environment of StallTrack. Undecided, and recorded so it is not rediscovered.
+5. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
