@@ -1,7 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 
-import { WorkflowInventory, WorkflowRunJob } from '../../core/contracts/workflows';
+import {
+  ManualRunSupportReading,
+  WorkflowInventory,
+  WorkflowRunHistory,
+  WorkflowRunJob,
+} from '../../core/contracts/workflows';
 import { WorkflowsDataSource } from '../../core/data/workflows.data-source';
 import { WorkflowsPage } from './workflows-page';
 
@@ -107,10 +113,15 @@ const JOBS: readonly WorkflowRunJob[] = [
 
 class StubWorkflows extends WorkflowsDataSource {
   jobRequests: { projectId: string; runId: string }[] = [];
+  manualRunRequests: { projectId: string; workflowId: string; workflowPath: string }[] = [];
 
   constructor(
     private readonly inventory: Observable<WorkflowInventory> = of(INVENTORY),
     private readonly jobs: Observable<readonly WorkflowRunJob[]> = of(JOBS),
+    private readonly manualRun: Observable<ManualRunSupportReading> = of({
+      manualRun: 'supported' as const,
+      definitionPath: '.github/workflows/deploy-production.yml',
+    }),
   ) {
     super();
   }
@@ -122,6 +133,19 @@ class StubWorkflows extends WorkflowsDataSource {
   override loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]> {
     this.jobRequests.push({ projectId, runId });
     return this.jobs;
+  }
+
+  override loadRuns(_projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
+    return of({ workflowId, runs: [], hasMore: false });
+  }
+
+  override loadManualRunSupport(
+    projectId: string,
+    workflowId: string,
+    workflowPath: string,
+  ): Observable<ManualRunSupportReading> {
+    this.manualRunRequests.push({ projectId, workflowId, workflowPath });
+    return this.manualRun;
   }
 }
 
@@ -135,7 +159,11 @@ describe('WorkflowsPage', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [WorkflowsPage],
-      providers: [{ provide: WorkflowsDataSource, useValue: stub }],
+      providers: [
+        // The rows link to run history, so the router has to exist for them to render.
+        provideRouter([]),
+        { provide: WorkflowsDataSource, useValue: stub },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(WorkflowsPage);
@@ -196,6 +224,48 @@ describe('WorkflowsPage', () => {
     expect(rowFor('Security scan')?.textContent).not.toContain('Failed');
   });
 
+  it('says nothing about a manual run until the definition has been read', () => {
+    // The inventory cannot know: a dispatch trigger is declared in the definition, not in the listing. Stating
+    // "unknown" on every row would repeat the same non-answer once per workflow.
+    expect(host.textContent).not.toContain('Run unknown');
+    expect(dataSource.manualRunRequests).toEqual([]);
+  });
+
+  it('establishes manual dispatch from the definition when a workflow is selected', async () => {
+    await select('Deploy production');
+
+    expect(dataSource.manualRunRequests).toEqual([
+      {
+        projectId: 'eemo',
+        workflowId: '101',
+        workflowPath: '.github/workflows/deploy-production.yml',
+      },
+    ]);
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Supported');
+
+    // A definition already read is not asked for again while the screen is open.
+    await select('Database backup');
+    await select('Deploy production');
+    expect(
+      dataSource.manualRunRequests.filter((request) => request.workflowId === '101').length,
+    ).toBe(1);
+  });
+
+  it('leaves a failed definition read unknown rather than calling it unavailable', async () => {
+    await render(
+      new StubWorkflows(
+        of(INVENTORY),
+        of(JOBS),
+        throwError(() => new Error('rate limited')),
+      ),
+    );
+    await select('Deploy production');
+
+    const detail = host.querySelector('co-workflow-detail')!;
+    expect(detail.textContent).toContain('Unknown');
+    expect(detail.textContent).not.toContain('Not available');
+  });
+
   it('offers a run action only where the provider reported manual dispatch', () => {
     const deploy = rowFor('Deploy production')!.querySelector('.run');
     expect(deploy?.textContent?.trim()).toBe('Run');
@@ -203,8 +273,8 @@ describe('WorkflowsPage', () => {
 
     // Reported unavailable: no action at all rather than a button that cannot work.
     expect(rowFor('Security scan')!.querySelector('.run')).toBeNull();
-    // Never established: stated as unknown, which is not the same as knowing it cannot be run.
-    expect(rowFor('Database backup')?.textContent).toContain('Run unknown');
+    // Not established: no action and no claim either way until the definition is read.
+    expect(rowFor('Database backup')!.querySelector('.run')).toBeNull();
   });
 
   it('reads the jobs of the selected run only, and once', async () => {

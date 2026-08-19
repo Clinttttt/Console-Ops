@@ -153,6 +153,7 @@
                 @for (workflow of group.workflows; track workflow.id) {
                   <co-workflow-row
                     [workflow]="workflow"
+                    [projectId]="group.projectId"
                     [selected]="isSelected(workflow)"
                     [readAt]="readAt()"
                     (choose)="select($event)"
@@ -179,9 +180,12 @@
         } @else {
           <co-workflow-detail
             [workflow]="choice.workflow"
+            [projectId]="choice.projectId"
             [projectName]="choice.projectName"
             [jobs]="selectedJobs()"
             [jobsState]="jobsState()"
+            [manualRun]="selectedManualRun()"
+            [manualRunReading]="manualRunReading()"
           />
         }
       </aside>

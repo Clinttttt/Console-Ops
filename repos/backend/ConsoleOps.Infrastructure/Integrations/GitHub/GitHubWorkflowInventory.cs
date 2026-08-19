@@ -24,6 +24,12 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     /// <summary>Jobs of a single run. A run with more than this has other problems.</summary>
     private const int JobPageSize = 100;
 
+    /// <summary>Upper bound on run history, whatever a caller asks for. History is recent, not exhaustive.</summary>
+    private const int MaximumRunPageSize = 50;
+
+    /// <summary>A workflow definition is a small file; anything larger is not one worth scanning.</summary>
+    private const int MaximumDefinitionBytes = 256 * 1024;
+
     /// <summary>
     /// How many latest-run reads are in flight at once.
     /// </summary>
@@ -99,6 +105,72 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             new GitHubWorkflowInventoryPage(definitions));
     }
 
+    public async Task<GitHubFactResult<GitHubRunPage>> ListRunsAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workflowId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+        int pageSize = Math.Min(limit, MaximumRunPageSize);
+        string path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}"
+            + $"/actions/workflows/{workflowId}/runs?per_page={pageSize}";
+        GitHubReadResponse<RunsDto> response =
+            await GitHubRead.GetAsync<RunsDto>(httpClient, path, cancellationToken);
+
+        if (response.Value?.WorkflowRuns is null)
+        {
+            return GitHubFactResult<GitHubRunPage>.Failed(
+                response.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        GitHubRunSummary[] runs = response.Value.WorkflowRuns
+            .Where(run => run.Id > 0)
+            .Select(ToSummary)
+            .ToArray();
+
+        // GitHub reports the repository's total, which is how a screen can say this is recent history rather
+        // than everything the workflow has ever done.
+        bool hasMore = response.Value.TotalCount > runs.Length || response.HasNextPage;
+
+        return GitHubFactResult<GitHubRunPage>.Success(new GitHubRunPage(runs, hasMore));
+    }
+
+    public async Task<GitHubFactResult<GitHubManualRunSupport>> ReadManualRunSupportAsync(
+        string owner,
+        string repository,
+        string workflowPath,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(workflowPath);
+
+        string path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}"
+            + $"/contents/{EscapePath(workflowPath)}";
+        GitHubReadResponse<ContentDto> response =
+            await GitHubRead.GetAsync<ContentDto>(httpClient, path, cancellationToken);
+
+        if (response.Value is null)
+        {
+            return GitHubFactResult<GitHubManualRunSupport>.Failed(
+                response.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        string? definition = Decode(response.Value);
+
+        // A file that could not be decoded leaves the answer unknown rather than claiming a manual run is
+        // unavailable, which would hide a workflow an operator relies on.
+        return GitHubFactResult<GitHubManualRunSupport>.Success(new GitHubManualRunSupport(
+            definition is null ? null : WorkflowTriggerScan.DeclaresManualDispatch(definition),
+            workflowPath));
+    }
+
     public async Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(
         string owner,
         string repository,
@@ -153,15 +225,18 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             await GitHubRead.GetAsync<RunsDto>(httpClient, path, cancellationToken);
 
         RunDto? run = response.Value?.WorkflowRuns?.FirstOrDefault();
-        if (run is null || run.Id <= 0)
-        {
-            return null;
-        }
+        return run is null || run.Id <= 0 ? null : ToSummary(run);
+    }
+
+    /// <summary>One run as Console Ops describes it, shared by the latest-run read and run history.</summary>
+    private static GitHubRunSummary ToSummary(RunDto run)
+    {
+        GitHubRunStatus status = MapStatus(run.Status);
 
         return new GitHubRunSummary(
             run.Id,
             run.RunNumber,
-            MapStatus(run.Status),
+            status,
             MapConclusion(run.Conclusion),
             run.HeadBranch?.Trim() ?? string.Empty,
             run.HeadSha?.Trim() ?? string.Empty,
@@ -170,7 +245,7 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             run.RunStartedAt ?? run.CreatedAt,
             // GitHub reports no completion time for a run still going, and `updated_at` is only the end of a
             // run that has one.
-            MapStatus(run.Status) == GitHubRunStatus.Completed ? run.UpdatedAt : null,
+            status == GitHubRunStatus.Completed ? run.UpdatedAt : null,
             NullIfWhiteSpace(run.HtmlUrl));
     }
 
@@ -209,11 +284,44 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>Each path segment is escaped, so a workflow in a folder is still addressed correctly.</summary>
+    private static string EscapePath(string path) =>
+        string.Join('/', path.Trim().Split('/').Select(Uri.EscapeDataString));
+
+    /// <summary>
+    /// The file as text, or <c>null</c> when it did not arrive in a form worth reading.
+    /// </summary>
+    /// <remarks>
+    /// Bounded: a workflow definition is a small file, and a caller must not be able to make Console Ops pull an
+    /// arbitrary blob into memory by pointing at a large path.
+    /// </remarks>
+    private static string? Decode(ContentDto content)
+    {
+        if (content.Content is not { Length: > 0 } encoded
+            || !string.Equals(content.Encoding, "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        try
+        {
+            byte[] bytes = Convert.FromBase64String(encoded.Replace("\n", string.Empty));
+            return bytes.Length > MaximumDefinitionBytes
+                ? null
+                : System.Text.Encoding.UTF8.GetString(bytes);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
     private sealed record WorkflowsDto(WorkflowDto[]? Workflows);
 
     private sealed record WorkflowDto(long Id, string? Name, string? Path, string? State);
 
     private sealed record RunsDto(
+        [property: JsonPropertyName("total_count")] int TotalCount,
         [property: JsonPropertyName("workflow_runs")] RunDto[]? WorkflowRuns);
 
     private sealed record RunDto(
@@ -231,6 +339,8 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
         [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record ActorDto(string? Login);
+
+    private sealed record ContentDto(string? Content, string? Encoding);
 
     private sealed record JobsDto(JobDto[]? Jobs);
 

@@ -66,6 +66,17 @@ export const routes: Routes = [
     loadComponent: () => import('./features/workflows/workflows-page').then((m) => m.WorkflowsPage),
   },
   {
+    // Route parameters are bound to the page's inputs, so the screen can be opened directly.
+    path: 'workflows/:projectId/:workflowId/runs',
+    title: 'Workflow runs - Console Ops',
+    data: {
+      title: 'Workflow runs',
+      subtitle: 'Recent executions of one workflow, and the jobs of the run you open.',
+    },
+    loadComponent: () =>
+      import('./features/workflows/workflow-runs-page').then((m) => m.WorkflowRunsPage),
+  },
+  {
     path: 'environments',
     title: 'Environments - Console Ops',
     data: {

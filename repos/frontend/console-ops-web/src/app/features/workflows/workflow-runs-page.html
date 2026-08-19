@@ -1,0 +1,158 @@
+@let identity = workflow();
+
+<a class="co-inline-link back" routerLink="/workflows">
+  <co-icon name="chevronLeft" [size]="15" />
+  Workflows
+</a>
+
+<header class="head">
+  @if (identity === null) {
+    <!-- Opened directly: the runs read answers with runs, and a heading composed from an id would be a guess. -->
+    <h2 class="title co-unavailable">Run history</h2>
+    <p class="sub co-unavailable">This workflow's name is not known until the inventory is read.</p>
+  } @else {
+    <h2 class="title">{{ identity.workflow.name }}</h2>
+    <p class="sub">
+      {{ identity.projectName }}
+      <span class="co-meta-dot" aria-hidden="true"></span>
+      <span class="co-mono">{{ identity.workflow.path }}</span>
+      @if (identity.workflow.classification === 'deployment') {
+        <span class="co-meta-dot" aria-hidden="true"></span>
+        Primary deployment
+      }
+    </p>
+  }
+</header>
+
+@switch (loadState()) {
+  @case ('loading') {
+    <p class="notice">Reading run history...</p>
+  }
+
+  @case ('unavailable') {
+    <p class="notice">
+      Console Ops could not read this workflow's runs, so nothing here would be trustworthy.
+    </p>
+  }
+
+  @default {
+    @if (runs().length === 0) {
+      <p class="notice">
+        No runs recorded. The provider reports no run for this workflow, which is not the same as a
+        run that failed.
+      </p>
+    } @else {
+      <p class="co-eyebrow">Run history</p>
+
+      <ul class="runs">
+        @for (run of runs(); track run.id) {
+          @let isOpen = openRunId() === run.id;
+          <li class="run" [class.is-open]="isOpen">
+            <button
+              type="button"
+              class="summary"
+              (click)="toggle(run)"
+              [attr.aria-expanded]="isOpen"
+            >
+              <span class="number co-mono">
+                @if (run.number === null) {
+                  <span class="co-unavailable">&mdash;</span>
+                } @else {
+                  #{{ run.number }}
+                }
+              </span>
+
+              <span class="verdict">
+                <co-status [cell]="cellFor(run)" [showDetail]="false" />
+              </span>
+
+              <span class="source co-mono">
+                {{ run.branch }}
+                <span class="sep" aria-hidden="true">|</span>
+                {{ run.commitShortSha }}
+                <span class="sep" aria-hidden="true">|</span>
+                {{ trigger(run.trigger) }}
+              </span>
+
+              <span class="who">
+                @if (run.actor === null) {
+                  <!-- A scheduled run often has no person behind it, which is a fact, not a gap. -->
+                  <span class="co-unavailable">No actor reported</span>
+                } @else {
+                  {{ run.actor }}
+                }
+              </span>
+
+              <span class="elapsed co-mono">
+                @let duration = run.durationSeconds | coDuration;
+                @if (duration === null) {
+                  <span class="co-unavailable">Still running</span>
+                } @else {
+                  {{ duration }}
+                }
+              </span>
+
+              <span class="when co-unavailable">
+                {{ run.completedAt ?? run.startedAt | coRelativeTime: readAt() }}
+              </span>
+
+              <co-icon [name]="isOpen ? 'chevronDown' : 'arrowRight'" [size]="15" />
+            </button>
+
+            @if (isOpen) {
+              <div class="jobs-panel">
+                @switch (jobsState()) {
+                  @case ('loading') {
+                    <p class="co-unavailable job-note">Reading jobs...</p>
+                  }
+                  @case ('unavailable') {
+                    <p class="co-unavailable job-note">The jobs of this run could not be read.</p>
+                  }
+                  @default {
+                    @if (openRunJobs().length === 0) {
+                      <p class="co-unavailable job-note">This run reports no jobs.</p>
+                    } @else {
+                      <ul class="jobs">
+                        @for (job of openRunJobs(); track job.name) {
+                          <li class="job">
+                            <co-icon [name]="jobIcon(job)" [size]="15" />
+                            <span class="job-name">{{ job.name }}</span>
+                            <co-status [cell]="jobCell(job)" [showDetail]="false" />
+                            <span class="job-duration co-mono">
+                              @let jobDuration = job.durationSeconds | coDuration;
+                              @if (jobDuration === null) {
+                                <span class="co-unavailable">&mdash;</span>
+                              } @else {
+                                {{ jobDuration }}
+                              }
+                            </span>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  }
+                }
+
+                @if (run.runUrl !== null) {
+                  <a class="co-inline-link" [href]="run.runUrl" target="_blank" rel="noopener">
+                    Open run in GitHub
+                    <co-icon name="externalLink" [size]="15" />
+                  </a>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
+
+      <p class="tally co-unavailable">
+        @if (hasMore()) {
+          Showing the {{ runs().length }} most recent runs. The provider reports more.
+        } @else {
+          Showing all {{ runs().length }} {{ runs().length === 1 ? 'run' : 'runs' }} the provider
+          reports.
+        }
+      </p>
+    }
+  }
+}

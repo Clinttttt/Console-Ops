@@ -45,6 +45,8 @@ export class WorkflowsPage {
   protected readonly totalCount = this.store.workflowCount;
   protected readonly jobsState = this.store.jobsState;
   protected readonly selectedJobs = this.store.selectedJobs;
+  protected readonly selectedManualRun = this.store.selectedManualRun;
+  protected readonly manualRunReading = this.store.manualRunReading;
 
   protected readonly search = signal('');
   protected readonly typeFilter = signal<TypeFilter>(null);
@@ -107,7 +109,7 @@ export class WorkflowsPage {
     for (const group of this.store.groups()) {
       const workflow = group.workflows.find((candidate) => candidate.id === id);
       if (workflow !== undefined) {
-        return { workflow, projectName: group.projectName };
+        return { workflow, projectId: group.projectId, projectName: group.projectName };
       }
     }
 
@@ -125,10 +127,19 @@ export class WorkflowsPage {
   protected select(workflow: Workflow): void {
     this.selectedId.set(workflow.id);
 
-    // Jobs are read for the selection only. A workflow with no run has nothing to read.
-    const run = workflow.latestRun;
     const projectId = this.projectOf(workflow.id);
-    if (run === null || projectId === null) {
+    if (projectId === null) {
+      this.store.clearRunJobs();
+      return;
+    }
+
+    // Whether it can be dispatched is in the definition, so it is established for the selection rather than
+    // asked for every workflow on the page.
+    this.store.readManualRunSupport(projectId, workflow.id, workflow.path);
+
+    // Jobs need a run. A workflow that has never run has nothing to read.
+    const run = workflow.latestRun;
+    if (run === null) {
       this.store.clearRunJobs();
       return;
     }

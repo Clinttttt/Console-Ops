@@ -120,6 +120,31 @@ export interface WorkflowProjectGroup {
   readonly readFailure: WorkflowReadFailure | null;
 }
 
+/**
+ * Recent runs of one workflow, newest first.
+ *
+ * `hasMore` is carried so the screen says this is recent history rather than everything the workflow has done:
+ * a list that looks complete when it is one page would misrepresent a workflow with years behind it.
+ */
+export interface WorkflowRunHistory {
+  readonly workflowId: string;
+  readonly runs: readonly WorkflowRun[];
+  readonly hasMore: boolean;
+}
+
+/**
+ * Whether one workflow can be started manually, established from its own definition.
+ *
+ * The inventory cannot answer this: a dispatch trigger is declared in the workflow file, and GitHub's listing
+ * does not report triggers. Read for the workflow an operator selected, so a page of workflows does not cost a
+ * page of extra requests.
+ */
+export interface ManualRunSupportReading {
+  readonly manualRun: ManualRunSupport;
+  /** The file the answer was read from, so the claim can be checked. */
+  readonly definitionPath: string;
+}
+
 export interface WorkflowInventory {
   /**
    * `true` while these are examples rather than provider facts, so the screen can say so.

@@ -1,7 +1,7 @@
 import { DestroyRef, Injectable, computed, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { WorkflowInventory, WorkflowRunJob } from '../contracts/workflows';
+import { ManualRunSupport, WorkflowInventory, WorkflowRunJob } from '../contracts/workflows';
 import { WorkflowsDataSource } from '../data/workflows.data-source';
 
 export type WorkflowsLoadState = 'loading' | 'loaded' | 'unavailable';
@@ -100,6 +100,57 @@ export class WorkflowsStore {
   /** Called when a workflow with no run is selected, so no stale job list is shown beside it. */
   clearRunJobs(): void {
     this.selectedRunId.set(null);
+  }
+
+  /**
+   * Whether the selected workflow can be started manually, once its definition has been read.
+   *
+   * Keyed by workflow, because the answer is a property of the definition rather than of a run, and a definition
+   * already read does not change while the screen is open.
+   */
+  private readonly manualRunByWorkflow = signal<Readonly<Record<string, ManualRunSupport>>>({});
+  private readonly manualRunLoading = signal<string | null>(null);
+  private readonly selectedWorkflowId = signal<string | null>(null);
+
+  /**
+   * The selected workflow's manual-run support: what the definition said, or `unknown` until it is read.
+   *
+   * Unknown covers both "not read yet" and "could not be established", because the screen says the same thing
+   * for both and neither is a claim that a manual run is unavailable.
+   */
+  readonly selectedManualRun = computed<ManualRunSupport>(() => {
+    const workflowId = this.selectedWorkflowId();
+    return workflowId === null ? 'unknown' : (this.manualRunByWorkflow()[workflowId] ?? 'unknown');
+  });
+
+  readonly manualRunReading = computed(() => this.manualRunLoading() === this.selectedWorkflowId());
+
+  /** Reads a workflow's dispatch support once. A failed read leaves it unknown rather than unavailable. */
+  readManualRunSupport(projectId: string, workflowId: string, workflowPath: string): void {
+    this.selectedWorkflowId.set(workflowId);
+
+    if (
+      untracked(this.manualRunByWorkflow)[workflowId] !== undefined ||
+      untracked(this.manualRunLoading) === workflowId
+    ) {
+      return;
+    }
+
+    this.manualRunLoading.set(workflowId);
+
+    this.dataSource
+      .loadManualRunSupport(projectId, workflowId, workflowPath)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (reading) => {
+          this.manualRunByWorkflow.update((current) => ({
+            ...current,
+            [workflowId]: reading.manualRun,
+          }));
+          this.manualRunLoading.set(null);
+        },
+        error: () => this.manualRunLoading.set(null),
+      });
   }
 
   read(): void {

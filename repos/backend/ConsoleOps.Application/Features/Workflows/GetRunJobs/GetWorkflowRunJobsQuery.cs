@@ -50,11 +50,7 @@ public sealed class GetWorkflowRunJobsQueryHandler(
         }
 
         WorkflowRunJobResponse[] jobs = result.Observation!.Jobs
-            .Select(job => new WorkflowRunJobResponse(
-                job.Name,
-                ToCamelCase(job.Status),
-                job.Conclusion is null ? null : ToCamelCase(job.Conclusion.Value),
-                DurationSeconds(job.StartedAtUtc, job.CompletedAtUtc)))
+            .Select(WorkflowRunMapping.ToJob)
             .ToArray();
 
         return Result<WorkflowRunJobsResponse>.Success(new WorkflowRunJobsResponse(
@@ -62,20 +58,4 @@ public sealed class GetWorkflowRunJobsQueryHandler(
             jobs));
     }
 
-    private static int? DurationSeconds(DateTimeOffset? startedAt, DateTimeOffset? completedAt)
-    {
-        if (startedAt is null || completedAt is null || completedAt < startedAt)
-        {
-            return null;
-        }
-
-        return (int)(completedAt.Value - startedAt.Value).TotalSeconds;
-    }
-
-    private static string ToCamelCase<TEnum>(TEnum value)
-        where TEnum : struct, Enum
-    {
-        string name = value.ToString()!;
-        return string.Concat(char.ToLowerInvariant(name[0]), name[1..]);
-    }
 }

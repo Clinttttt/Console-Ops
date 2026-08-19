@@ -33,14 +33,15 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Endpoint paths detected from repository source, offered in both project forms | Real |
 | Workflows screen: provider-backed inventory with each workflow's latest run | Real |
 | Workflow run jobs, read for the selected workflow | Real |
+| Workflow run history with jobs per run, on its own screen | Real |
 
 ## Next
 
-1. **Workflows: run history, then run detail.** The inventory is real; `Runs` and `Run logs` are still named as
-   planned because those screens do not exist. Run history is a list per workflow (number, status, conclusion,
-   branch, commit, trigger, actor, duration); run detail adds jobs and steps. The jobs read already exists and
-   is proven live, so run detail is mostly presentation. Manual dispatch is a later phase and needs the workflow
-   definition read to know whether it is supported at all - until then `manualRun` is honestly `unknown` and no
+1. **Workflows: steps, then workflow logs.** Run history and jobs are real. What is left of the read side:
+   **steps within a job**, which GitHub returns on the same jobs payload and only need surfacing; and
+   **workflow execution logs**, which GitHub serves as a zip archive per run - the reason `Run logs` is still
+   named as planned rather than half-built. Manual dispatch is a later phase and needs the workflow definition
+   parsed to know whether it is supported at all, which is why `manualRun` is honestly `unknown` today and no
    run action is offered.
    Two follow-ups this slice deliberately left: **`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
    `IGitHubWorkflowInventory.ListWorkflowsAsync` both list workflows** for different callers and should converge

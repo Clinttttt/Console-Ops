@@ -2,8 +2,10 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 import { StatusCell } from '../../../core/contracts/dashboard-overview';
-import { Workflow, WorkflowRunJob } from '../../../core/contracts/workflows';
+import { ManualRunSupport, Workflow, WorkflowRunJob } from '../../../core/contracts/workflows';
 import { DurationPipe } from '../../../core/ui/duration.pipe';
+import { RouterLink } from '@angular/router';
+
 import { Icon, IconName } from '../../../core/ui/icon';
 import { Status } from '../../../core/ui/status';
 import { triggerLabel, workflowRunCell } from '../../../core/ui/workflow-run-state';
@@ -17,17 +19,23 @@ import { triggerLabel, workflowRunCell } from '../../../core/ui/workflow-run-sta
 @Component({
   selector: 'co-workflow-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DurationPipe, Icon, Status],
+  imports: [DatePipe, DurationPipe, Icon, RouterLink, Status],
   templateUrl: './workflow-detail.html',
   styleUrl: './workflow-detail.scss',
 })
 export class WorkflowDetail {
   readonly workflow = input.required<Workflow>();
   readonly projectName = input.required<string>();
+  /** Which project owns it, so the panel can link to this workflow's run history. */
+  readonly projectId = input.required<string>();
 
   /** Read on demand for this workflow's latest run, so the panel states what it is waiting for. */
   readonly jobs = input<readonly WorkflowRunJob[]>([]);
   readonly jobsState = input<'idle' | 'loading' | 'unavailable' | 'loaded'>('idle');
+
+  /** Established from the workflow definition on selection, rather than taken from the inventory. */
+  readonly manualRun = input<ManualRunSupport>('unknown');
+  readonly manualRunReading = input(false);
 
   protected readonly icon = computed<IconName>(() =>
     this.workflow().classification === 'deployment' ? 'rocket' : 'ciCd',
@@ -43,8 +51,9 @@ export class WorkflowDetail {
     this.workflow().classification === 'deployment' ? 'Deployment' : 'Unclassified',
   );
 
-  protected readonly manualRun = computed(() => {
-    switch (this.workflow().manualRun) {
+  /** How the reading reads, or `null` while it is not established. */
+  protected readonly manualRunLabel = computed(() => {
+    switch (this.manualRun()) {
       case 'supported':
         return 'Supported';
       case 'unavailable':

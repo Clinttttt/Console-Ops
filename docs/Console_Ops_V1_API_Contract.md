@@ -192,6 +192,17 @@ groups[]
         |-- runUrl (optional)
         `-- jobs[]                  always empty here; read per selection
 
+GET /api/workflows/projects/{projectId}/workflows/{workflowId}/runs?limit=
+
+workflowId
+runs[]                              newest first, same shape as latestRun above
+hasMore                             true when the provider reports runs beyond this page
+
+GET /api/workflows/projects/{projectId}/workflows/{workflowId}/manual-run?path=
+
+manualRun: supported | unavailable | unknown
+definitionPath                      the file the answer was read from
+
 GET /api/workflows/projects/{projectId}/runs/{runId}/jobs
 
 runId
@@ -219,13 +230,22 @@ Rules:
   status is `unknown`.
 - **`durationSeconds` is computed from the run's own start and end**, and is `null` while it is still going,
   because a duration would imply an end it has not reached.
-- **`manualRun` is `unknown` until the workflow definition is read.** A dispatch trigger is declared in the
-  file, not in the listing, so this reports that it does not know rather than assuming either answer. No run
-  action is offered on an unknown.
+- **`manualRun` in the inventory is always `unknown`.** A dispatch trigger is declared in the workflow file and
+  GitHub's listing does not report triggers, so establishing it costs one request per workflow - which the
+  inventory does not spend for a page of workflows. It is established on selection through the `manual-run`
+  read, which scans the definition's `on:` block only: a step written as
+  `if: github.event_name == 'workflow_dispatch'` is not a trigger declaration. A definition that could not be
+  read or understood stays `unknown`, never `unavailable`, because telling an operator a workflow cannot be run
+  would hide one they rely on. Verified live: all 12 workflows report `supported` in ~450ms each, confirmed
+  against their own `on:` blocks.
 - **A workflow whose latest run could not be read keeps its place** with no run rather than removing the
   workflow: the workflow was read, only its run was not.
 - **An unreadable repository reports `readFailure` on its own group** and leaves the other projects intact. A
   rejected token and a repository with no automation must never look the same.
+- **Run history is one bounded page, newest first.** `limit` defaults to 20 and is clamped to 50: a limit is a
+  request rather than an instruction, because one query string must not decide how much of a shared rate limit a
+  page load spends. `hasMore` comes from the provider's own total, so a workflow with 91 runs says the list is
+  recent history rather than all of it. Verified live: 6 of CI's runs in **996ms**, and `limit=9999` returned 50.
 - **Jobs are a separate read.** They cost one request per run, so they are read for the workflow an operator
   selected. The repository comes from the registered project, so the read cannot be pointed at a repository
   Console Ops does not manage; an unknown project is `Workflows.ProjectNotFound`.

@@ -213,6 +213,22 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
                 ? GitHubFactResult<GitHubWorkflowInventoryPage>.Failed(failure!.Value)
                 : GitHubFactResult<GitHubWorkflowInventoryPage>.Success(page));
 
+        public Task<GitHubFactResult<GitHubRunPage>> ListRunsAsync(
+            string owner,
+            string repository,
+            long workflowId,
+            int limit,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(GitHubFactResult<GitHubRunPage>.Success(new GitHubRunPage([], false)));
+
+        public Task<GitHubFactResult<GitHubManualRunSupport>> ReadManualRunSupportAsync(
+            string owner,
+            string repository,
+            string workflowPath,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(GitHubFactResult<GitHubManualRunSupport>.Success(
+                new GitHubManualRunSupport(null, workflowPath)));
+
         public Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(
             string owner,
             string repository,

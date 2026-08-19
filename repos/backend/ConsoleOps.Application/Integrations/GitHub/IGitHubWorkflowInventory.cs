@@ -65,6 +65,12 @@ public sealed record GitHubWorkflowDefinition(
 
 public sealed record GitHubWorkflowInventoryPage(IReadOnlyList<GitHubWorkflowDefinition> Workflows);
 
+/// <param name="HasMore">
+/// Whether the provider reported runs beyond this page, so a screen can say the list is recent history rather
+/// than all of it.
+/// </param>
+public sealed record GitHubRunPage(IReadOnlyList<GitHubRunSummary> Runs, bool HasMore);
+
 public sealed record GitHubRunJob(
     string Name,
     GitHubRunStatus Status,
@@ -73,6 +79,14 @@ public sealed record GitHubRunJob(
     DateTimeOffset? CompletedAtUtc);
 
 public sealed record GitHubRunJobs(IReadOnlyList<GitHubRunJob> Jobs);
+
+/// <param name="SupportsManualRun">
+/// <c>true</c> or <c>false</c> where the workflow's trigger declaration was read, and <c>null</c> where it was
+/// not. Unknown is a real answer: it means Console Ops could not establish the fact, which is different from
+/// establishing that a manual run is unavailable.
+/// </param>
+/// <param name="DefinitionPath">The file the answer was read from, so a claim can be checked.</param>
+public sealed record GitHubManualRunSupport(bool? SupportsManualRun, string DefinitionPath);
 
 /// <summary>
 /// Reads a repository's automation and how it executed, for the Workflows screen.
@@ -101,6 +115,33 @@ public interface IGitHubWorkflowInventory
     Task<GitHubFactResult<GitHubWorkflowInventoryPage>> ListWorkflowsAsync(
         string owner,
         string repository,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists a workflow's recent runs, newest first.
+    /// </summary>
+    /// <remarks>
+    /// Bounded to one page: run history answers "what has this been doing lately", and a caller that wanted the
+    /// whole history would be asking the provider to page through years of runs.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubRunPage>> ListRunsAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether one workflow declares a manual dispatch trigger, read from its own definition.
+    /// </summary>
+    /// <remarks>
+    /// A separate read because the listing does not report triggers and the answer costs one request for the
+    /// file. Made for the workflow an operator selected rather than for every workflow on a page.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubManualRunSupport>> ReadManualRunSupportAsync(
+        string owner,
+        string repository,
+        string workflowPath,
         CancellationToken cancellationToken);
 
     /// <summary>
