@@ -192,6 +192,85 @@ public sealed class GitHubWorkflowInventoryTests
     }
 
     [Fact]
+    public async Task ListRunsAsync_ReadsHistoryNewestFirstAndSaysWhenThereIsMore()
+    {
+        StubHandler handler = new(_ => JsonResponse("""
+            {
+              "total_count": 91,
+              "workflow_runs": [
+                {
+                  "id": 938,
+                  "run_number": 938,
+                  "status": "completed",
+                  "conclusion": "success",
+                  "head_branch": "master",
+                  "head_sha": "2ac8bf0f4c1e9d7a3b5c8e2f1a4d6b9c0e3f7a21",
+                  "event": "push",
+                  "actor": { "login": "Clinttttt" },
+                  "run_started_at": "2026-08-19T06:00:00Z",
+                  "updated_at": "2026-08-19T06:04:18Z"
+                },
+                {
+                  "id": 936,
+                  "run_number": 936,
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "head_branch": "feature/foo",
+                  "head_sha": "a82cef1b3d5e7f9a0c2e4b6d8f1a3c5e7b9d0f24",
+                  "event": "pull_request",
+                  "actor": { "login": "Clinttttt" },
+                  "run_started_at": "2026-08-18T09:00:00Z",
+                  "updated_at": "2026-08-18T09:01:51Z"
+                }
+              ]
+            }
+            """));
+
+        GitHubFactResult<GitHubRunPage> result = await CreateInventory(handler)
+            .ListRunsAsync("clint", "eemo", 101, 20, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        // The provider reports 91 runs and this page holds 2, so the screen can say this is recent history.
+        Assert.True(result.Observation!.HasMore);
+        Assert.Collection(
+            result.Observation.Runs,
+            run =>
+            {
+                Assert.Equal(938, run.Number);
+                Assert.Equal(GitHubRunConclusion.Passed, run.Conclusion);
+                Assert.Equal("master", run.Branch);
+            },
+            run =>
+            {
+                Assert.Equal(936, run.Number);
+                Assert.Equal(GitHubRunConclusion.Failed, run.Conclusion);
+                Assert.Equal("feature/foo", run.Branch);
+                // The provider's own event, not translated into something friendlier.
+                Assert.Equal("pull_request", run.Event);
+            });
+    }
+
+    [Fact]
+    public async Task ListRunsAsync_AsksForNoMoreThanTheAdapterAllows()
+    {
+        HttpRequestMessage? sent = null;
+        StubHandler handler = new(request =>
+        {
+            sent = request;
+            return JsonResponse("""{ "total_count": 0, "workflow_runs": [] }""");
+        });
+
+        GitHubFactResult<GitHubRunPage> result = await CreateInventory(handler)
+            .ListRunsAsync("clint", "eemo", 101, 5000, CancellationToken.None);
+
+        // A caller's limit is a request, not an instruction: one query string must not decide how much of a
+        // shared rate limit a page load spends.
+        Assert.Contains("per_page=50", sent!.RequestUri!.Query, StringComparison.Ordinal);
+        Assert.Empty(result.Observation!.Runs);
+        Assert.False(result.Observation.HasMore);
+    }
+
+    [Fact]
     public async Task ListRunJobsAsync_ReadsJobsWithTheirOwnTimings()
     {
         StubHandler handler = new(_ => JsonResponse("""

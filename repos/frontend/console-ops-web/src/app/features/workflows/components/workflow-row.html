@@ -50,13 +50,8 @@
   </button>
 
   <span class="actions">
-    <!--
-      Run history and workflow logs are separate screens that do not exist yet, so they are named as planned
-      rather than offered as links that go nowhere.
-    -->
-    <span class="co-inline-link is-unavailable" title="Run history - planned for a later slice"
-      >Runs</span
-    >
+    <!-- Run history is real; workflow execution logs are a separate provider read and stay named as planned. -->
+    <a class="co-inline-link" [routerLink]="['/workflows', projectId(), item.id, 'runs']">Runs</a>
     <span
       class="co-inline-link is-unavailable"
       title="Workflow execution logs - planned for a later slice. Application logs are on the Logs screen."

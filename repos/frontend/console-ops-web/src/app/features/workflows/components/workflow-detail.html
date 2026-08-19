@@ -134,10 +134,10 @@
     Both are named as planned rather than rendered as controls that do nothing. Run history is the next slice;
     starting a workflow is a later phase, because Console Ops reads automation before it operates it.
   -->
-  <span class="co-inline-link is-unavailable" title="Run history - planned for a later slice">
+  <a class="co-inline-link" [routerLink]="['/workflows', projectId(), item.id, 'runs']">
     View runs
     <co-icon name="arrowRight" [size]="15" />
-  </span>
+  </a>
   <span
     class="co-inline-link is-unavailable"
     title="Starting a workflow is a later phase, after read-only inventory is proven"

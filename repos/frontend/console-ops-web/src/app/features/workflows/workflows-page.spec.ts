@@ -1,7 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 
-import { WorkflowInventory, WorkflowRunJob } from '../../core/contracts/workflows';
+import {
+  WorkflowInventory,
+  WorkflowRunHistory,
+  WorkflowRunJob,
+} from '../../core/contracts/workflows';
 import { WorkflowsDataSource } from '../../core/data/workflows.data-source';
 import { WorkflowsPage } from './workflows-page';
 
@@ -123,6 +128,10 @@ class StubWorkflows extends WorkflowsDataSource {
     this.jobRequests.push({ projectId, runId });
     return this.jobs;
   }
+
+  override loadRuns(_projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
+    return of({ workflowId, runs: [], hasMore: false });
+  }
 }
 
 describe('WorkflowsPage', () => {
@@ -135,7 +144,11 @@ describe('WorkflowsPage', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [WorkflowsPage],
-      providers: [{ provide: WorkflowsDataSource, useValue: stub }],
+      providers: [
+        // The rows link to run history, so the router has to exist for them to render.
+        provideRouter([]),
+        { provide: WorkflowsDataSource, useValue: stub },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(WorkflowsPage);

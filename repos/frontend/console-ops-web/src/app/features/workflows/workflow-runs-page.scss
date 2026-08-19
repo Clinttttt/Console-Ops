@@ -1,0 +1,136 @@
+:host {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--co-space-6) var(--co-space-7);
+}
+
+.back {
+  margin-bottom: var(--co-space-5);
+}
+
+.head {
+  margin-bottom: var(--co-space-6);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.sub {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  flex-wrap: wrap;
+  margin: var(--co-space-2) 0 0;
+  font-size: 12px;
+  color: var(--co-ink-muted);
+}
+
+.notice {
+  padding: var(--co-space-6) 0;
+  font-size: 12.5px;
+  color: var(--co-ink-muted);
+}
+
+.runs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--co-space-3);
+  margin: var(--co-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+}
+
+.run:hover {
+  border-color: var(--co-line-strong);
+}
+
+.run.is-open {
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns:
+    62px minmax(104px, 0.5fr) minmax(160px, 0.9fr) minmax(0, 0.6fr)
+    84px 84px 15px;
+  align-items: center;
+  gap: var(--co-space-4);
+  width: 100%;
+  padding: var(--co-space-4) var(--co-space-5);
+  text-align: left;
+  color: var(--co-ink-muted);
+}
+
+.number {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.source,
+.who,
+.elapsed,
+.when {
+  min-width: 0;
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.sep {
+  padding: 0 5px;
+  color: var(--co-ink-faint);
+}
+
+.jobs-panel {
+  padding: var(--co-space-5);
+  border-top: 1px solid var(--co-line);
+}
+
+.job-note {
+  margin: 0;
+  font-size: 12px;
+}
+
+.jobs {
+  display: grid;
+  gap: var(--co-space-3);
+  margin: 0 0 var(--co-space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.job {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto 84px;
+  align-items: center;
+  gap: var(--co-space-3);
+  color: var(--co-ink-muted);
+}
+
+.job-name {
+  font-size: 12.5px;
+  color: var(--co-ink);
+  overflow-wrap: anywhere;
+}
+
+.job-duration {
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.tally {
+  margin-top: var(--co-space-5);
+  font-size: 12px;
+}

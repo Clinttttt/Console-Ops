@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs';
 
-import { WorkflowInventory, WorkflowRunJob } from '../contracts/workflows';
+import { WorkflowInventory, WorkflowRunHistory, WorkflowRunJob } from '../contracts/workflows';
 
 /**
  * Port for the Workflows screen.
@@ -18,4 +18,7 @@ export abstract class WorkflowsDataSource {
    * on the page would multiply the cost of opening the screen to answer a question nobody asked yet.
    */
   abstract loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]>;
+
+  /** Recent runs of one workflow, read when an operator asks for its history. */
+  abstract loadRuns(projectId: string, workflowId: string): Observable<WorkflowRunHistory>;
 }

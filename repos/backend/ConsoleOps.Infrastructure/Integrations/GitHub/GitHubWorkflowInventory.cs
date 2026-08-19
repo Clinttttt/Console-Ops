@@ -24,6 +24,9 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     /// <summary>Jobs of a single run. A run with more than this has other problems.</summary>
     private const int JobPageSize = 100;
 
+    /// <summary>Upper bound on run history, whatever a caller asks for. History is recent, not exhaustive.</summary>
+    private const int MaximumRunPageSize = 50;
+
     /// <summary>
     /// How many latest-run reads are in flight at once.
     /// </summary>
@@ -99,6 +102,42 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             new GitHubWorkflowInventoryPage(definitions));
     }
 
+    public async Task<GitHubFactResult<GitHubRunPage>> ListRunsAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workflowId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+
+        int pageSize = Math.Min(limit, MaximumRunPageSize);
+        string path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}"
+            + $"/actions/workflows/{workflowId}/runs?per_page={pageSize}";
+        GitHubReadResponse<RunsDto> response =
+            await GitHubRead.GetAsync<RunsDto>(httpClient, path, cancellationToken);
+
+        if (response.Value?.WorkflowRuns is null)
+        {
+            return GitHubFactResult<GitHubRunPage>.Failed(
+                response.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        GitHubRunSummary[] runs = response.Value.WorkflowRuns
+            .Where(run => run.Id > 0)
+            .Select(ToSummary)
+            .ToArray();
+
+        // GitHub reports the repository's total, which is how a screen can say this is recent history rather
+        // than everything the workflow has ever done.
+        bool hasMore = response.Value.TotalCount > runs.Length || response.HasNextPage;
+
+        return GitHubFactResult<GitHubRunPage>.Success(new GitHubRunPage(runs, hasMore));
+    }
+
     public async Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(
         string owner,
         string repository,
@@ -153,15 +192,18 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             await GitHubRead.GetAsync<RunsDto>(httpClient, path, cancellationToken);
 
         RunDto? run = response.Value?.WorkflowRuns?.FirstOrDefault();
-        if (run is null || run.Id <= 0)
-        {
-            return null;
-        }
+        return run is null || run.Id <= 0 ? null : ToSummary(run);
+    }
+
+    /// <summary>One run as Console Ops describes it, shared by the latest-run read and run history.</summary>
+    private static GitHubRunSummary ToSummary(RunDto run)
+    {
+        GitHubRunStatus status = MapStatus(run.Status);
 
         return new GitHubRunSummary(
             run.Id,
             run.RunNumber,
-            MapStatus(run.Status),
+            status,
             MapConclusion(run.Conclusion),
             run.HeadBranch?.Trim() ?? string.Empty,
             run.HeadSha?.Trim() ?? string.Empty,
@@ -170,7 +212,7 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             run.RunStartedAt ?? run.CreatedAt,
             // GitHub reports no completion time for a run still going, and `updated_at` is only the end of a
             // run that has one.
-            MapStatus(run.Status) == GitHubRunStatus.Completed ? run.UpdatedAt : null,
+            status == GitHubRunStatus.Completed ? run.UpdatedAt : null,
             NullIfWhiteSpace(run.HtmlUrl));
     }
 
@@ -214,6 +256,7 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     private sealed record WorkflowDto(long Id, string? Name, string? Path, string? State);
 
     private sealed record RunsDto(
+        [property: JsonPropertyName("total_count")] int TotalCount,
         [property: JsonPropertyName("workflow_runs")] RunDto[]? WorkflowRuns);
 
     private sealed record RunDto(

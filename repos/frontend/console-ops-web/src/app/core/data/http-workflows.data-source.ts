@@ -11,6 +11,7 @@ import {
   WorkflowReadFailure,
   WorkflowRun,
   WorkflowRunConclusion,
+  WorkflowRunHistory,
   WorkflowRunJob,
   WorkflowRunStatus,
   WorkflowState,
@@ -64,6 +65,13 @@ interface JobPayload {
   readonly durationSeconds: number | null;
 }
 
+/** The wire shape of `GET /api/workflows/projects/{id}/workflows/{id}/runs`. */
+interface RunsPayload {
+  readonly workflowId: string;
+  readonly runs: readonly RunPayload[];
+  readonly hasMore: boolean;
+}
+
 interface RunJobsPayload {
   readonly runId: string;
   readonly jobs: readonly JobPayload[];
@@ -96,6 +104,22 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
         `/api/workflows/projects/${encodeURIComponent(projectId)}/runs/${encodeURIComponent(runId)}/jobs`,
       )
       .pipe(map((payload) => payload.jobs.map(toJob)));
+  }
+
+  override loadRuns(projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
+    return this.http
+      .get<RunsPayload>(
+        `/api/workflows/projects/${encodeURIComponent(projectId)}/workflows/${encodeURIComponent(
+          workflowId,
+        )}/runs`,
+      )
+      .pipe(
+        map((payload) => ({
+          workflowId: payload.workflowId,
+          runs: payload.runs.map(toRun),
+          hasMore: payload.hasMore,
+        })),
+      );
   }
 }
 

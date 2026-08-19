@@ -107,7 +107,7 @@ export class WorkflowsPage {
     for (const group of this.store.groups()) {
       const workflow = group.workflows.find((candidate) => candidate.id === id);
       if (workflow !== undefined) {
-        return { workflow, projectName: group.projectName };
+        return { workflow, projectId: group.projectId, projectName: group.projectName };
       }
     }
 

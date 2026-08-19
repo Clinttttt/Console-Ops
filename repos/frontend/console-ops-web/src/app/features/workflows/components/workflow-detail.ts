@@ -4,6 +4,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { StatusCell } from '../../../core/contracts/dashboard-overview';
 import { Workflow, WorkflowRunJob } from '../../../core/contracts/workflows';
 import { DurationPipe } from '../../../core/ui/duration.pipe';
+import { RouterLink } from '@angular/router';
+
 import { Icon, IconName } from '../../../core/ui/icon';
 import { Status } from '../../../core/ui/status';
 import { triggerLabel, workflowRunCell } from '../../../core/ui/workflow-run-state';
@@ -17,13 +19,15 @@ import { triggerLabel, workflowRunCell } from '../../../core/ui/workflow-run-sta
 @Component({
   selector: 'co-workflow-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DurationPipe, Icon, Status],
+  imports: [DatePipe, DurationPipe, Icon, RouterLink, Status],
   templateUrl: './workflow-detail.html',
   styleUrl: './workflow-detail.scss',
 })
 export class WorkflowDetail {
   readonly workflow = input.required<Workflow>();
   readonly projectName = input.required<string>();
+  /** Which project owns it, so the panel can link to this workflow's run history. */
+  readonly projectId = input.required<string>();
 
   /** Read on demand for this workflow's latest run, so the panel states what it is waiting for. */
   readonly jobs = input<readonly WorkflowRunJob[]>([]);

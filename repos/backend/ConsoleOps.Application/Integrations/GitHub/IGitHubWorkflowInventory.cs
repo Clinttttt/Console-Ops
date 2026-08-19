@@ -65,6 +65,12 @@ public sealed record GitHubWorkflowDefinition(
 
 public sealed record GitHubWorkflowInventoryPage(IReadOnlyList<GitHubWorkflowDefinition> Workflows);
 
+/// <param name="HasMore">
+/// Whether the provider reported runs beyond this page, so a screen can say the list is recent history rather
+/// than all of it.
+/// </param>
+public sealed record GitHubRunPage(IReadOnlyList<GitHubRunSummary> Runs, bool HasMore);
+
 public sealed record GitHubRunJob(
     string Name,
     GitHubRunStatus Status,
@@ -101,6 +107,20 @@ public interface IGitHubWorkflowInventory
     Task<GitHubFactResult<GitHubWorkflowInventoryPage>> ListWorkflowsAsync(
         string owner,
         string repository,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists a workflow's recent runs, newest first.
+    /// </summary>
+    /// <remarks>
+    /// Bounded to one page: run history answers "what has this been doing lately", and a caller that wanted the
+    /// whole history would be asking the provider to page through years of runs.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubRunPage>> ListRunsAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        int limit,
         CancellationToken cancellationToken);
 
     /// <summary>

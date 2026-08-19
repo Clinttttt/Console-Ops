@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 
 import { StatusCell } from '../../../core/contracts/dashboard-overview';
 import { Workflow } from '../../../core/contracts/workflows';
+import { RouterLink } from '@angular/router';
+
 import { Icon, IconName } from '../../../core/ui/icon';
 import { RelativeTimePipe } from '../../../core/ui/relative-time.pipe';
 import { Status } from '../../../core/ui/status';
@@ -16,13 +18,15 @@ import { triggerLabel, workflowRunCell } from '../../../core/ui/workflow-run-sta
 @Component({
   selector: 'co-workflow-row',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, RelativeTimePipe, Status],
+  imports: [Icon, RelativeTimePipe, RouterLink, Status],
   templateUrl: './workflow-row.html',
   styleUrl: './workflow-row.scss',
 })
 export class WorkflowRow {
   readonly workflow = input.required<Workflow>();
   readonly selected = input(false);
+  /** Which project owns this workflow, so the row can link to its run history. */
+  readonly projectId = input.required<string>();
   /** When the inventory was read, so "8 min ago" is relative to the read rather than to the browser clock. */
   readonly readAt = input.required<string | null>();
 

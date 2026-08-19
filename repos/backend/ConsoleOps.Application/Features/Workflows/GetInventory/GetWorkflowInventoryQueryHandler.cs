@@ -47,7 +47,7 @@ public sealed class GetWorkflowInventoryQueryHandler(
                 result.IsSuccess
                     ? ToWorkflows(result.Observation!.Workflows, project.Repository.WorkflowFile)
                     : [],
-                result.IsSuccess ? null : ToCamelCase(result.Failure!.Value)));
+                result.IsSuccess ? null : WorkflowRunMapping.ToCamelCase(result.Failure!.Value)));
         }
 
         return Result<WorkflowInventoryResponse>.Success(new WorkflowInventoryResponse(
@@ -66,7 +66,7 @@ public sealed class GetWorkflowInventoryQueryHandler(
                 workflow.Active ? "active" : "disabled",
                 IsDeploymentWorkflow(workflow, deploymentWorkflowFile) ? "deployment" : "unclassified",
                 ToManualRun(workflow.SupportsManualRun),
-                ToRun(workflow.LatestRun)))
+                WorkflowRunMapping.ToRun(workflow.LatestRun)))
             .ToArray();
 
     /// <summary>
@@ -97,59 +97,10 @@ public sealed class GetWorkflowInventoryQueryHandler(
         return separator < 0 ? trimmed : trimmed[(separator + 1)..];
     }
 
-    private static WorkflowRunResponse? ToRun(GitHubRunSummary? run)
-    {
-        if (run is null)
-        {
-            return null;
-        }
-
-        return new WorkflowRunResponse(
-            run.RunId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            run.Number,
-            ToCamelCase(run.Status),
-            run.Conclusion is null ? null : ToCamelCase(run.Conclusion.Value),
-            run.Branch,
-            run.CommitSha,
-            ShortSha(run.CommitSha),
-            run.Event,
-            run.Actor,
-            run.StartedAtUtc,
-            run.CompletedAtUtc,
-            DurationSeconds(run.StartedAtUtc, run.CompletedAtUtc),
-            run.RunUrl,
-            // Read only for the workflow an operator selects, so a page of workflows costs a page of requests
-            // rather than one per run on top.
-            []);
-    }
-
-    /// <summary>
-    /// The run's own elapsed time, or <c>null</c> when either end is missing.
-    /// </summary>
-    private static int? DurationSeconds(DateTimeOffset? startedAt, DateTimeOffset? completedAt)
-    {
-        if (startedAt is null || completedAt is null || completedAt < startedAt)
-        {
-            return null;
-        }
-
-        return (int)(completedAt.Value - startedAt.Value).TotalSeconds;
-    }
-
-    private static string ShortSha(string commitSha) =>
-        commitSha.Length <= 7 ? commitSha : commitSha[..7];
-
     private static string ToManualRun(bool? supportsManualRun) => supportsManualRun switch
     {
         true => "supported",
         false => "unavailable",
         _ => "unknown"
     };
-
-    private static string ToCamelCase<TEnum>(TEnum value)
-        where TEnum : struct, Enum
-    {
-        string name = value.ToString()!;
-        return string.Concat(char.ToLowerInvariant(name[0]), name[1..]);
-    }
 }

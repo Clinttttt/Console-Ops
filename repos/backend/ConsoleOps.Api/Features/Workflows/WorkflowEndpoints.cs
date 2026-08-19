@@ -2,6 +2,7 @@ using ConsoleOps.Api.Extensions;
 using ConsoleOps.Application.Abstractions.Messaging;
 using ConsoleOps.Application.Features.Workflows.GetInventory;
 using ConsoleOps.Application.Features.Workflows.GetRunJobs;
+using ConsoleOps.Application.Features.Workflows.GetRuns;
 using MediatR;
 
 namespace ConsoleOps.Api.Features.Workflows;
@@ -14,8 +15,41 @@ public static class WorkflowEndpoints
             .WithTags("Workflows");
 
         workflows.MapGetWorkflowInventoryEndpoint();
+        workflows.MapGetWorkflowRunsEndpoint();
         workflows.MapGetWorkflowRunJobsEndpoint();
         return endpoints;
+    }
+}
+
+internal static class GetWorkflowRunsEndpoint
+{
+    public static RouteGroupBuilder MapGetWorkflowRunsEndpoint(this RouteGroupBuilder workflows)
+    {
+        workflows.MapGet("/projects/{projectId:guid}/workflows/{workflowId:long}/runs", Handle)
+            .WithName("GetWorkflowRuns")
+            .WithSummary("Lists recent runs of one workflow, newest first.")
+            .WithDescription(
+                "Bounded to one page, because history answers what a workflow has been doing lately rather "
+                + "than everything it has ever done, and `hasMore` says so. The repository comes from the "
+                + "registered project rather than from the request.")
+            .Produces<WorkflowRunsResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        return workflows;
+    }
+
+    private static async Task<IResult> Handle(
+        Guid projectId,
+        long workflowId,
+        int? limit,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<WorkflowRunsResponse> result = await sender.Send(
+            new GetWorkflowRunsQuery(projectId, workflowId, limit),
+            cancellationToken);
+
+        return result.ToHttpResult();
     }
 }
 
