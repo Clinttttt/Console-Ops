@@ -25,6 +25,10 @@ export class WorkflowDetail {
   readonly workflow = input.required<Workflow>();
   readonly projectName = input.required<string>();
 
+  /** Read on demand for this workflow's latest run, so the panel states what it is waiting for. */
+  readonly jobs = input<readonly WorkflowRunJob[]>([]);
+  readonly jobsState = input<'idle' | 'loading' | 'unavailable' | 'loaded'>('idle');
+
   protected readonly icon = computed<IconName>(() =>
     this.workflow().classification === 'deployment' ? 'rocket' : 'ciCd',
   );

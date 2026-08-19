@@ -46,6 +46,11 @@ public static class DependencyInjection
             ConfigureGitHubClient(client, configuration));
         services.AddHttpClient<IGitHubRepositoryCatalog, GitHubRepositoryCatalog>(client =>
             ConfigureGitHubClient(client, configuration));
+
+        // Workflows reads the provider during the request, like the log stream: bounded, read-only, and never
+        // from stored observations, because a stale workflow list answers a question nobody asked.
+        services.AddHttpClient<IGitHubWorkflowInventory, GitHubWorkflowInventory>(client =>
+            ConfigureGitHubClient(client, configuration));
         IReadOnlySet<string> allowedPrivateHosts = GetAllowedPrivateProbeHosts(configuration);
         services.AddHttpClient<IApplicationProbe, HttpApplicationProbe>(client =>
             client.Timeout = Timeout.InfiniteTimeSpan)

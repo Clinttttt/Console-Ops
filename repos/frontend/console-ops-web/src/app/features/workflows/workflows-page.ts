@@ -16,6 +16,7 @@ interface FilteredGroup {
   readonly projectId: string;
   readonly projectName: string;
   readonly workflows: readonly Workflow[];
+  readonly readFailure: string | null;
 }
 
 /**
@@ -42,6 +43,8 @@ export class WorkflowsPage {
   protected readonly isSampleData = this.store.isSampleData;
   protected readonly readAt = this.store.readAt;
   protected readonly totalCount = this.store.workflowCount;
+  protected readonly jobsState = this.store.jobsState;
+  protected readonly selectedJobs = this.store.selectedJobs;
 
   protected readonly search = signal('');
   protected readonly typeFilter = signal<TypeFilter>(null);
@@ -62,23 +65,27 @@ export class WorkflowsPage {
     const type = this.typeFilter();
     const project = this.projectFilter();
 
-    return this.store
-      .groups()
-      .filter((group) => project === null || group.projectId === project)
-      .map((group) => ({
-        projectId: group.projectId,
-        projectName: group.projectName,
-        workflows: group.workflows.filter((workflow) => {
-          const matchesType = type === null || workflow.classification === type;
-          const matchesTerm =
-            term === '' ||
-            workflow.name.toLowerCase().includes(term) ||
-            workflow.path.toLowerCase().includes(term);
+    return (
+      this.store
+        .groups()
+        .filter((group) => project === null || group.projectId === project)
+        .map((group) => ({
+          projectId: group.projectId,
+          projectName: group.projectName,
+          readFailure: group.readFailure,
+          workflows: group.workflows.filter((workflow) => {
+            const matchesType = type === null || workflow.classification === type;
+            const matchesTerm =
+              term === '' ||
+              workflow.name.toLowerCase().includes(term) ||
+              workflow.path.toLowerCase().includes(term);
 
-          return matchesType && matchesTerm;
-        }),
-      }))
-      .filter((group) => group.workflows.length > 0);
+            return matchesType && matchesTerm;
+          }),
+        }))
+        // A group that could not be read stays, because its failure is the fact worth showing.
+        .filter((group) => group.workflows.length > 0 || group.readFailure !== null)
+    );
   });
 
   /** How many workflows the filters are showing, so the page never implies it is showing all of them. */
@@ -117,6 +124,26 @@ export class WorkflowsPage {
 
   protected select(workflow: Workflow): void {
     this.selectedId.set(workflow.id);
+
+    // Jobs are read for the selection only. A workflow with no run has nothing to read.
+    const run = workflow.latestRun;
+    const projectId = this.projectOf(workflow.id);
+    if (run === null || projectId === null) {
+      this.store.clearRunJobs();
+      return;
+    }
+
+    this.store.readRunJobs(projectId, run.id);
+  }
+
+  private projectOf(workflowId: string): string | null {
+    for (const group of this.store.groups()) {
+      if (group.workflows.some((workflow) => workflow.id === workflowId)) {
+        return group.projectId;
+      }
+    }
+
+    return null;
   }
 
   protected setSearch(term: string): void {

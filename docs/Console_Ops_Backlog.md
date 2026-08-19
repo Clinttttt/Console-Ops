@@ -31,21 +31,22 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Version state distinguishes not configured from configured but never read | Real |
 | Application URL read from Azure, filling registration and editing | Real |
 | Endpoint paths detected from repository source, offered in both project forms | Real |
-| Workflows screen | Labelled sample data; the provider read is the next slice |
+| Workflows screen: provider-backed inventory with each workflow's latest run | Real |
+| Workflow run jobs, read for the selected workflow | Real |
 
 ## Next
 
-1. **Workflows read from the provider.** The screen exists with sample data labelled in its own payload
-   (`isSampleData`), and `docs/Console_Ops_Workflows_Context.md` is the product authority for it. What the
-   real slice needs: list a repository's workflows and each one's latest run through the GitHub port, a
-   `WorkflowsDataSource` HTTP adapter replacing `MockWorkflowsDataSource`, and the sample adapter **deleted**
-   rather than kept as a fallback. Run history, run detail, jobs and steps follow as their own screens - the
-   inventory row deliberately links to them as planned rather than pretending they exist.
-   Two deviations from the reference mockup are deliberate and must not be "fixed" back:
-   **classification filters offer only `Deployment` and `Unclassified`**, because a provider reports no
-   business category and chips for CI, Maintenance and Release would imply Console Ops knows one; and
-   **workflow icons are one generic glyph plus a deployment glyph**, because a database icon for "Database
-   backup" is inferred from its name. Manual running, workflow logs and artifacts stay later phases.
+1. **Workflows: run history, then run detail.** The inventory is real; `Runs` and `Run logs` are still named as
+   planned because those screens do not exist. Run history is a list per workflow (number, status, conclusion,
+   branch, commit, trigger, actor, duration); run detail adds jobs and steps. The jobs read already exists and
+   is proven live, so run detail is mostly presentation. Manual dispatch is a later phase and needs the workflow
+   definition read to know whether it is supported at all - until then `manualRun` is honestly `unknown` and no
+   run action is offered.
+   Two follow-ups this slice deliberately left: **`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
+   `IGitHubWorkflowInventory.ListWorkflowsAsync` both list workflows** for different callers and should converge
+   on one read now that the richer one is proven; and **a deployment workflow is recorded against the project,
+   not an environment**, so no environment is named on the screen - the feature context wants zero or one per
+   environment, which is a domain change.
 2. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately

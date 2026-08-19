@@ -186,8 +186,17 @@
 }
 
 .empty,
-.tally {
+.tally,
+.group-failure {
   font-size: 12px;
+}
+
+.group-failure {
+  margin: 0;
+  padding: var(--co-space-4) var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
 }
 
 .empty {

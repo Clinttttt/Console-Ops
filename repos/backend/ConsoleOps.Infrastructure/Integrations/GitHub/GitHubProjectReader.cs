@@ -9,8 +9,8 @@ namespace ConsoleOps.Infrastructure.Integrations.GitHub;
 public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider timeProvider)
     : IGitHubProjectReader
 {
-    internal const string ApiVersion = "2026-03-10";
-    internal const string UserAgent = "ConsoleOps/1.0";
+    internal const string ApiVersion = GitHubRead.ApiVersion;
+    internal const string UserAgent = GitHubRead.UserAgent;
 
     /// <summary>
     /// How many recent runs of the configured workflow one refresh records. The newest run is also the
@@ -95,7 +95,7 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
     {
         string path = $"repos/{Escape(project.Owner)}/{Escape(project.Repository)}"
             + $"/compare/{Escape(deployedCommitSha)}...{Escape(sourceCommitSha)}?per_page=1";
-        GitHubResponse<GitHubComparisonDto> response =
+        GitHubReadResponse<GitHubComparisonDto> response =
             await GetAsync<GitHubComparisonDto>(path, cancellationToken);
         DateTimeOffset observedAtUtc = timeProvider.GetUtcNow();
 
@@ -132,7 +132,7 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
     {
         string path = $"repos/{Escape(project.Owner)}/{Escape(project.Repository)}/commits"
             + $"?sha={Escape(project.DefaultBranch)}&per_page=1";
-        GitHubResponse<GitHubCommitDto[]> response =
+        GitHubReadResponse<GitHubCommitDto[]> response =
             await GetAsync<GitHubCommitDto[]>(path, cancellationToken);
 
         if (response.Failure is not null)
@@ -184,7 +184,7 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
         string path = $"repos/{Escape(project.Owner)}/{Escape(project.Repository)}"
             + $"/actions/workflows/{Escape(workflowFile)}/runs"
             + $"?branch={Escape(project.DefaultBranch)}&per_page={WorkflowRunPageSize}";
-        GitHubResponse<GitHubWorkflowRunsDto> response =
+        GitHubReadResponse<GitHubWorkflowRunsDto> response =
             await GetAsync<GitHubWorkflowRunsDto>(path, cancellationToken);
 
         if (response.Failure is not null)
@@ -288,74 +288,12 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
         return isGitHubHost ? url.AbsoluteUri : null;
     }
 
-    private async Task<GitHubResponse<T>> GetAsync<T>(
+    /// <summary>Every read goes through the shared GitHub request, so failure means the same thing here.</summary>
+    private Task<GitHubReadResponse<T>> GetAsync<T>(
         string relativePath,
         CancellationToken cancellationToken)
-        where T : class
-    {
-        try
-        {
-            using HttpRequestMessage request = new(HttpMethod.Get, relativePath);
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-            request.Headers.UserAgent.ParseAdd(UserAgent);
-            request.Headers.Add("X-GitHub-Api-Version", ApiVersion);
-
-            using HttpResponseMessage response = await httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                return GitHubResponse<T>.Failed(MapFailure(response));
-            }
-
-            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            T? value = await JsonSerializer.DeserializeAsync<T>(
-                stream,
-                SerializerOptions,
-                cancellationToken);
-
-            return value is null
-                ? GitHubResponse<T>.Failed(GitHubReadFailure.InvalidResponse)
-                : GitHubResponse<T>.Success(value);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return GitHubResponse<T>.Failed(GitHubReadFailure.Unavailable);
-        }
-        catch (HttpRequestException)
-        {
-            return GitHubResponse<T>.Failed(GitHubReadFailure.Unavailable);
-        }
-        catch (JsonException)
-        {
-            return GitHubResponse<T>.Failed(GitHubReadFailure.InvalidResponse);
-        }
-        catch (NotSupportedException)
-        {
-            return GitHubResponse<T>.Failed(GitHubReadFailure.InvalidResponse);
-        }
-    }
-
-    private static GitHubReadFailure MapFailure(HttpResponseMessage response)
-    {
-        if (response.StatusCode == HttpStatusCode.TooManyRequests
-            || response.Headers.TryGetValues("X-RateLimit-Remaining", out IEnumerable<string>? values)
-            && values.Contains("0", StringComparer.Ordinal))
-        {
-            return GitHubReadFailure.RateLimited;
-        }
-
-        return response.StatusCode switch
-        {
-            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => GitHubReadFailure.Unauthorized,
-            HttpStatusCode.NotFound => GitHubReadFailure.NotFound,
-            >= HttpStatusCode.InternalServerError => GitHubReadFailure.Unavailable,
-            _ => GitHubReadFailure.InvalidResponse
-        };
-    }
-
+        where T : class =>
+        GitHubRead.GetAsync<T>(httpClient, relativePath, cancellationToken);
     private static GitHubWorkflowState MapWorkflowState(string? status, string? conclusion)
     {
         string normalizedStatus = status?.Trim().ToLowerInvariant() ?? string.Empty;
@@ -392,13 +330,6 @@ public sealed class GitHubProjectReader(HttpClient httpClient, TimeProvider time
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private sealed record GitHubResponse<T>(T? Value, GitHubReadFailure? Failure)
-        where T : class
-    {
-        public static GitHubResponse<T> Success(T value) => new(value, null);
-
-        public static GitHubResponse<T> Failed(GitHubReadFailure failure) => new(null, failure);
-    }
 
     private sealed record GitHubCommitDto(
         string? Sha,

@@ -22,6 +22,8 @@ const ACTIVE_CELLS: Readonly<Record<WorkflowRunStatus, StatusCell | null>> = {
   queued: { level: 'unknown', label: 'Queued', detail: null },
   inProgress: { level: 'running', label: 'In progress', detail: null },
   waiting: { level: 'unknown', label: 'Waiting', detail: null },
+  // A status Console Ops does not recognise is named as unrecognised, not rounded to a familiar one.
+  unknown: { level: 'unknown', label: 'Unknown', detail: null },
   // A completed run is described by its conclusion, not by the fact that it stopped.
   completed: null,
 };

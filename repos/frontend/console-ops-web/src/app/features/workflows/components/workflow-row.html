@@ -10,9 +10,13 @@
     <span class="identity">
       <span class="name">{{ item.name }}</span>
       <span class="sub">
-        @if (item.primaryDeploymentFor !== null) {
-          <!-- Named only because an operator configured it, never because the name sounds like a deployment. -->
-          Primary deployment · {{ item.primaryDeploymentFor }}
+        @if (item.classification === 'deployment') {
+          <!--
+            Named only because an operator registered this file as the project's deployment workflow, never
+            because the name sounds like one. It names no environment: Console Ops records the workflow against
+            the project, and naming an environment would be inventing that link.
+          -->
+          Primary deployment
         } @else if (item.state === 'disabled') {
           <span class="co-unavailable">Disabled at the provider</span>
         } @else {

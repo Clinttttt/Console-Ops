@@ -126,6 +126,29 @@
                 </span>
               </div>
 
+              @if (group.readFailure !== null) {
+                <!--
+                  A repository Console Ops could not read is not a repository without automation, and saying so
+                  would send an operator looking for missing workflows instead of a rejected token.
+                -->
+                <p class="group-failure co-unavailable">
+                  @switch (group.readFailure) {
+                    @case ('unauthorized') {
+                      GitHub rejected the configured token for this repository.
+                    }
+                    @case ('notFound') {
+                      GitHub does not expose this repository to the configured token.
+                    }
+                    @case ('rateLimited') {
+                      GitHub rate limited the request. Try again shortly.
+                    }
+                    @default {
+                      GitHub could not be read for this repository.
+                    }
+                  }
+                </p>
+              }
+
               <div class="rows">
                 @for (workflow of group.workflows; track workflow.id) {
                   <co-workflow-row
@@ -154,7 +177,12 @@
             <p class="co-unavailable">Select a workflow to inspect it.</p>
           </div>
         } @else {
-          <co-workflow-detail [workflow]="choice.workflow" [projectName]="choice.projectName" />
+          <co-workflow-detail
+            [workflow]="choice.workflow"
+            [projectName]="choice.projectName"
+            [jobs]="selectedJobs()"
+            [jobsState]="jobsState()"
+          />
         }
       </aside>
     </div>

@@ -3,6 +3,7 @@ using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.Deployments;
 using ConsoleOps.Api.Features.GitHub;
 using ConsoleOps.Api.Features.Health;
+using ConsoleOps.Api.Features.Workflows;
 using ConsoleOps.Api.Features.Logs;
 using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Api.Features.Settings;
@@ -43,6 +44,7 @@ public static class RequestPipelineExtensions
         app.MapDeploymentEndpoints();
         app.MapGitHubEndpoints();
         app.MapHealthEndpoints();
+        app.MapWorkflowEndpoints();
         app.MapLogEndpoints();
         app.MapProjectEndpoints();
         app.MapSettingsEndpoints();

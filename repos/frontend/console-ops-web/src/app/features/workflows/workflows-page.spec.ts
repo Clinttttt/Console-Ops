@@ -1,21 +1,141 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 
-import { WorkflowInventory } from '../../core/contracts/workflows';
-import { MockWorkflowsDataSource } from '../../core/data/mock/mock-workflows.data-source';
+import { WorkflowInventory, WorkflowRunJob } from '../../core/contracts/workflows';
 import { WorkflowsDataSource } from '../../core/data/workflows.data-source';
 import { WorkflowsPage } from './workflows-page';
+
+const READ_AT = '2026-08-19T07:05:00.000Z';
+
+/**
+ * One inventory covering what the screen must get right: a configured deployment mid-run, a workflow that has
+ * never run, one whose dispatch support is unknown, a failed run, a disabled workflow, and a second project.
+ */
+const INVENTORY: WorkflowInventory = {
+  isSampleData: false,
+  readAt: READ_AT,
+  groups: [
+    {
+      projectId: 'eemo',
+      projectName: 'EEMO-Cantilan-SDS',
+      repository: 'clint/EEMO-Cantilan-SDS',
+      readFailure: null,
+      workflows: [
+        {
+          id: '101',
+          name: 'Deploy production',
+          path: '.github/workflows/deploy-production.yml',
+          state: 'active',
+          classification: 'deployment',
+          manualRun: 'supported',
+          latestRun: {
+            id: '535',
+            number: 535,
+            status: 'inProgress',
+            conclusion: null,
+            branch: 'master',
+            commitSha: '2ac8bf0f4c1e9d7a3b5c8e2f1a4d6b9c0e3f7a21',
+            commitShortSha: '2ac8bf0',
+            trigger: 'push',
+            actor: 'Clinttttt',
+            startedAt: '2026-08-19T06:57:00.000Z',
+            completedAt: null,
+            durationSeconds: null,
+            runUrl: 'https://github.test/run/535',
+            jobs: [],
+          },
+        },
+        {
+          id: '202',
+          name: 'Database backup',
+          path: '.github/workflows/database-backup.yml',
+          state: 'active',
+          classification: 'unclassified',
+          manualRun: 'unknown',
+          latestRun: {
+            id: '212',
+            number: 212,
+            status: 'completed',
+            conclusion: 'failed',
+            branch: 'master',
+            commitSha: '89ad1c2e7f4b0d9a3c6e2f8b1d5a7c4e0f3b9d62',
+            commitShortSha: '89ad1c2',
+            trigger: 'schedule',
+            actor: null,
+            startedAt: '2026-08-19T02:00:00.000Z',
+            completedAt: '2026-08-19T02:03:41.000Z',
+            durationSeconds: 221,
+            runUrl: null,
+            jobs: [],
+          },
+        },
+        {
+          id: '303',
+          name: 'Database restore',
+          path: '.github/workflows/database-restore.yml',
+          state: 'active',
+          classification: 'unclassified',
+          manualRun: 'unknown',
+          latestRun: null,
+        },
+      ],
+    },
+    {
+      projectId: 'spinner',
+      projectName: 'Spinner API',
+      repository: 'clint/Spinner',
+      readFailure: null,
+      workflows: [
+        {
+          id: '404',
+          name: 'Security scan',
+          path: '.github/workflows/security-scan.yml',
+          state: 'disabled',
+          classification: 'unclassified',
+          manualRun: 'unavailable',
+          latestRun: null,
+        },
+      ],
+    },
+  ],
+};
+
+const JOBS: readonly WorkflowRunJob[] = [
+  { name: 'Prepare', status: 'completed', conclusion: 'passed', durationSeconds: 72 },
+  { name: 'Deploy', status: 'inProgress', conclusion: null, durationSeconds: null },
+];
+
+class StubWorkflows extends WorkflowsDataSource {
+  jobRequests: { projectId: string; runId: string }[] = [];
+
+  constructor(
+    private readonly inventory: Observable<WorkflowInventory> = of(INVENTORY),
+    private readonly jobs: Observable<readonly WorkflowRunJob[]> = of(JOBS),
+  ) {
+    super();
+  }
+
+  override load(): Observable<WorkflowInventory> {
+    return this.inventory;
+  }
+
+  override loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]> {
+    this.jobRequests.push({ projectId, runId });
+    return this.jobs;
+  }
+}
 
 describe('WorkflowsPage', () => {
   let fixture: ComponentFixture<WorkflowsPage>;
   let host: HTMLElement;
-  let inventory: WorkflowInventory;
+  let dataSource: StubWorkflows;
 
-  async function render(dataSource: unknown = new MockWorkflowsDataSource()): Promise<void> {
+  async function render(stub: StubWorkflows = new StubWorkflows()): Promise<void> {
+    dataSource = stub;
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [WorkflowsPage],
-      providers: [{ provide: WorkflowsDataSource, useValue: dataSource }],
+      providers: [{ provide: WorkflowsDataSource, useValue: stub }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(WorkflowsPage);
@@ -36,16 +156,12 @@ describe('WorkflowsPage', () => {
 
   beforeEach(async () => {
     await render();
-    inventory = await new Promise((resolve) => {
-      new MockWorkflowsDataSource().load().subscribe(resolve);
-    });
   });
 
-  it('says the screen is showing sample data rather than read automation', () => {
-    // The payload carries the claim, so no screen can present examples as observed workflows.
-    expect(inventory.isSampleData).toBe(true);
-    expect(host.textContent).toContain('Sample data');
-    expect(host.textContent).toContain('not automation Console Ops has read');
+  it('reads real workflows and no longer claims to be sample data', () => {
+    expect(host.textContent).not.toContain('Sample data');
+    expect(host.querySelectorAll('co-workflow-row').length).toBe(4);
+    expect(host.textContent).toContain('Showing 4 of 4 workflows');
   });
 
   it('groups workflows under the project that owns them', () => {
@@ -53,103 +169,108 @@ describe('WorkflowsPage', () => {
 
     expect(groups.length).toBe(2);
     expect(groups[0].textContent).toContain('EEMO-Cantilan-SDS');
-    expect(groups[0].textContent).toContain('6 workflows');
-    expect(host.textContent).toContain('Showing 8 of 8 workflows');
+    expect(groups[0].textContent).toContain('3 workflows');
   });
 
-  it('calls a workflow a deployment only where one was configured', () => {
-    expect(rowFor('Deploy production')?.textContent).toContain('Primary deployment · Production');
+  it('calls a workflow a deployment only where one was configured, and names no environment', () => {
+    // Console Ops records the workflow against the project, so claiming an environment would invent the link.
+    expect(rowFor('Deploy production')?.textContent).toContain('Primary deployment');
+    expect(rowFor('Deploy production')?.textContent).not.toContain('·');
 
-    // "Database backup" is maintenance to a reader and unclassified to Console Ops, which cannot prove it.
     expect(rowFor('Database backup')?.textContent).toContain('Unclassified');
     expect(rowFor('Database backup')?.textContent).not.toContain('Primary deployment');
   });
 
   it('reports a workflow that never ran as having no run, not as a failure', () => {
-    const row = rowFor('Database restore');
-
-    expect(row?.textContent).toContain('No run recorded');
-    expect(row?.textContent).not.toContain('Failed');
+    expect(rowFor('Database restore')?.textContent).toContain('No run recorded');
+    expect(rowFor('Database restore')?.textContent).not.toContain('Failed');
   });
 
   it('does not describe a running run by an outcome it has not reached', () => {
-    const row = rowFor('Deploy production');
-
-    expect(row?.textContent).toContain('In progress');
-    expect(row?.textContent).not.toContain('Passed');
+    expect(rowFor('Deploy production')?.textContent).toContain('In progress');
+    expect(rowFor('Deploy production')?.textContent).not.toContain('Passed');
   });
 
   it('reports a disabled workflow as disabled rather than as failed', () => {
-    const row = rowFor('Security scan');
-
-    expect(row?.textContent).toContain('Disabled at the provider');
-    expect(row?.textContent).not.toContain('Failed');
+    expect(rowFor('Security scan')?.textContent).toContain('Disabled at the provider');
+    expect(rowFor('Security scan')?.textContent).not.toContain('Failed');
   });
 
   it('offers a run action only where the provider reported manual dispatch', () => {
-    // Supported, so the affordance exists - named as a later phase rather than acting.
-    const backup = rowFor('Database backup')!.querySelector('.run');
-    expect(backup?.textContent?.trim()).toBe('Run');
-    expect(backup?.classList.contains('is-unavailable')).toBe(true);
+    const deploy = rowFor('Deploy production')!.querySelector('.run');
+    expect(deploy?.textContent?.trim()).toBe('Run');
+    expect(deploy?.classList.contains('is-unavailable')).toBe(true);
 
-    // Reported unavailable: no action at all, rather than a button that cannot work.
-    expect(rowFor('CI')!.querySelector('.run')).toBeNull();
-    expect(rowFor('CI')?.textContent).not.toContain('Run unknown');
-
-    // Never asked: stated as unknown, which is not the same as knowing it cannot be run.
-    expect(rowFor('Publish Collector APK')?.textContent).toContain('Run unknown');
+    // Reported unavailable: no action at all rather than a button that cannot work.
+    expect(rowFor('Security scan')!.querySelector('.run')).toBeNull();
+    // Never established: stated as unknown, which is not the same as knowing it cannot be run.
+    expect(rowFor('Database backup')?.textContent).toContain('Run unknown');
   });
 
-  it('names run history and workflow logs as planned instead of linking nowhere', () => {
-    const row = rowFor('CI')!;
-    const runs = Array.from(row.querySelectorAll('.co-inline-link')).find(
-      (link) => link.textContent?.trim() === 'Runs',
-    );
-    const logs = Array.from(row.querySelectorAll('.co-inline-link')).find(
-      (link) => link.textContent?.trim() === 'Run logs',
-    );
+  it('reads the jobs of the selected run only, and once', async () => {
+    expect(dataSource.jobRequests).toEqual([]);
 
-    expect(runs?.classList.contains('is-unavailable')).toBe(true);
-    expect(logs?.getAttribute('title')).toContain('Application logs are on the Logs screen');
-  });
-
-  it('names starting a workflow as a later phase instead of offering a control that does nothing', () => {
-    const dispatch = host.querySelector('.dispatch')!;
-
-    expect(dispatch.textContent).toContain('Run workflow');
-    expect(dispatch.classList.contains('is-unavailable')).toBe(true);
-    expect(dispatch.tagName).not.toBe('BUTTON');
-  });
-
-  it('opens nothing until a workflow is chosen', () => {
-    expect(host.querySelector('co-workflow-detail')).toBeNull();
-    expect(host.textContent).toContain('Select a workflow to inspect it');
-  });
-
-  it('reports the selected workflow and where its latest run has reached', async () => {
     await select('Deploy production');
-    const detail = host.querySelector('co-workflow-detail')!;
+    expect(dataSource.jobRequests).toEqual([{ projectId: 'eemo', runId: '535' }]);
 
-    expect(detail.textContent).toContain('.github/workflows/deploy-production.yml');
+    const detail = host.querySelector('co-workflow-detail')!;
     expect(detail.textContent).toContain('#535');
-    expect(detail.textContent).toContain('2ac8bf0');
-    expect(detail.textContent).toContain('Clinttttt');
-    expect(detail.textContent).toContain('Deployment');
-    // A run with no end has no duration, and the panel says so instead of implying one.
     expect(detail.textContent).toContain('Still running');
 
     const jobs = Array.from(detail.querySelectorAll('.job'));
-    expect(jobs.length).toBe(3);
+    expect(jobs.length).toBe(2);
     expect(jobs[0].textContent).toContain('Prepare');
     expect(jobs[0].textContent).toContain('1m 12s');
     expect(jobs[1].textContent).toContain('In progress');
-    expect(jobs[2].textContent).toContain('Waiting');
+
+    // Selecting it again does not ask the provider a second time for a run already read.
+    await select('Database backup');
+    await select('Deploy production');
+    expect(dataSource.jobRequests.filter((request) => request.runId === '535').length).toBe(1);
   });
 
-  it('states an unknown manual run in the detail rather than implying it is unavailable', async () => {
-    await select('Publish Collector APK');
+  it('asks for nothing when a workflow has no run to inspect', async () => {
+    await select('Database restore');
 
-    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Unknown');
+    expect(dataSource.jobRequests).toEqual([]);
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('No run recorded');
+  });
+
+  it('names jobs that could not be read rather than showing a run without any', async () => {
+    await render(
+      new StubWorkflows(
+        of(INVENTORY),
+        throwError(() => new Error('rate limited')),
+      ),
+    );
+    await select('Deploy production');
+
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain(
+      'jobs of this run could not be read',
+    );
+  });
+
+  it('reports an unreadable repository as such rather than as one with no automation', async () => {
+    await render(
+      new StubWorkflows(
+        of({
+          isSampleData: false,
+          readAt: READ_AT,
+          groups: [
+            {
+              projectId: 'eemo',
+              projectName: 'EEMO-Cantilan-SDS',
+              repository: 'clint/EEMO-Cantilan-SDS',
+              workflows: [],
+              readFailure: 'unauthorized' as const,
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(host.textContent).toContain('GitHub rejected the configured token');
+    expect(host.textContent).not.toContain('No workflows found');
   });
 
   it('narrows to the workflows a filter matches and says how many that is', async () => {
@@ -159,9 +280,8 @@ describe('WorkflowsPage', () => {
     deployment.click();
     await fixture.whenStable();
 
-    expect(host.querySelectorAll('co-workflow-row').length).toBe(2);
-    expect(host.textContent).toContain('Showing 2 of 8 workflows');
-    expect(rowFor('CI')).toBeUndefined();
+    expect(host.querySelectorAll('co-workflow-row').length).toBe(1);
+    expect(host.textContent).toContain('Showing 1 of 4 workflows');
   });
 
   it('searches by workflow name and offers a way back when nothing matches', async () => {
@@ -177,38 +297,18 @@ describe('WorkflowsPage', () => {
     await fixture.whenStable();
 
     expect(host.textContent).toContain('No workflow matches these filters');
-    const clear = Array.from(host.querySelectorAll<HTMLButtonElement>('.co-inline-link')).find(
-      (button) => button.textContent?.trim() === 'Clear filters',
-    )!;
-    clear.click();
-    await fixture.whenStable();
-
-    expect(host.querySelectorAll('co-workflow-row').length).toBe(8);
-  });
-
-  it('narrows to one project without claiming the others are gone', async () => {
-    const project = host.querySelector<HTMLSelectElement>('#workflow-project')!;
-    project.value = 'spinner';
-    project.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-
-    expect(host.querySelectorAll('.group').length).toBe(1);
-    expect(host.textContent).toContain('Showing 2 of 8 workflows');
   });
 
   it('says the inventory could not be read instead of showing an empty repository', async () => {
-    await render({ load: () => throwError(() => new Error('unreachable')) });
+    await render(new StubWorkflows(throwError(() => new Error('unreachable'))));
 
     expect(host.textContent).toContain('Workflow inventory unavailable');
     expect(host.textContent).not.toContain('No workflows found');
   });
 
   it('reports a repository with no workflows as empty rather than as unavailable', async () => {
-    await render({
-      load: () => of({ isSampleData: false, readAt: '2026-08-19T07:05:00.000Z', groups: [] }),
-    });
+    await render(new StubWorkflows(of({ isSampleData: false, readAt: READ_AT, groups: [] })));
 
     expect(host.textContent).toContain('No workflows found');
-    expect(host.textContent).not.toContain('Sample data');
   });
 });

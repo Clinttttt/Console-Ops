@@ -166,6 +166,73 @@ Rules:
 - **Filter text is escaped** into the query as a literal, never concatenated, because it arrives from a form.
 - Discovery may prefill but never decide: the two configuration fields stay editable after a pick.
 
+## Workflows API
+
+```text
+GET /api/workflows
+
+readAt                              when the provider was asked; these are live facts, not observations
+groups[]
+|-- projectId, projectName, repository
+|-- readFailure (optional)          why this repository could not be read; null when it was
+`-- workflows[]
+    |-- id, name, path
+    |-- state: active | disabled
+    |-- classification: deployment | unclassified
+    |-- manualRun: supported | unavailable | unknown
+    `-- latestRun (optional)        null when the provider reports no run
+        |-- id, number
+        |-- status: queued | inProgress | waiting | completed | unknown
+        |-- conclusion (optional)   passed | failed | cancelled | skipped | timedOut | actionRequired | neutral
+        |-- branch, commitSha, commitShortSha
+        |-- trigger                 the provider's own event, verbatim
+        |-- actor (optional)
+        |-- startedAt, completedAt (optional)
+        |-- durationSeconds (optional)
+        |-- runUrl (optional)
+        `-- jobs[]                  always empty here; read per selection
+
+GET /api/workflows/projects/{projectId}/runs/{runId}/jobs
+
+runId
+jobs[]
+|-- name
+|-- status, conclusion (optional)
+`-- durationSeconds (optional)
+```
+
+Rules:
+
+- **Read live, bounded.** One page of workflows per repository plus one run per workflow, four run reads in
+  flight at a time. Sequentially this measured **12.3s for 12 workflows across 3 repositories**; batched it is
+  **4.3s warm**. Not stored, because the inventory changes when a repository changes and a stale workflow list
+  answers a question nobody asked. `readAt` states when it was read.
+- **Classification comes from configuration, never from the provider.** A workflow is `deployment` where its
+  file name matches the project's registered deployment workflow, and `unclassified` otherwise. GitHub reports
+  no business category, so `Database backup` stays unclassified however obvious its purpose looks. Verified
+  live: of 12 workflows, exactly the 3 configured ones classify as deployments.
+- **No environment is named.** A deployment workflow is recorded against the project, not an environment, so the
+  response never claims which environment a workflow deploys. When environments own that mapping, the field
+  arrives with it.
+- **`status` and `conclusion` stay apart.** A run in progress has no conclusion, and none is guessed. A
+  conclusion this API does not recognise is `null` rather than the nearest familiar value, and an unrecognised
+  status is `unknown`.
+- **`durationSeconds` is computed from the run's own start and end**, and is `null` while it is still going,
+  because a duration would imply an end it has not reached.
+- **`manualRun` is `unknown` until the workflow definition is read.** A dispatch trigger is declared in the
+  file, not in the listing, so this reports that it does not know rather than assuming either answer. No run
+  action is offered on an unknown.
+- **A workflow whose latest run could not be read keeps its place** with no run rather than removing the
+  workflow: the workflow was read, only its run was not.
+- **An unreadable repository reports `readFailure` on its own group** and leaves the other projects intact. A
+  rejected token and a repository with no automation must never look the same.
+- **Jobs are a separate read.** They cost one request per run, so they are read for the workflow an operator
+  selected. The repository comes from the registered project, so the read cannot be pointed at a repository
+  Console Ops does not manage; an unknown project is `Workflows.ProjectNotFound`.
+- **Failure is not emptiness.** `Workflows.Unauthorized`, `Workflows.RateLimited`, `Workflows.NotFound`,
+  `Workflows.InvalidResponse`, `Workflows.Unavailable`. An exhausted rate limit is reported as itself, never as
+  a rejected credential.
+
 ## Settings configuration status
 
 `GET /api/settings/configuration` reports what Console Ops has been configured with. Added because a missing

@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs';
 
-import { WorkflowInventory } from '../contracts/workflows';
+import { WorkflowInventory, WorkflowRunJob } from '../contracts/workflows';
 
 /**
  * Port for the Workflows screen.
@@ -10,4 +10,12 @@ import { WorkflowInventory } from '../contracts/workflows';
  */
 export abstract class WorkflowsDataSource {
   abstract load(): Observable<WorkflowInventory>;
+
+  /**
+   * The jobs of one run, read for the workflow an operator selected.
+   *
+   * Separate from the inventory because each run costs the provider a request: reading jobs for every workflow
+   * on the page would multiply the cost of opening the screen to answer a question nobody asked yet.
+   */
+  abstract loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]>;
 }

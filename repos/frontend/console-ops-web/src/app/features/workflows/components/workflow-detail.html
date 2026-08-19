@@ -22,12 +22,7 @@
     <dt>Type</dt>
     <dd>{{ classification() }}</dd>
   </div>
-  @if (item.primaryDeploymentFor !== null) {
-    <div class="fact">
-      <dt>Primary deployment</dt>
-      <dd>{{ item.primaryDeploymentFor }}</dd>
-    </div>
-  }
+
   <div class="fact">
     <dt>Path</dt>
     <dd class="co-mono path">{{ item.path }}</dd>
@@ -99,10 +94,24 @@
   </div>
 </dl>
 
-@if (run !== null && run.jobs.length > 0) {
+@if (run !== null) {
   <p class="co-eyebrow">Latest run overview</p>
+  @switch (jobsState()) {
+    @case ('loading') {
+      <p class="co-unavailable job-note">Reading jobs...</p>
+    }
+    @case ('unavailable') {
+      <!-- Named, because a run whose jobs could not be read is not a run without jobs. -->
+      <p class="co-unavailable job-note">The jobs of this run could not be read.</p>
+    }
+    @default {
+      @if (jobs().length === 0) {
+        <p class="co-unavailable job-note">This run reports no jobs.</p>
+      }
+    }
+  }
   <ul class="jobs">
-    @for (job of run.jobs; track job.name) {
+    @for (job of jobs(); track job.name) {
       <li class="job">
         <co-icon [name]="jobIcon(job)" [size]="15" />
         <span class="job-name">{{ job.name }}</span>

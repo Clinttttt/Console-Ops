@@ -90,6 +90,11 @@ dd {
   border-top: 0;
 }
 
+.job-note {
+  margin: var(--co-space-3) 0 0;
+  font-size: 12px;
+}
+
 .job {
   display: grid;
   grid-template-columns: 15px minmax(0, 1fr) auto auto;

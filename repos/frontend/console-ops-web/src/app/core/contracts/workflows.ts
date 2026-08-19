@@ -21,7 +21,7 @@ export type WorkflowClassification = 'deployment' | 'unclassified';
 export type WorkflowState = 'active' | 'disabled';
 
 /** Where a run is in its life, as distinct from how it ended. */
-export type WorkflowRunStatus = 'queued' | 'inProgress' | 'waiting' | 'completed';
+export type WorkflowRunStatus = 'queued' | 'inProgress' | 'waiting' | 'completed' | 'unknown';
 
 /**
  * How a completed run ended. `null` while it has not.
@@ -32,8 +32,15 @@ export type WorkflowRunStatus = 'queued' | 'inProgress' | 'waiting' | 'completed
 export type WorkflowRunConclusion =
   'passed' | 'failed' | 'cancelled' | 'skipped' | 'timedOut' | 'actionRequired' | 'neutral';
 
-/** What started a run. Carried as the provider's own event, never read as evidence of the workflow's purpose. */
-export type WorkflowTrigger = 'push' | 'pullRequest' | 'schedule' | 'manual' | 'workflowCall';
+/**
+ * What started a run, as the provider's own event: `push`, `schedule`, `workflow_dispatch`, and anything else
+ * it reports.
+ *
+ * A plain string rather than a union, because the set is the provider's and a closed list would force an
+ * unfamiliar event to be cast to a familiar one. Never read as evidence of a workflow's purpose: a deployment
+ * can run on push exactly as a test suite can.
+ */
+export type WorkflowTrigger = string;
 
 /**
  * Whether this workflow can be started from Console Ops.
@@ -54,19 +61,31 @@ export interface WorkflowRunJob {
 
 export interface WorkflowRun {
   readonly id: string;
-  /** The provider's own run number, shown as `#535` because that is how it is referred to elsewhere. */
-  readonly number: number;
+  /**
+   * The provider's own run number, shown as `#535` because that is how it is referred to elsewhere.
+   *
+   * `null` when the provider did not report one, rather than a zero that would read as a real run.
+   */
+  readonly number: number | null;
   readonly status: WorkflowRunStatus;
   readonly conclusion: WorkflowRunConclusion | null;
   readonly branch: string;
   readonly commitSha: string;
   readonly commitShortSha: string;
   readonly trigger: WorkflowTrigger;
-  readonly actor: string;
-  /** ISO-8601 UTC. */
-  readonly startedAt: string;
+  /** `null` when the provider did not say who started it - a scheduled run often has no person behind it. */
+  readonly actor: string | null;
+  /** ISO-8601 UTC, or `null` when the provider reported no start. */
+  readonly startedAt: string | null;
   readonly completedAt: string | null;
   readonly durationSeconds: number | null;
+  /**
+   * The provider's own page for this run, or `null` when it reported none.
+   *
+   * Carried so an operator can reach the provider for what Console Ops does not show, rather than composing a
+   * URL from ids and hoping it resolves.
+   */
+  readonly runUrl: string | null;
   readonly jobs: readonly WorkflowRunJob[];
 }
 
@@ -77,17 +96,20 @@ export interface Workflow {
   readonly path: string;
   readonly state: WorkflowState;
   readonly classification: WorkflowClassification;
-  /**
-   * The environment this workflow is the primary deployment workflow for, or `null`.
-   *
-   * A repository has many workflows; an environment has zero or one. This is the only reason a workflow may be
-   * called a deployment, and it is why the label names the environment rather than standing alone.
-   */
-  readonly primaryDeploymentFor: string | null;
+
   readonly manualRun: ManualRunSupport;
   /** `null` when the provider has recorded no run, which is not the same as a run that failed. */
   readonly latestRun: WorkflowRun | null;
 }
+
+/**
+ * Why a project's workflows could not be read, or `null` when they were.
+ *
+ * Present because one unreadable repository must not look like a repository with no automation: an operator
+ * would go looking for missing workflows instead of a rejected token.
+ */
+export type WorkflowReadFailure =
+  'unauthorized' | 'notFound' | 'rateLimited' | 'invalidResponse' | 'unavailable';
 
 /** Workflows belong to a repository, and the screen groups by the project that owns it. */
 export interface WorkflowProjectGroup {
@@ -95,6 +117,7 @@ export interface WorkflowProjectGroup {
   readonly projectName: string;
   readonly repository: string;
   readonly workflows: readonly Workflow[];
+  readonly readFailure: WorkflowReadFailure | null;
 }
 
 export interface WorkflowInventory {
@@ -105,7 +128,7 @@ export interface WorkflowInventory {
    * decided in the page so that no screen can present sample data as observed automation.
    */
   readonly isSampleData: boolean;
-  /** ISO-8601 UTC: when the inventory was read. */
+  /** ISO-8601 UTC: when the provider was asked. These are live facts, not stored observations. */
   readonly readAt: string;
   readonly groups: readonly WorkflowProjectGroup[];
 }

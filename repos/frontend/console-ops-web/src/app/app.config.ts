@@ -22,8 +22,8 @@ import { ProjectRegistryDataSource } from './core/data/project-registry.data-sou
 import { HealthDataSource } from './core/data/health.data-source';
 import { HttpHealthDataSource } from './core/data/http-health.data-source';
 import { HttpSettingsDataSource } from './core/data/http-settings.data-source';
-import { MockWorkflowsDataSource } from './core/data/mock/mock-workflows.data-source';
 import { SettingsDataSource } from './core/data/settings.data-source';
+import { HttpWorkflowsDataSource } from './core/data/http-workflows.data-source';
 import { WorkflowsDataSource } from './core/data/workflows.data-source';
 
 export const appConfig: ApplicationConfig = {
@@ -56,8 +56,8 @@ export const appConfig: ApplicationConfig = {
     { provide: SettingsDataSource, useClass: HttpSettingsDataSource },
     { provide: HealthDataSource, useClass: HttpHealthDataSource },
 
-    // Workflows is being designed: sample data, labelled as such in its own payload. Replaced by the HTTP
-    // adapter when the inventory is read from the provider, and deleted rather than kept as a fallback.
-    { provide: WorkflowsDataSource, useClass: MockWorkflowsDataSource },
+    // Workflows reads the provider during the request, like the log stream. The browser holds no token and
+    // asks Console Ops, which asks GitHub.
+    { provide: WorkflowsDataSource, useClass: HttpWorkflowsDataSource },
   ],
 };
