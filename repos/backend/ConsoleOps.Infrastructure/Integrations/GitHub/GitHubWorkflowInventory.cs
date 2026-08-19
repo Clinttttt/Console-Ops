@@ -199,7 +199,9 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
                 MapStatus(job.Status),
                 MapConclusion(job.Conclusion),
                 job.StartedAt,
-                job.CompletedAt))
+                job.CompletedAt,
+                // Steps arrive on this same payload, so naming the step that failed costs no extra request.
+                ToSteps(job.Steps)))
             .ToArray();
 
         return GitHubFactResult<GitHubRunJobs>.Success(new GitHubRunJobs(jobs));
@@ -248,6 +250,27 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             status == GitHubRunStatus.Completed ? run.UpdatedAt : null,
             NullIfWhiteSpace(run.HtmlUrl));
     }
+
+    /// <summary>
+    /// The job's steps in the order the provider reported them.
+    /// </summary>
+    /// <remarks>
+    /// A step with no name is dropped rather than shown as a blank row: its number alone identifies nothing an
+    /// operator can act on, and a list with holes in it reads as a rendering fault.
+    /// </remarks>
+    private static GitHubRunStep[] ToSteps(StepDto[]? steps) =>
+        steps is null
+            ? []
+            : steps
+                .Where(step => !string.IsNullOrWhiteSpace(step.Name))
+                .Select(step => new GitHubRunStep(
+                    step.Name!.Trim(),
+                    step.Number,
+                    MapStatus(step.Status),
+                    MapConclusion(step.Conclusion),
+                    step.StartedAt,
+                    step.CompletedAt))
+                .ToArray();
 
     /// <summary>
     /// A workflow GitHub does not report as active is disabled, whether by an operator or by inactivity.
@@ -346,6 +369,15 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
 
     private sealed record JobDto(
         string? Name,
+        string? Status,
+        string? Conclusion,
+        [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt,
+        [property: JsonPropertyName("completed_at")] DateTimeOffset? CompletedAt,
+        StepDto[]? Steps);
+
+    private sealed record StepDto(
+        string? Name,
+        int? Number,
         string? Status,
         string? Conclusion,
         [property: JsonPropertyName("started_at")] DateTimeOffset? StartedAt,

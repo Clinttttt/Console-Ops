@@ -114,18 +114,71 @@
                     } @else {
                       <ul class="jobs">
                         @for (job of openRunJobs(); track job.name) {
-                          <li class="job">
-                            <co-icon [name]="jobIcon(job)" [size]="15" />
-                            <span class="job-name">{{ job.name }}</span>
-                            <co-status [cell]="jobCell(job)" [showDetail]="false" />
-                            <span class="job-duration co-mono">
-                              @let jobDuration = job.durationSeconds | coDuration;
-                              @if (jobDuration === null) {
-                                <span class="co-unavailable">&mdash;</span>
+                          @let jobOpen = openJob() === job.name;
+                          <li class="job-entry" [class.is-open]="jobOpen">
+                            <button
+                              type="button"
+                              class="job"
+                              (click)="toggleJob(job)"
+                              [attr.aria-expanded]="jobOpen"
+                              [disabled]="job.steps.length === 0"
+                            >
+                              <co-icon [name]="jobIcon(job)" [size]="15" />
+                              <span class="job-name">
+                                {{ job.name }}
+                                @if (job.failedStep !== null) {
+                                  <!--
+                                    The step the provider reported as failed. Named here so "where did this
+                                    break" is answered without opening the job, which is the question a failed
+                                    run actually raises.
+                                  -->
+                                  <span class="failed-step">Failed at {{ job.failedStep }}</span>
+                                }
+                              </span>
+                              <co-status [cell]="jobCell(job)" [showDetail]="false" />
+                              <span class="job-duration co-mono">
+                                @let jobDuration = job.durationSeconds | coDuration;
+                                @if (jobDuration === null) {
+                                  <span class="co-unavailable">&mdash;</span>
+                                } @else {
+                                  {{ jobDuration }}
+                                }
+                              </span>
+                              @if (job.steps.length > 0) {
+                                <co-icon
+                                  [name]="jobOpen ? 'chevronDown' : 'arrowRight'"
+                                  [size]="15"
+                                />
                               } @else {
-                                {{ jobDuration }}
+                                <!-- No steps to open: a queued job has none, which is not an empty job. -->
+                                <span
+                                  class="co-unavailable steps-absent"
+                                  title="No steps reported yet"
+                                >
+                                  &mdash;
+                                </span>
                               }
-                            </span>
+                            </button>
+
+                            @if (jobOpen) {
+                              <ol class="steps">
+                                @for (step of job.steps; track step.number ?? step.name) {
+                                  <li class="step">
+                                    <co-icon [name]="jobIcon(step)" [size]="14" />
+                                    <span class="step-name">{{ step.name }}</span>
+                                    <co-status [cell]="jobCell(step)" [showDetail]="false" />
+                                    <span class="step-duration co-mono">
+                                      @let stepDuration = step.durationSeconds | coDuration;
+                                      @if (stepDuration === null) {
+                                        <span class="co-unavailable">&mdash;</span>
+                                      } @else {
+                                        {{ stepDuration }}
+                                      }
+                                    </span>
+                                  </li>
+                                }
+                              </ol>
+                            }
                           </li>
                         }
                       </ul>

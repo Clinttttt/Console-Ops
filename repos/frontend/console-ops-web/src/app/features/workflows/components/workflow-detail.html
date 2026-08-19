@@ -117,7 +117,13 @@
     @for (job of jobs(); track job.name) {
       <li class="job">
         <co-icon [name]="jobIcon(job)" [size]="15" />
-        <span class="job-name">{{ job.name }}</span>
+        <span class="job-name">
+          {{ job.name }}
+          @if (job.failedStep !== null) {
+            <!-- Where it broke, so the rail answers the question a failed run raises. -->
+            <span class="failed-step">Failed at {{ job.failedStep }}</span>
+          }
+        </span>
         <co-status [cell]="jobCell(job)" [showDetail]="false" />
         <span class="job-duration co-mono">
           @let jobDuration = job.durationSeconds | coDuration;

@@ -15,6 +15,7 @@ import {
   WorkflowRunHistory,
   WorkflowRunJob,
   WorkflowRunStatus,
+  WorkflowRunStep,
   WorkflowState,
   WorkflowTrigger,
 } from '../contracts/workflows';
@@ -61,6 +62,16 @@ interface RunPayload {
 
 interface JobPayload {
   readonly name: string;
+  readonly status: string;
+  readonly conclusion: string | null;
+  readonly durationSeconds: number | null;
+  readonly failedStep: string | null;
+  readonly steps: readonly StepPayload[];
+}
+
+interface StepPayload {
+  readonly name: string;
+  readonly number: number | null;
   readonly status: string;
   readonly conclusion: string | null;
   readonly durationSeconds: number | null;
@@ -194,6 +205,18 @@ function toRun(payload: RunPayload): WorkflowRun {
 function toJob(payload: JobPayload): WorkflowRunJob {
   return {
     name: payload.name,
+    status: toStatus(payload.status),
+    conclusion: toConclusion(payload.conclusion),
+    durationSeconds: payload.durationSeconds,
+    failedStep: payload.failedStep,
+    steps: (payload.steps ?? []).map(toStep),
+  };
+}
+
+function toStep(payload: StepPayload): WorkflowRunStep {
+  return {
+    name: payload.name,
+    number: payload.number,
     status: toStatus(payload.status),
     conclusion: toConclusion(payload.conclusion),
     durationSeconds: payload.durationSeconds,

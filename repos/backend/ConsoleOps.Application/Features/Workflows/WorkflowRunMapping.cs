@@ -45,7 +45,33 @@ internal static class WorkflowRunMapping
             job.Name,
             ToCamelCase(job.Status),
             job.Conclusion is null ? null : ToCamelCase(job.Conclusion.Value),
-            DurationSeconds(job.StartedAtUtc, job.CompletedAtUtc));
+            DurationSeconds(job.StartedAtUtc, job.CompletedAtUtc),
+            FailedStepOf(job),
+            job.Steps.Select(ToStep).ToArray());
+
+    private static WorkflowRunStepResponse ToStep(GitHubRunStep step) =>
+        new(
+            step.Name,
+            step.Number,
+            ToCamelCase(step.Status),
+            step.Conclusion is null ? null : ToCamelCase(step.Conclusion.Value),
+            DurationSeconds(step.StartedAtUtc, step.CompletedAtUtc));
+
+    /// <summary>
+    /// The first step the provider reported as failed, or <c>null</c> when none did.
+    /// </summary>
+    /// <remarks>
+    /// First rather than last, because a failure cascades: the step that broke is the one worth naming, and the
+    /// ones after it failed or were skipped because of it. A job that failed with no failing step - a runner that
+    /// died, a cancelled queue - names nothing rather than blaming a step that reported success.
+    /// </remarks>
+    private static string? FailedStepOf(GitHubRunJob job) =>
+        job.Steps
+            .FirstOrDefault(step => step.Conclusion
+                is GitHubRunConclusion.Failed
+                or GitHubRunConclusion.TimedOut
+                or GitHubRunConclusion.ActionRequired)
+            ?.Name;
 
     /// <summary>
     /// The elapsed time a run or job reports, or <c>null</c> when either end is missing.

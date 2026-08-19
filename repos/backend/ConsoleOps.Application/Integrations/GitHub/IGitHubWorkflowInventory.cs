@@ -71,12 +71,29 @@ public sealed record GitHubWorkflowInventoryPage(IReadOnlyList<GitHubWorkflowDef
 /// </param>
 public sealed record GitHubRunPage(IReadOnlyList<GitHubRunSummary> Runs, bool HasMore);
 
+/// <param name="Number">
+/// The step's position as the provider numbers it, so an unnamed step is still identifiable and the order is the
+/// provider's rather than one this adapter invented.
+/// </param>
+public sealed record GitHubRunStep(
+    string Name,
+    int? Number,
+    GitHubRunStatus Status,
+    GitHubRunConclusion? Conclusion,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? CompletedAtUtc);
+
+/// <param name="Steps">
+/// The job's steps, in provider order. Empty where the provider reported none - which happens while a job is
+/// still queued, and is not the same as a job that ran nothing.
+/// </param>
 public sealed record GitHubRunJob(
     string Name,
     GitHubRunStatus Status,
     GitHubRunConclusion? Conclusion,
     DateTimeOffset? StartedAtUtc,
-    DateTimeOffset? CompletedAtUtc);
+    DateTimeOffset? CompletedAtUtc,
+    IReadOnlyList<GitHubRunStep> Steps);
 
 public sealed record GitHubRunJobs(IReadOnlyList<GitHubRunJob> Jobs);
 

@@ -75,8 +75,24 @@ public sealed record WorkflowRunResponse(
     string? RunUrl,
     IReadOnlyList<WorkflowRunJobResponse> Jobs);
 
+/// <param name="FailedStep">
+/// The name of the step that failed, or <c>null</c> when none did.
+/// </param>
+/// <remarks>
+/// Carried because "which job failed" is one question short of the useful one. It is the provider's own step
+/// conclusion, not a guess: a job that failed without any step reporting a failure has no failing step to name.
+/// </remarks>
 public sealed record WorkflowRunJobResponse(
     string Name,
+    string Status,
+    string? Conclusion,
+    int? DurationSeconds,
+    string? FailedStep,
+    IReadOnlyList<WorkflowRunStepResponse> Steps);
+
+public sealed record WorkflowRunStepResponse(
+    string Name,
+    int? Number,
     string Status,
     string? Conclusion,
     int? DurationSeconds);

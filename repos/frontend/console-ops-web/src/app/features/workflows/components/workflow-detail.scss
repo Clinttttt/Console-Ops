@@ -109,6 +109,13 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.failed-step {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--co-status-down);
+}
+
 .job-duration {
   font-size: 11.5px;
   color: var(--co-ink-muted);

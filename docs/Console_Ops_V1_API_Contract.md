@@ -209,7 +209,12 @@ runId
 jobs[]
 |-- name
 |-- status, conclusion (optional)
-`-- durationSeconds (optional)
+|-- durationSeconds (optional)
+|-- failedStep (optional)           the step the provider reported as failed; null when none did
+`-- steps[]                         provider order; empty while the job has not started
+    |-- name, number (optional)
+    |-- status, conclusion (optional)
+    `-- durationSeconds (optional)
 ```
 
 Rules:
@@ -249,6 +254,12 @@ Rules:
 - **Jobs are a separate read.** They cost one request per run, so they are read for the workflow an operator
   selected. The repository comes from the registered project, so the read cannot be pointed at a repository
   Console Ops does not manage; an unknown project is `Workflows.ProjectNotFound`.
+- **Steps arrive on the jobs payload**, so naming the step that failed costs no extra request. `failedStep` is
+  the **first** step the provider concluded as failed, timed out, or action-required: a failure cascades, so the
+  step that broke is the one worth naming and the ones after it failed or were skipped because of it. A job that
+  failed with **no** failing step - a runner that died, a cancelled queue - names none rather than blaming a step
+  that reported success. Verified live against a real failure: `Backup freshness` run #3 named
+  `Fail the run so the badge and the Actions tab both show it` out of five steps.
 - **Failure is not emptiness.** `Workflows.Unauthorized`, `Workflows.RateLimited`, `Workflows.NotFound`,
   `Workflows.InvalidResponse`, `Workflows.Unavailable`. An exhausted rate limit is reported as itself, never as
   a rejected credential.

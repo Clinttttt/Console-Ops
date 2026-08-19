@@ -34,20 +34,23 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Workflows screen: provider-backed inventory with each workflow's latest run | Real |
 | Workflow run jobs, read for the selected workflow | Real |
 | Workflow run history with jobs per run, on its own screen | Real |
+| Steps within a job, naming the step that failed | Real |
+| Steps within a job, naming the step that failed | Real |
 
 ## Next
 
-1. **Workflows: steps, then workflow logs.** Run history and jobs are real. What is left of the read side:
-   **steps within a job**, which GitHub returns on the same jobs payload and only need surfacing; and
+1. **Workflows: execution logs, then manual dispatch.** The read side is complete through steps. What is left:
    **workflow execution logs**, which GitHub serves as a zip archive per run - the reason `Run logs` is still
-   named as planned rather than half-built. Manual dispatch is a later phase and needs the workflow definition
-   parsed to know whether it is supported at all, which is why `manualRun` is honestly `unknown` today and no
-   run action is offered.
-   Two follow-ups this slice deliberately left: **`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
-   `IGitHubWorkflowInventory.ListWorkflowsAsync` both list workflows** for different callers and should converge
-   on one read now that the richer one is proven; and **a deployment workflow is recorded against the project,
-   not an environment**, so no environment is named on the screen - the feature context wants zero or one per
-   environment, which is a domain change.
+   named as planned rather than half-built; and **manual dispatch**, now unblocked because dispatch support is
+   established from the definition, but the first mutation Console Ops would make and so needing the
+   confirmation and destructive-workflow safety the Workflows context sets out. Two real destructive workflows
+   exist (`Drop a rehearsal database`, `Database restore`), so that slice needs explicit operator agreement
+   before it is written.
+   Also outstanding: **cross-link Deployments to Workflows** so a release reaches the run that built it;
+   **converge the two workflow-listing ports** (`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
+   `IGitHubWorkflowInventory.ListWorkflowsAsync` list workflows for different callers) now that the richer one is
+   proven; and **a deployment workflow is recorded against the project, not an environment**, so no environment
+   is named on the screen - the feature context wants zero or one per environment, which is a domain change.
 2. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately

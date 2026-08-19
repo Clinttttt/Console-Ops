@@ -107,8 +107,22 @@ const INVENTORY: WorkflowInventory = {
 };
 
 const JOBS: readonly WorkflowRunJob[] = [
-  { name: 'Prepare', status: 'completed', conclusion: 'passed', durationSeconds: 72 },
-  { name: 'Deploy', status: 'inProgress', conclusion: null, durationSeconds: null },
+  {
+    name: 'Prepare',
+    status: 'completed',
+    conclusion: 'passed',
+    durationSeconds: 72,
+    failedStep: null,
+    steps: [],
+  },
+  {
+    name: 'Deploy',
+    status: 'inProgress',
+    conclusion: null,
+    durationSeconds: null,
+    failedStep: null,
+    steps: [],
+  },
 ];
 
 class StubWorkflows extends WorkflowsDataSource {
