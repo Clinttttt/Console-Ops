@@ -29,13 +29,15 @@
     @if (branchesState() === 'loading') {
       <p class="value co-unavailable">Reading branches...</p>
     } @else {
-      <select
-        id="run-reference"
-        [value]="effectiveReference()"
-        (change)="reference.set($any($event.target).value)"
-      >
+      <!--
+        Selection is on the option, not the select: binding value on the element sets it before the options
+        exist, and the browser falls back to the first one - which quietly pointed a run at another branch.
+      -->
+      <select id="run-reference" (change)="reference.set($any($event.target).value)">
         @for (branch of branches(); track branch) {
-          <option [value]="branch">{{ branch }}</option>
+          <option [value]="branch" [selected]="branch === effectiveReference()">
+            {{ branch }}
+          </option>
         }
       </select>
     }
@@ -69,21 +71,19 @@
         @if (input.options.length > 0) {
           <select
             [attr.id]="'run-input-' + input.name"
-            [value]="valueOf(input)"
             (change)="setValue(input, $any($event.target).value)"
           >
             @for (option of input.options; track option) {
-              <option [value]="option">{{ option }}</option>
+              <option [value]="option" [selected]="option === valueOf(input)">{{ option }}</option>
             }
           </select>
         } @else if (input.type === 'boolean') {
           <select
             [attr.id]="'run-input-' + input.name"
-            [value]="valueOf(input)"
             (change)="setValue(input, $any($event.target).value)"
           >
-            <option value="true">true</option>
-            <option value="false">false</option>
+            <option value="true" [selected]="valueOf(input) === 'true'">true</option>
+            <option value="false" [selected]="valueOf(input) !== 'true'">false</option>
           </select>
         } @else {
           <input

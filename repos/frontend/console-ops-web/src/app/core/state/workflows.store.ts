@@ -177,6 +177,10 @@ export class WorkflowsStore {
    *
    * Re-read rather than patched in place: the API decides whether a workflow is executable, and inferring that
    * here from the level alone would let the screen offer to run something the API would refuse.
+   *
+   * The saving state is held until that re-read lands. Clearing it when the write returned put the previous
+   * outcome back on screen for the length of a provider read - the marking appeared to have been rejected, and
+   * then corrected itself.
    */
   setRisk(projectId: string, workflowPath: string, level: WorkflowRiskLevel): void {
     this.riskSaving.set(workflowPath);
@@ -186,10 +190,7 @@ export class WorkflowsStore {
       .setRisk(projectId, workflowPath, level)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
-          this.riskSaving.set(null);
-          this.read();
-        },
+        next: () => this.read(() => this.riskSaving.set(null)),
         error: () => {
           // Named, because a marking that silently failed to save would leave an operator believing a
           // destructive workflow was marked as such.
@@ -320,7 +321,13 @@ export class WorkflowsStore {
       });
   }
 
-  read(): void {
+  /**
+   * Reads the inventory.
+   *
+   * <paramref name="onDone"/> runs whether the read succeeded or not, so a caller waiting on it - a marking
+   * holding its saving state until the screen reflects the change - is never left waiting on a failure.
+   */
+  read(onDone?: () => void): void {
     if (untracked(this.state) !== 'loaded') {
       this.state.set('loading');
     }
@@ -332,11 +339,14 @@ export class WorkflowsStore {
         next: (inventory) => {
           this.current.set(inventory);
           this.state.set('loaded');
+          onDone?.();
         },
         error: () => {
           if (untracked(this.current) === null) {
             this.state.set('unavailable');
           }
+
+          onDone?.();
         },
       });
   }

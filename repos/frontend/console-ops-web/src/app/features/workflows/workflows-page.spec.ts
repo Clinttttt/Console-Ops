@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 import {
   ManualRunSupportReading,
@@ -209,9 +209,12 @@ class StubWorkflows extends WorkflowsDataSource {
     );
   }
 
+  /** Replaceable so a test can hold the write open and watch what the screen says meanwhile. */
+  riskResult: Observable<void> = of(undefined);
+
   override setRisk(projectId: string, workflowPath: string, level: string): Observable<void> {
     this.riskWrites.push({ projectId, workflowPath, level });
-    return of(undefined);
+    return this.riskResult;
   }
 
   override loadManualRunSupport(
@@ -390,6 +393,39 @@ describe('WorkflowsPage', () => {
     );
     expect(active?.textContent?.trim()).toBe('Normal');
     expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Marked ');
+  });
+
+  it('holds the saving state until the screen reflects the new marking', async () => {
+    const inventory = new Subject<WorkflowInventory>();
+    const risk = new Subject<void>();
+    await render(new StubWorkflows(inventory.asObservable()));
+    inventory.next(INVENTORY);
+    await fixture.whenStable();
+
+    dataSource.riskResult = risk.asObservable();
+    await select('Database backup');
+    const destructive = Array.from(host.querySelectorAll<HTMLButtonElement>('.risk-option')).find(
+      (option) => option.textContent?.trim() === 'Destructive',
+    )!;
+    destructive.click();
+    await fixture.whenStable();
+
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Saving the marking');
+
+    // The write returned, but the inventory has not: the previous outcome must not reappear in between.
+    risk.next();
+    risk.complete();
+    await fixture.whenStable();
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Saving the marking');
+    expect(host.querySelector('co-workflow-detail')?.textContent).not.toContain(
+      'will not run this until its risk is marked',
+    );
+
+    inventory.next(INVENTORY);
+    await fixture.whenStable();
+    expect(host.querySelector('co-workflow-detail')?.textContent).not.toContain(
+      'Saving the marking',
+    );
   });
 
   it('offers Logs on every row and Run only where a run is allowed', () => {

@@ -88,10 +88,10 @@
 */
 .actions {
   display: grid;
-  grid-template-columns: auto 84px;
+  grid-template-columns: auto 66px;
   align-items: center;
   justify-items: end;
-  gap: var(--co-space-4);
+  gap: var(--co-space-3);
   flex-shrink: 0;
 }
 
@@ -105,7 +105,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px var(--co-space-4);
+  width: 100%;
+  padding: 5px var(--co-space-3);
   font-size: 12px;
   font-weight: 600;
   border: 1px solid var(--co-line);
