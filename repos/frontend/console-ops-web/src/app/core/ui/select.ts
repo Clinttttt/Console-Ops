@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   computed,
   inject,
@@ -10,6 +11,14 @@ import {
 } from '@angular/core';
 
 import { Icon } from './icon';
+
+/** Tall enough for a handful of branches without becoming a page of its own. */
+const MaximumListHeight = 216;
+
+/** Below this the list is not worth opening in the tighter direction. */
+const MinimumListHeight = 96;
+
+const ListGap = 4;
 
 /**
  * A select whose open list is Console Ops' own.
@@ -43,7 +52,21 @@ import { Icon } from './icon';
     </button>
 
     @if (open()) {
-      <ul class="list" role="listbox" [attr.id]="listId" [attr.aria-label]="label()">
+      <!--
+        Positioned against the viewport, not the trigger. Inside a dialog that scrolls, an absolutely positioned
+        list is clipped by that scroll container and adds to its scroll height - which is how the options ended up
+        cut off behind the panel edge, with the panel growing a scrollbar it did not need.
+      -->
+      <ul
+        class="list"
+        role="listbox"
+        [attr.id]="listId"
+        [attr.aria-label]="label()"
+        [style.top.px]="placement().top"
+        [style.left.px]="placement().left"
+        [style.width.px]="placement().width"
+        [style.max-height.px]="placement().maxHeight"
+      >
         @for (option of options(); track option; let index = $index) {
           <li
             class="option"
@@ -85,26 +108,86 @@ export class Select {
 
   private readonly host = inject(ElementRef<HTMLElement>);
 
+  constructor() {
+    // A list left open when the dialog around it closes would otherwise keep listening to the window.
+    inject(DestroyRef).onDestroy(() => this.close());
+  }
+
   /** Empty rather than a placeholder: the caller always passes a value, and inventing one would be a guess. */
   protected readonly selectedLabel = computed(() => this.value());
+
+  /** Where the list sits in the viewport, measured from the trigger each time it opens. */
+  protected readonly placement = signal({
+    top: 0,
+    left: 0,
+    width: 0,
+    maxHeight: MaximumListHeight,
+  });
 
   protected toggle(): void {
     if (this.disabled()) {
       return;
     }
 
-    const opening = !this.open();
-    this.open.set(opening);
-
-    if (opening) {
-      this.active.set(Math.max(0, this.options().indexOf(this.value())));
-      // Focus moves into the list so the arrow keys land there rather than scrolling the dialog behind it.
-      queueMicrotask(() => this.focusActive());
+    if (this.open()) {
+      this.close();
+      return;
     }
+
+    this.expand();
+  }
+
+  private expand(): void {
+    this.measure();
+    this.open.set(true);
+    this.active.set(Math.max(0, this.options().indexOf(this.value())));
+
+    // Kept correct while open rather than closed on the first scroll: an operator reading a long list inside a
+    // dialog scrolls it, and losing their place there would be its own annoyance.
+    window.addEventListener('scroll', this.reposition, true);
+    window.addEventListener('resize', this.reposition);
+
+    // Focus moves into the list so the arrow keys land there rather than scrolling what is behind it.
+    queueMicrotask(() => this.focusActive());
+  }
+
+  private close(): void {
+    this.open.set(false);
+    window.removeEventListener('scroll', this.reposition, true);
+    window.removeEventListener('resize', this.reposition);
+  }
+
+  private readonly reposition = (): void => this.measure();
+
+  /**
+   * Measures the trigger and decides which side of it the list opens on.
+   *
+   * Below when there is room, above when there is not, and never taller than the space it has - a list that runs
+   * off the bottom of the window cannot be reached with a pointer.
+   */
+  private measure(): void {
+    const element = this.host.nativeElement as HTMLElement;
+    const trigger = element.querySelector<HTMLElement>('.trigger');
+    if (trigger === null) {
+      return;
+    }
+
+    const rect = trigger.getBoundingClientRect();
+    const below = window.innerHeight - rect.bottom - ListGap;
+    const above = rect.top - ListGap;
+    const opensUp = below < Math.min(MaximumListHeight, above);
+    const room = Math.max(MinimumListHeight, Math.min(MaximumListHeight, opensUp ? above : below));
+
+    this.placement.set({
+      top: opensUp ? Math.max(ListGap, rect.top - room - ListGap) : rect.bottom + ListGap,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: room,
+    });
   }
 
   protected choose(option: string): void {
-    this.open.set(false);
+    this.close();
     this.focusTrigger();
 
     if (option !== this.value()) {
@@ -116,7 +199,7 @@ export class Select {
     if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       if (!this.open()) {
-        this.toggle();
+        this.expand();
       }
     }
   }
@@ -150,7 +233,7 @@ export class Select {
       case 'Escape':
       case 'Tab':
         // Escape closes without choosing, which is the difference between browsing a list and changing a ref.
-        this.open.set(false);
+        this.close();
         this.focusTrigger();
         break;
       default:

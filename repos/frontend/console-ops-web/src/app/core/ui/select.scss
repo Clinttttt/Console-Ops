@@ -42,12 +42,8 @@
 }
 
 .list {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  max-height: 216px;
+  position: fixed;
+  z-index: 40;
   overflow-y: auto;
   margin: 0;
   padding: var(--co-space-1);

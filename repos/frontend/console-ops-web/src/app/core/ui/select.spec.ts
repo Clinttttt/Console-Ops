@@ -139,6 +139,17 @@ describe('Select', () => {
     expect(chosen).toEqual([]);
   });
 
+  it('positions the list against the viewport so a scrolling panel cannot clip it', async () => {
+    trigger().click();
+    await fixture.whenStable();
+
+    const list = host.querySelector<HTMLElement>('.list')!;
+    // Absolute positioning is clipped by any scrolling ancestor, and adds to its scroll height.
+    expect(getComputedStyle(list).position).toBe('fixed');
+    expect(list.style.top).not.toBe('');
+    expect(list.style.width).not.toBe('');
+  });
+
   it('does not open while disabled', async () => {
     fixture.componentRef.setInput('disabled', true);
     await fixture.whenStable();
