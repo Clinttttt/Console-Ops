@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 
-import { Workflow, WorkflowInput } from '../../../core/contracts/workflows';
+import { ManualRunSupport, Workflow, WorkflowInput } from '../../../core/contracts/workflows';
 import { Icon } from '../../../core/ui/icon';
 import { Select } from '../../../core/ui/select';
 
@@ -35,6 +35,14 @@ export class WorkflowRunDialog {
   readonly branchesState = input<'idle' | 'loading' | 'loaded' | 'unavailable'>('idle');
   readonly branchesBounded = input(false);
   readonly reading = input(false);
+  /**
+   * What the definition said about manual dispatch.
+   *
+   * The row offers Run from what Console Ops has stored - active, and marked - because reading every definition to
+   * populate a page would double the cost of opening it. This is where that answer arrives, so the panel refuses
+   * before an operator fills anything in rather than after the provider does.
+   */
+  readonly manualRun = input<ManualRunSupport>('unknown');
   readonly submitting = input(false);
   readonly failure = input<string | null>(null);
 
@@ -63,7 +71,7 @@ export class WorkflowRunDialog {
    * gave or one the workflow declared as a default.
    */
   protected readonly canRun = computed(() => {
-    if (this.submitting() || this.reading()) {
+    if (this.submitting() || this.reading() || this.manualRun() !== 'supported') {
       return false;
     }
 

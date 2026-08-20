@@ -17,6 +17,14 @@ import { WorkflowsDataSource } from '../data/workflows.data-source';
 export type WorkflowsLoadState = 'loading' | 'loaded' | 'unavailable';
 
 /**
+ * How long a requested run is waited for before Console Ops stops expecting it.
+ *
+ * A provider that accepted a dispatch normally reports the run within seconds. Waiting indefinitely would keep a
+ * row saying Requested and hold the screen in its fast refresh for as long as it stayed open.
+ */
+const AdoptionWindowMs = 120_000;
+
+/**
  * Holds the workflow inventory for the Workflows screen.
  *
  * Re-reads do not blank the screen: only the first read shows a loading state, and a failed re-read keeps the
@@ -324,6 +332,15 @@ export class WorkflowsStore {
   private adoptRequestedRun(projectId: string, workflowId: string): void {
     const requested = untracked(this.requestedFor);
     if (requested === null) {
+      return;
+    }
+
+    // Stop waiting after a bounded while. Without this a request the provider never turned into a run - a
+    // repository whose runs are not visible, a clock far enough out to fail the comparison - would keep the row
+    // saying Requested and keep the screen in its fast refresh for as long as it stayed open.
+    if (Date.now() - Date.parse(requested.at) > AdoptionWindowMs) {
+      this.requestedFor.set(null);
+      this.dispatchState.set('idle');
       return;
     }
 

@@ -206,7 +206,8 @@ class StubWorkflows extends WorkflowsDataSource {
         status: 'requested' as const,
         workflowId,
         reference: request.reference,
-        requestedAt: '2026-08-19T07:06:00.000Z',
+        // Now, because a request is only awaited for a bounded window and a fixed past date expires instantly.
+        requestedAt: new Date().toISOString(),
       })
     );
   }
@@ -555,6 +556,30 @@ describe('WorkflowsPage', () => {
     const dialog = host.querySelector('co-workflow-run-dialog');
     expect(dialog).not.toBeNull();
     expect(dialog?.textContent).toContain('needs write access');
+  });
+
+  it('refuses in the panel when the definition declares no manual dispatch', async () => {
+    await render(
+      new StubWorkflows(
+        of(INVENTORY),
+        of(JOBS),
+        of({ defaultBranch: 'master', branches: ['master'], hasMore: false }),
+        of({
+          manualRun: 'unavailable' as const,
+          definitionPath: '.github/workflows/deploy-production.yml',
+          inputs: [],
+        }),
+      ),
+    );
+
+    rowFor('Deploy production')!.querySelector<HTMLButtonElement>('button.run')!.click();
+    await fixture.whenStable();
+
+    const dialog = host.querySelector('co-workflow-run-dialog')!;
+    // Said before anything is filled in: being refused after typing a confirmation is worse than being told now.
+    expect(dialog.textContent).toContain('does not declare a manual dispatch trigger');
+    expect(dialog.querySelector<HTMLButtonElement>('.primary')!.disabled).toBe(true);
+    expect(dataSource.dispatches).toEqual([]);
   });
 
   it('says a run was requested rather than claiming one is going', async () => {

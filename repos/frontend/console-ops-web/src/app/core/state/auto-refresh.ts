@@ -16,8 +16,13 @@ export const READ_REFRESH_INTERVAL_MS = 30_000;
  */
 export const ACTIVE_PROVIDER_REFRESH_INTERVAL_MS = 10_000;
 
-/** How often a screen re-reads once nothing is moving. */
-export const IDLE_PROVIDER_REFRESH_INTERVAL_MS = 60_000;
+/**
+ * How often a screen re-reads once nothing is moving.
+ *
+ * Long, because a settled read is not free: the Workflows inventory costs a provider request per workflow, and a
+ * page left open was spending that every minute to discover nothing had changed.
+ */
+export const IDLE_PROVIDER_REFRESH_INTERVAL_MS = 300_000;
 
 /**
  * Re-reads a screen whose data is read from a provider during the request, on an interval it chooses.

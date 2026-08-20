@@ -57,6 +57,18 @@
       <span class="co-spinner" aria-hidden="true"></span>
       Reading what this workflow asks for...
     </p>
+  } @else if (manualRun() !== 'supported') {
+    <!--
+      Said here, before anything is filled in. The row offers Run from what Console Ops has stored; this is where
+      the definition's answer arrives, and being refused after typing a confirmation is worse than being told now.
+    -->
+    <p class="error">
+      @if (manualRun() === 'unavailable') {
+        This workflow does not declare a manual dispatch trigger, so it cannot be started from here.
+      } @else {
+        Console Ops could not read this workflow's definition, so it will not start it on a guess.
+      }
+    </p>
   } @else if (inputs().length > 0) {
     <p class="note co-unavailable">These are the inputs the workflow declares.</p>
 

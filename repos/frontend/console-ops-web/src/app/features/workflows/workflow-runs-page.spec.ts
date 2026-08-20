@@ -185,7 +185,7 @@ class StubWorkflows extends WorkflowsDataSource {
       status: 'requested' as const,
       workflowId: '101',
       reference: 'master',
-      requestedAt: '2026-08-19T07:06:00.000Z',
+      requestedAt: new Date().toISOString(),
     });
   }
 
