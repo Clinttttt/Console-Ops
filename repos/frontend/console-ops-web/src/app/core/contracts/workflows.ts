@@ -179,6 +179,14 @@ export interface WorkflowRunHistory {
  * does not report triggers. Read for the workflow an operator selected, so a page of workflows does not cost a
  * page of extra requests.
  */
+/** What the API recorded when a risk was marked, so a screen shows the decision it actually stored. */
+export interface WorkflowRiskReading {
+  readonly workflowPath: string;
+  readonly level: WorkflowRiskLevel;
+  /** `null` for `unclassified`: the absence of a decision has no date. */
+  readonly decidedAt: string | null;
+}
+
 /** One input the workflow declares for a manual run. Nothing here is invented by Console Ops. */
 export interface WorkflowInput {
   readonly name: string;

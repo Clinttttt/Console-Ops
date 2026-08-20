@@ -145,6 +145,16 @@ public enum GitHubDispatchOutcome
     Unavailable
 }
 
+/// <param name="ProviderMessage">
+/// What the provider said, when it said anything.
+/// </param>
+/// <remarks>
+/// Carried because a rejected dispatch is the one failure Console Ops cannot explain on its own: GitHub knows
+/// whether the ref was wrong, the trigger was missing on that ref, or an input was not accepted, and repeating a
+/// guess in place of its answer sends an operator through all three.
+/// </remarks>
+public sealed record GitHubDispatchResult(GitHubDispatchOutcome Outcome, string? ProviderMessage);
+
 /// <summary>
 /// Reads a repository's automation and how it executed, for the Workflows screen.
 /// </summary>
@@ -221,7 +231,7 @@ public interface IGitHubWorkflowInventory
     /// The provider answers with acceptance and no run: there is no run id to return, so a caller must find the
     /// run afterwards rather than being told which one it started. Reporting a run here would be an invention.
     /// </remarks>
-    Task<GitHubDispatchOutcome> DispatchAsync(
+    Task<GitHubDispatchResult> DispatchAsync(
         string owner,
         string repository,
         long workflowId,

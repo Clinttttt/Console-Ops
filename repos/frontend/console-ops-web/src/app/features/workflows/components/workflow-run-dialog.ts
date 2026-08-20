@@ -80,6 +80,25 @@ export class WorkflowRunDialog {
     return this.typedName().trim().toLowerCase() === this.workflow().name.trim().toLowerCase();
   }
 
+  /**
+   * The declared name as words: `versionName` reads as "Version Name", `max_age_hours` as "Max Age Hours".
+   *
+   * Display only. The key sent to the provider is always the declared one, because that is what the workflow
+   * reads - a prettier label must not become a different input.
+   */
+  protected labelFor(input: WorkflowInput): string {
+    const spaced = input.name
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+      .trim();
+
+    return spaced
+      .split(' ')
+      .filter((word) => word.length > 0)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
   protected valueOf(input: WorkflowInput): string {
     return this.values()[input.name] ?? input.default ?? '';
   }

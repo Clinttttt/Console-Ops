@@ -6,6 +6,7 @@ import {
   ManualRunSupportReading,
   WorkflowBranches,
   WorkflowDispatchAccepted,
+  WorkflowRiskReading,
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
@@ -167,8 +168,12 @@ class StubWorkflows extends WorkflowsDataSource {
     return this.jobs;
   }
 
-  override setRisk(): Observable<void> {
-    return of(undefined);
+  override setRisk(): Observable<WorkflowRiskReading> {
+    return of({
+      workflowPath: '.github/workflows/ci.yml',
+      level: 'normal' as const,
+      decidedAt: '2026-08-20T09:00:00.000Z',
+    });
   }
 
   override loadBranches(): Observable<WorkflowBranches> {

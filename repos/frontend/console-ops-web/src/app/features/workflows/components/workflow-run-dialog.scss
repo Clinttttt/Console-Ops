@@ -113,6 +113,26 @@ select {
   color: var(--co-ink-strong);
 }
 
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+/*
+  The closed control is ours: our chevron, our type, our border. The open list is the browser's own and stays
+  that way - a hand-built listbox would have to re-earn keyboard and screen-reader behaviour this already has.
+*/
+select {
+  appearance: none;
+  padding-right: var(--co-space-7);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236a7280' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--co-space-4) center;
+  cursor: pointer;
+}
+
 .description,
 .note {
   font-size: 11.5px;

@@ -117,7 +117,7 @@ public sealed class DispatchWorkflowCommandHandler(
 
         IReadOnlyDictionary<string, string> inputs = Accepted(request.Inputs, support.Observation.Inputs);
 
-        GitHubDispatchOutcome outcome = await inventory.DispatchAsync(
+        GitHubDispatchResult dispatch = await inventory.DispatchAsync(
             project.RepositoryOwner,
             project.RepositoryName,
             workflow.WorkflowId,
@@ -125,9 +125,9 @@ public sealed class DispatchWorkflowCommandHandler(
             inputs,
             cancellationToken);
 
-        if (outcome != GitHubDispatchOutcome.Accepted)
+        if (dispatch.Outcome != GitHubDispatchOutcome.Accepted)
         {
-            return Result<WorkflowDispatchResponse>.Failure(ToError(outcome));
+            return Result<WorkflowDispatchResponse>.Failure(ToError(dispatch));
         }
 
         return Result<WorkflowDispatchResponse>.Success(new WorkflowDispatchResponse(
@@ -171,12 +171,27 @@ public sealed class DispatchWorkflowCommandHandler(
         return accepted;
     }
 
-    private static Error ToError(GitHubDispatchOutcome outcome) => outcome switch
+    /// <summary>
+    /// The error for a refusal, carrying the provider's own wording where it gave any.
+    /// </summary>
+    /// <remarks>
+    /// A rejected dispatch is the one failure Console Ops cannot explain on its own: only GitHub knows whether the
+    /// ref was wrong, the trigger is missing on that ref, or an input was refused. Listing all three as
+    /// possibilities sends an operator through all three.
+    /// </remarks>
+    private static Error ToError(GitHubDispatchResult dispatch)
     {
-        GitHubDispatchOutcome.Forbidden => WorkflowErrors.DispatchUnauthorized,
-        GitHubDispatchOutcome.NotFound => WorkflowErrors.From(GitHubReadFailure.NotFound),
-        GitHubDispatchOutcome.Rejected => WorkflowErrors.DispatchRejected,
-        GitHubDispatchOutcome.RateLimited => WorkflowErrors.From(GitHubReadFailure.RateLimited),
-        _ => WorkflowErrors.From(GitHubReadFailure.Unavailable)
-    };
+        Error error = dispatch.Outcome switch
+        {
+            GitHubDispatchOutcome.Forbidden => WorkflowErrors.DispatchUnauthorized,
+            GitHubDispatchOutcome.NotFound => WorkflowErrors.From(GitHubReadFailure.NotFound),
+            GitHubDispatchOutcome.Rejected => WorkflowErrors.DispatchRejected,
+            GitHubDispatchOutcome.RateLimited => WorkflowErrors.From(GitHubReadFailure.RateLimited),
+            _ => WorkflowErrors.From(GitHubReadFailure.Unavailable)
+        };
+
+        return dispatch.ProviderMessage is null
+            ? error
+            : new Error(error.Code, $"GitHub refused the run: {dispatch.ProviderMessage}", error.Type);
+    }
 }

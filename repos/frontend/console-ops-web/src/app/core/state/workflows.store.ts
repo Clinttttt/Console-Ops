@@ -10,6 +10,7 @@ import {
   Workflow,
   WorkflowInput,
   WorkflowBranches,
+  WorkflowRiskReading,
 } from '../contracts/workflows';
 import { WorkflowsDataSource } from '../data/workflows.data-source';
 
@@ -173,14 +174,14 @@ export class WorkflowsStore {
   }
 
   /**
-   * Records a workflow's risk, then re-reads the inventory.
+   * Records a workflow's risk and shows it straight away.
    *
-   * Re-read rather than patched in place: the API decides whether a workflow is executable, and inferring that
-   * here from the level alone would let the screen offer to run something the API would refuse.
+   * The marking is applied in place from what the API returned, then the inventory is re-read in the background to
+   * reconcile. Waiting for that read before releasing the control left the choice unclickable for seconds while
+   * the previous outcome sat on screen - the marking looked rejected and then corrected itself.
    *
-   * The saving state is held until that re-read lands. Clearing it when the write returned put the previous
-   * outcome back on screen for the length of a provider read - the marking appeared to have been rejected, and
-   * then corrected itself.
+   * `executable` is recomputed here with the rule the API applies - active, and marked - rather than guessed at.
+   * The two agree because the rule is one line; the re-read is what proves it.
    */
   setRisk(projectId: string, workflowPath: string, level: WorkflowRiskLevel): void {
     this.riskSaving.set(workflowPath);
@@ -190,7 +191,11 @@ export class WorkflowsStore {
       .setRisk(projectId, workflowPath, level)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.read(() => this.riskSaving.set(null)),
+        next: (marking) => {
+          this.applyRisk(workflowPath, marking);
+          this.riskSaving.set(null);
+          this.read();
+        },
         error: () => {
           // Named, because a marking that silently failed to save would leave an operator believing a
           // destructive workflow was marked as such.
@@ -198,6 +203,29 @@ export class WorkflowsStore {
           this.riskError.set('That risk marking could not be saved.');
         },
       });
+  }
+
+  private applyRisk(workflowPath: string, marking: WorkflowRiskReading): void {
+    this.current.update((inventory) =>
+      inventory === null
+        ? inventory
+        : {
+            ...inventory,
+            groups: inventory.groups.map((group) => ({
+              ...group,
+              workflows: group.workflows.map((workflow) =>
+                workflow.path === workflowPath
+                  ? {
+                      ...workflow,
+                      risk: marking.level,
+                      riskDecidedAt: marking.decidedAt,
+                      executable: workflow.state === 'active' && marking.level !== 'unclassified',
+                    }
+                  : workflow,
+              ),
+            })),
+          },
+    );
   }
 
   private readonly riskSaving = signal<string | null>(null);

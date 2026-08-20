@@ -6,6 +6,8 @@ import {
   ManualRunSupportReading,
   WorkflowBranches,
   WorkflowDispatchAccepted,
+  WorkflowRiskLevel,
+  WorkflowRiskReading,
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
@@ -210,11 +212,15 @@ class StubWorkflows extends WorkflowsDataSource {
   }
 
   /** Replaceable so a test can hold the write open and watch what the screen says meanwhile. */
-  riskResult: Observable<void> = of(undefined);
+  riskResult: Observable<WorkflowRiskReading> | null = null;
 
-  override setRisk(projectId: string, workflowPath: string, level: string): Observable<void> {
+  override setRisk(
+    projectId: string,
+    workflowPath: string,
+    level: WorkflowRiskLevel,
+  ): Observable<WorkflowRiskReading> {
     this.riskWrites.push({ projectId, workflowPath, level });
-    return this.riskResult;
+    return this.riskResult ?? of({ workflowPath, level, decidedAt: '2026-08-19T07:06:00.000Z' });
   }
 
   override loadManualRunSupport(
@@ -395,9 +401,9 @@ describe('WorkflowsPage', () => {
     expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Marked ');
   });
 
-  it('holds the saving state until the screen reflects the new marking', async () => {
+  it('shows a marking as soon as the API records it, without blocking the choice', async () => {
     const inventory = new Subject<WorkflowInventory>();
-    const risk = new Subject<void>();
+    const risk = new Subject<WorkflowRiskReading>();
     await render(new StubWorkflows(inventory.asObservable()));
     inventory.next(INVENTORY);
     await fixture.whenStable();
@@ -412,20 +418,24 @@ describe('WorkflowsPage', () => {
 
     expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Saving the marking');
 
-    // The write returned, but the inventory has not: the previous outcome must not reappear in between.
-    risk.next();
+    // The write returns, and the marking shows immediately from what the API recorded - without waiting for a
+    // provider read, which is what made the choice unclickable and put the old refusal back on screen.
+    risk.next({
+      workflowPath: '.github/workflows/database-backup.yml',
+      level: 'destructive',
+      decidedAt: '2026-08-20T09:00:00.000Z',
+    });
     risk.complete();
     await fixture.whenStable();
-    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Saving the marking');
-    expect(host.querySelector('co-workflow-detail')?.textContent).not.toContain(
-      'will not run this until its risk is marked',
-    );
 
-    inventory.next(INVENTORY);
-    await fixture.whenStable();
-    expect(host.querySelector('co-workflow-detail')?.textContent).not.toContain(
-      'Saving the marking',
-    );
+    const detail = host.querySelector('co-workflow-detail')!;
+    expect(detail.textContent).not.toContain('Saving the marking');
+    expect(detail.textContent).not.toContain('will not run this until its risk is marked');
+    expect(
+      Array.from(detail.querySelectorAll<HTMLButtonElement>('.risk-option')).every(
+        (option) => !option.disabled,
+      ),
+    ).toBe(true);
   });
 
   it('offers Logs on every row and Run only where a run is allowed', () => {

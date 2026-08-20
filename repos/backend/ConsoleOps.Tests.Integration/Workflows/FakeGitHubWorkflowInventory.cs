@@ -32,6 +32,9 @@ internal sealed class FakeGitHubWorkflowInventory : IGitHubWorkflowInventory
 
     public GitHubDispatchOutcome DispatchOutcome { get; set; } = GitHubDispatchOutcome.Accepted;
 
+    /// <summary>What the provider said about a refusal, so a test can assert it reaches the caller.</summary>
+    public string? DispatchMessage { get; set; }
+
     /// <summary>Every dispatch asked for, so a test can assert what was sent and what was not.</summary>
     public List<(string Owner, string Repository, long WorkflowId, string Reference,
         IReadOnlyDictionary<string, string> Inputs)> Dispatches { get; } = [];
@@ -81,7 +84,7 @@ internal sealed class FakeGitHubWorkflowInventory : IGitHubWorkflowInventory
             : GitHubFactResult<GitHubWorkflowDefinition>.Success(match));
     }
 
-    public Task<GitHubDispatchOutcome> DispatchAsync(
+    public Task<GitHubDispatchResult> DispatchAsync(
         string owner,
         string repository,
         long workflowId,
@@ -90,7 +93,7 @@ internal sealed class FakeGitHubWorkflowInventory : IGitHubWorkflowInventory
         CancellationToken cancellationToken)
     {
         Dispatches.Add((owner, repository, workflowId, reference, inputs));
-        return Task.FromResult(DispatchOutcome);
+        return Task.FromResult(new GitHubDispatchResult(DispatchOutcome, DispatchMessage));
     }
 
     public Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(

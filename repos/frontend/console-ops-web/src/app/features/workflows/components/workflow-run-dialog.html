@@ -27,7 +27,10 @@
   <div class="row">
     <label class="label" for="run-reference">Branch</label>
     @if (branchesState() === 'loading') {
-      <p class="value co-unavailable">Reading branches...</p>
+      <span class="co-reading">
+        <span class="co-spinner" aria-hidden="true"></span>
+        Reading branches...
+      </span>
     } @else {
       <!--
         Selection is on the option, not the select: binding value on the element sets it before the options
@@ -55,14 +58,17 @@
   }
 
   @if (reading()) {
-    <p class="note co-unavailable">Reading what this workflow asks for...</p>
+    <p class="co-reading note">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading what this workflow asks for...
+    </p>
   } @else if (inputs().length > 0) {
     <p class="note co-unavailable">These are the inputs the workflow declares.</p>
 
     @for (input of inputs(); track input.name) {
       <div class="stacked">
         <label class="label" [attr.for]="'run-input-' + input.name">
-          {{ input.name }}
+          {{ labelFor(input) }}
           @if (input.required) {
             <span class="required">required</span>
           }
@@ -126,7 +132,7 @@
     <button type="button" class="secondary" (click)="dismissed.emit()">Cancel</button>
     <button type="button" class="primary" [disabled]="!canRun()" (click)="run()">
       @if (submitting()) {
-        <co-icon name="refresh" [size]="15" />
+        <span class="co-spinner" aria-hidden="true"></span>
         Requesting...
       } @else {
         Run workflow

@@ -31,6 +31,9 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     /// <summary>A workflow definition is a small file; anything larger is not one worth scanning.</summary>
     private const int MaximumDefinitionBytes = 256 * 1024;
 
+    /// <summary>An error message is a sentence. Anything larger is not one, and is not put in front of anybody.</summary>
+    private const int MaximumMessageBytes = 4 * 1024;
+
     /// <summary>
     /// How many latest-run reads are in flight at once.
     /// </summary>
@@ -203,7 +206,7 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
             LatestRun: null));
     }
 
-    public async Task<GitHubDispatchOutcome> DispatchAsync(
+    public async Task<GitHubDispatchResult> DispatchAsync(
         string owner,
         string repository,
         long workflowId,
@@ -235,7 +238,7 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
 
             // The provider answers 204 with no body. There is no run to report yet, which is why this returns
             // acceptance rather than a run.
-            return response.StatusCode switch
+            GitHubDispatchOutcome outcome = response.StatusCode switch
             {
                 System.Net.HttpStatusCode.NoContent or System.Net.HttpStatusCode.Created =>
                     GitHubDispatchOutcome.Accepted,
@@ -247,16 +250,61 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
                 System.Net.HttpStatusCode.TooManyRequests => GitHubDispatchOutcome.RateLimited,
                 _ => GitHubDispatchOutcome.Unavailable
             };
+
+            return new GitHubDispatchResult(
+                outcome,
+                outcome == GitHubDispatchOutcome.Accepted
+                    ? null
+                    : await ReadProviderMessageAsync(response, cancellationToken));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // A dispatch that timed out may or may not have been accepted, so it is reported as unavailable
             // rather than as a refusal - the run list is what settles it.
-            return GitHubDispatchOutcome.Unavailable;
+            return new GitHubDispatchResult(GitHubDispatchOutcome.Unavailable, null);
         }
         catch (HttpRequestException)
         {
-            return GitHubDispatchOutcome.Unavailable;
+            return new GitHubDispatchResult(GitHubDispatchOutcome.Unavailable, null);
+        }
+    }
+
+    /// <summary>
+    /// What the provider said about a refusal, or <c>null</c> when it said nothing usable.
+    /// </summary>
+    /// <remarks>
+    /// GitHub answers a rejected dispatch with a `message` and sometimes field-level errors. Its wording names the
+    /// actual cause - a ref without the workflow, a trigger the ref does not declare, an input it will not accept -
+    /// and Console Ops cannot tell those apart from the status code alone.
+    /// </remarks>
+    private static async Task<string?> ReadProviderMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (body.Length == 0 || body.Length > MaximumMessageBytes)
+            {
+                return null;
+            }
+
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(body);
+            if (!document.RootElement.TryGetProperty("message", out System.Text.Json.JsonElement message))
+            {
+                return null;
+            }
+
+            string? text = message.GetString();
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+        catch (HttpRequestException)
+        {
+            return null;
         }
     }
 

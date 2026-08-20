@@ -14,6 +14,7 @@ import {
   WorkflowDispatchAccepted,
   WorkflowInput,
   WorkflowRiskLevel,
+  WorkflowRiskReading,
   WorkflowRun,
   WorkflowRunConclusion,
   WorkflowRunHistory,
@@ -137,13 +138,19 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
     projectId: string,
     workflowPath: string,
     level: WorkflowRiskLevel,
-  ): Observable<void> {
+  ): Observable<WorkflowRiskReading> {
     return this.http
-      .put<unknown>(`/api/workflows/projects/${encodeURIComponent(projectId)}/risk`, {
-        workflowPath,
-        level,
-      })
-      .pipe(map(() => undefined));
+      .put<{ workflowPath: string; level: string; decidedAt: string | null }>(
+        `/api/workflows/projects/${encodeURIComponent(projectId)}/risk`,
+        { workflowPath, level },
+      )
+      .pipe(
+        map((payload) => ({
+          workflowPath: payload.workflowPath,
+          level: toRisk(payload.level),
+          decidedAt: payload.decidedAt,
+        })),
+      );
   }
 
   override loadBranches(projectId: string): Observable<WorkflowBranches> {

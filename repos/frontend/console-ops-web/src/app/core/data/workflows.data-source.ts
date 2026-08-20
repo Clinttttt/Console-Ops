@@ -8,6 +8,7 @@ import {
   WorkflowRiskLevel,
   WorkflowDispatchAccepted,
   WorkflowBranches,
+  WorkflowRiskReading,
 } from '../contracts/workflows';
 
 /**
@@ -50,7 +51,7 @@ export abstract class WorkflowsDataSource {
     projectId: string,
     workflowPath: string,
     level: WorkflowRiskLevel,
-  ): Observable<void>;
+  ): Observable<WorkflowRiskReading>;
 
   /**
    * Asks Console Ops to start a workflow.

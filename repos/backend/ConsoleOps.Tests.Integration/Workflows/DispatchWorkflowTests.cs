@@ -192,6 +192,26 @@ public sealed class DispatchWorkflowTests(ConsoleOpsApiFactory factory)
     }
 
     [Fact]
+    public async Task Dispatch_RepeatsTheProvidersOwnReasonForARefusal()
+    {
+        FakeGitHubWorkflowInventory provider = Provider();
+        provider.DispatchOutcome = GitHubDispatchOutcome.Rejected;
+        provider.DispatchMessage = "No ref found for: not-a-branch";
+
+        using WebApplicationFactory<Program> application = CreateApplication(provider);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client);
+        await MarkAsync(client, project.Id, "normal");
+
+        using HttpResponseMessage response = await RunAsync(client, project.Id, "not-a-branch");
+        string body = await response.Content.ReadAsStringAsync();
+
+        // Only GitHub knows whether the ref, the trigger, or an input was the problem. Listing all three as
+        // possibilities sends an operator through all three.
+        Assert.Contains("No ref found for: not-a-branch", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Dispatch_RefusesAWorkflowTheProviderReportsAsDisabled()
     {
         FakeGitHubWorkflowInventory provider = Provider();

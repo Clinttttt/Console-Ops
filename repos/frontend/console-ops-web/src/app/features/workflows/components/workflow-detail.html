@@ -120,8 +120,8 @@
   </div>
 
   @if (saving()) {
-    <p class="risk-decided co-unavailable">
-      <co-icon name="refresh" [size]="14" />
+    <p class="co-reading">
+      <span class="co-spinner" aria-hidden="true"></span>
       Saving the marking...
     </p>
   } @else if (item.riskDecidedAt !== null) {
