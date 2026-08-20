@@ -461,13 +461,17 @@ describe('WorkflowsPage', () => {
     await fixture.whenStable();
 
     const dialog = host.querySelector('co-workflow-run-dialog')!;
-    // Branches the repository reports, with the registered one selected: nothing is typed from memory.
-    const branch = dialog.querySelector<HTMLSelectElement>('#run-reference')!;
-    expect(Array.from(branch.options).map((option) => option.value)).toEqual([
-      'master',
-      'release/2026-08',
-    ]);
-    expect(branch.value).toBe('master');
+    // Branches the repository reports, with the registered one shown: nothing is typed from memory.
+    const branch = dialog.querySelector<HTMLButtonElement>('co-select .trigger')!;
+    expect(branch.textContent?.trim()).toBe('master');
+
+    branch.click();
+    await fixture.whenStable();
+    expect(
+      Array.from(dialog.querySelectorAll('co-select .option')).map((option) =>
+        option.textContent?.trim(),
+      ),
+    ).toEqual(['master', 'release/2026-08']);
     expect(dialog.querySelector('#run-confirmation')).toBeNull();
 
     dialog.querySelector<HTMLButtonElement>('.primary')!.click();

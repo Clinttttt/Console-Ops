@@ -236,20 +236,23 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
 
             using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
 
-            // The provider answers 204 with no body. There is no run to report yet, which is why this returns
-            // acceptance rather than a run.
-            GitHubDispatchOutcome outcome = response.StatusCode switch
-            {
-                System.Net.HttpStatusCode.NoContent or System.Net.HttpStatusCode.Created =>
-                    GitHubDispatchOutcome.Accepted,
-                System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
-                    IsRateLimited(response) ? GitHubDispatchOutcome.RateLimited : GitHubDispatchOutcome.Forbidden,
-                System.Net.HttpStatusCode.NotFound => GitHubDispatchOutcome.NotFound,
-                System.Net.HttpStatusCode.UnprocessableEntity or System.Net.HttpStatusCode.BadRequest =>
-                    GitHubDispatchOutcome.Rejected,
-                System.Net.HttpStatusCode.TooManyRequests => GitHubDispatchOutcome.RateLimited,
-                _ => GitHubDispatchOutcome.Unavailable
-            };
+            // Any success is acceptance. Matching only 204 reported a started run as unreachable - which is the
+            // worst way to be wrong about a mutation, because the answer invites a retry that starts a second one.
+            // GitHub has answered both 204 and 200 here depending on the API version.
+            GitHubDispatchOutcome outcome = response.IsSuccessStatusCode
+                ? GitHubDispatchOutcome.Accepted
+                : response.StatusCode switch
+                {
+                    System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                        IsRateLimited(response)
+                            ? GitHubDispatchOutcome.RateLimited
+                            : GitHubDispatchOutcome.Forbidden,
+                    System.Net.HttpStatusCode.NotFound => GitHubDispatchOutcome.NotFound,
+                    System.Net.HttpStatusCode.UnprocessableEntity or System.Net.HttpStatusCode.BadRequest =>
+                        GitHubDispatchOutcome.Rejected,
+                    System.Net.HttpStatusCode.TooManyRequests => GitHubDispatchOutcome.RateLimited,
+                    _ => GitHubDispatchOutcome.Unavailable
+                };
 
             return new GitHubDispatchResult(
                 outcome,
@@ -520,9 +523,18 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     private sealed record ContentDto(string? Content, string? Encoding);
 
     /// <param name="Ref">The provider's own field name. Never defaulted here: a caller states the ref.</param>
+    /// <param name="Inputs">
+    /// Omitted from the request when there are none.
+    /// </param>
+    /// <remarks>
+    /// The property is dropped rather than written as null: GitHub rejects a null there with "for
+    /// 'properties/inputs', nil is not an object", which is what a workflow declaring no inputs produced.
+    /// </remarks>
     private sealed record DispatchRequest(
         [property: JsonPropertyName("ref")] string Ref,
-        [property: JsonPropertyName("inputs")] IReadOnlyDictionary<string, string>? Inputs);
+        [property: JsonPropertyName("inputs")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        IReadOnlyDictionary<string, string>? Inputs);
 
     private sealed record JobsDto(JobDto[]? Jobs);
 

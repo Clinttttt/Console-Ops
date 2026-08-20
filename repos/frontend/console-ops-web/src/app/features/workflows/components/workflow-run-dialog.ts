@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 
 import { Workflow, WorkflowInput } from '../../../core/contracts/workflows';
 import { Icon } from '../../../core/ui/icon';
+import { Select } from '../../../core/ui/select';
 
 /** What an operator has filled in, ready to be sent. */
 export interface RunRequest {
@@ -20,7 +21,7 @@ export interface RunRequest {
 @Component({
   selector: 'co-workflow-run-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon],
+  imports: [Icon, Select],
   templateUrl: './workflow-run-dialog.html',
   styleUrl: './workflow-run-dialog.scss',
 })
@@ -43,6 +44,9 @@ export class WorkflowRunDialog {
   protected readonly reference = signal('');
   protected readonly typedName = signal('');
   protected readonly values = signal<Record<string, string>>({});
+
+  /** A declared boolean input takes one of these two, which is what the provider accepts. */
+  protected readonly booleanOptions: readonly string[] = ['true', 'false'];
 
   /** The ref that will be used: the project's branch until an operator changes it themselves. */
   protected readonly effectiveReference = computed(() => {

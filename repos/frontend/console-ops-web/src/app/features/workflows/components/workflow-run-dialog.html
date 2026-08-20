@@ -25,24 +25,19 @@
   }
 
   <div class="row">
-    <label class="label" for="run-reference">Branch</label>
+    <span class="label">Branch</span>
     @if (branchesState() === 'loading') {
       <span class="co-reading">
         <span class="co-spinner" aria-hidden="true"></span>
         Reading branches...
       </span>
     } @else {
-      <!--
-        Selection is on the option, not the select: binding value on the element sets it before the options
-        exist, and the browser falls back to the first one - which quietly pointed a run at another branch.
-      -->
-      <select id="run-reference" (change)="reference.set($any($event.target).value)">
-        @for (branch of branches(); track branch) {
-          <option [value]="branch" [selected]="branch === effectiveReference()">
-            {{ branch }}
-          </option>
-        }
-      </select>
+      <co-select
+        label="Branch"
+        [options]="branches()"
+        [value]="effectiveReference()"
+        (changed)="reference.set($event)"
+      />
     }
   </div>
 
@@ -67,34 +62,36 @@
 
     @for (input of inputs(); track input.name) {
       <div class="stacked">
-        <label class="label" [attr.for]="'run-input-' + input.name">
+        <!--
+          A span rather than a label: two of the three controls below are a listbox, and a `for` pointing at an
+          element that has no matching id associates nothing. Each control carries its own accessible name.
+        -->
+        <span class="label">
           {{ labelFor(input) }}
           @if (input.required) {
             <span class="required">required</span>
           }
-        </label>
+        </span>
 
         @if (input.options.length > 0) {
-          <select
-            [attr.id]="'run-input-' + input.name"
-            (change)="setValue(input, $any($event.target).value)"
-          >
-            @for (option of input.options; track option) {
-              <option [value]="option" [selected]="option === valueOf(input)">{{ option }}</option>
-            }
-          </select>
+          <co-select
+            [label]="labelFor(input)"
+            [options]="input.options"
+            [value]="valueOf(input)"
+            (changed)="setValue(input, $event)"
+          />
         } @else if (input.type === 'boolean') {
-          <select
-            [attr.id]="'run-input-' + input.name"
-            (change)="setValue(input, $any($event.target).value)"
-          >
-            <option value="true" [selected]="valueOf(input) === 'true'">true</option>
-            <option value="false" [selected]="valueOf(input) !== 'true'">false</option>
-          </select>
+          <co-select
+            [label]="labelFor(input)"
+            [options]="booleanOptions"
+            [value]="valueOf(input) === 'true' ? 'true' : 'false'"
+            (changed)="setValue(input, $event)"
+          />
         } @else {
           <input
             [attr.id]="'run-input-' + input.name"
             type="text"
+            [attr.aria-label]="labelFor(input)"
             [value]="valueOf(input)"
             (input)="setValue(input, $any($event.target).value)"
           />
