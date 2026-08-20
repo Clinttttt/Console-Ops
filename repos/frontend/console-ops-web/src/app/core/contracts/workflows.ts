@@ -199,6 +199,18 @@ export interface ManualRunSupportReading {
 }
 
 /**
+ * The refs a run could target.
+ *
+ * Read from the repository so a branch is chosen from what exists. `hasMore` is carried because the page is
+ * bounded, and the registered default is always present even when the provider no longer lists it.
+ */
+export interface WorkflowBranches {
+  readonly defaultBranch: string;
+  readonly branches: readonly string[];
+  readonly hasMore: boolean;
+}
+
+/**
  * What the provider said when asked to start a workflow.
  *
  * `requested` is the only status: the provider accepts a dispatch without reporting a run, so Console Ops does not

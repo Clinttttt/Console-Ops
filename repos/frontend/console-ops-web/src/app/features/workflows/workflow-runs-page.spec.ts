@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 
 import {
   ManualRunSupportReading,
+  WorkflowBranches,
   WorkflowDispatchAccepted,
   WorkflowInventory,
   WorkflowRunHistory,
@@ -168,6 +169,10 @@ class StubWorkflows extends WorkflowsDataSource {
 
   override setRisk(): Observable<void> {
     return of(undefined);
+  }
+
+  override loadBranches(): Observable<WorkflowBranches> {
+    return of({ defaultBranch: 'master', branches: ['master'], hasMore: false });
   }
 
   override dispatch(): Observable<WorkflowDispatchAccepted> {

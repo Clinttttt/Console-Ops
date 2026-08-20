@@ -48,17 +48,30 @@
   color: var(--co-status-warning);
 }
 
-.field {
-  display: flex;
+/* Label beside the control for a single short field. */
+.row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
   align-items: center;
-  gap: var(--co-space-3);
+  gap: var(--co-space-4);
   margin-top: var(--co-space-5);
 }
 
-.input-field {
+/*
+  Label above the control everywhere else. Beside it, a label as long as "Type the workflow name to confirm"
+  wrapped into a narrow column of single words.
+*/
+.stacked {
   display: grid;
   gap: var(--co-space-2);
-  align-items: start;
+  margin-top: var(--co-space-5);
+}
+
+.expected {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
 }
 
 .label {
@@ -127,6 +140,9 @@ select {
 }
 
 .primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
   background: var(--co-navy);
   color: var(--co-surface);
 }

@@ -201,6 +201,12 @@ workflowId
 runs[]                              newest first, same shape as latestRun above
 hasMore                             true when the provider reports runs beyond this page
 
+GET /api/workflows/projects/{projectId}/branches
+
+defaultBranch                       the project's registered branch, always present
+branches[]                          bounded page, sorted
+hasMore
+
 POST /api/workflows/projects/{projectId}/workflows/{workflowId}/runs
 
 { reference, inputs?, confirmation? }
@@ -292,8 +298,11 @@ Rules:
   (trimmed, case-insensitive, compared against the provider's name rather than the caller's), the definition must
   declare a dispatch trigger, and a ref must be stated. Support that could not be established is refused as well:
   starting a workflow on a guess is what this avoids.
-- **A ref is always stated.** Console Ops never picks one. The screen defaults it to the project's registered
-  branch and requires an explicit change, and the API refuses an empty ref.
+- **A ref is always stated, and chosen from what exists.** Console Ops never picks one. The run panel offers the
+  branches the repository reports with the registered one selected, so a ref is picked rather than remembered; the
+  API refuses an empty ref. A branch read that fails leaves the registered branch as the only option and the panel
+  says the rest could not be read. The registered branch is always in the list even when the provider no longer
+  lists it, so the default a run uses stays selectable. Measured live: 12 repositories, about 500ms each.
 - **Only declared inputs are forwarded.** An input the workflow never declared is dropped whatever a caller sends,
   and a declared input left blank is omitted so the workflow's own default applies rather than an empty value.
 - **A refused credential is `403`, not `500`.** `Workflows.Unauthorized` carries `ErrorType.Forbidden`: a token

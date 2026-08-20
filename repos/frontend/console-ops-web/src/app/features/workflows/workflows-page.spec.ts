@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 
 import {
   ManualRunSupportReading,
+  WorkflowBranches,
   WorkflowDispatchAccepted,
   WorkflowInventory,
   WorkflowRunHistory,
@@ -155,11 +156,17 @@ class StubWorkflows extends WorkflowsDataSource {
   constructor(
     private readonly inventory: Observable<WorkflowInventory> = of(INVENTORY),
     private readonly jobs: Observable<readonly WorkflowRunJob[]> = of(JOBS),
+    private readonly branches: Observable<WorkflowBranches> = of({
+      defaultBranch: 'master',
+      branches: ['master', 'release/2026-08'],
+      hasMore: false,
+    }),
     private readonly manualRun: Observable<ManualRunSupportReading> = of({
       manualRun: 'supported' as const,
       definitionPath: '.github/workflows/deploy-production.yml',
       inputs: [],
     }),
+    private readonly dispatchResult: Observable<WorkflowDispatchAccepted> | null = null,
   ) {
     super();
   }
@@ -177,6 +184,10 @@ class StubWorkflows extends WorkflowsDataSource {
     return of({ workflowId, runs: [], hasMore: false });
   }
 
+  override loadBranches(): Observable<WorkflowBranches> {
+    return this.branches;
+  }
+
   override dispatch(
     projectId: string,
     workflowId: string,
@@ -187,12 +198,15 @@ class StubWorkflows extends WorkflowsDataSource {
     },
   ): Observable<WorkflowDispatchAccepted> {
     this.dispatches.push({ projectId, workflowId, ...request });
-    return of({
-      status: 'requested' as const,
-      workflowId,
-      reference: request.reference,
-      requestedAt: '2026-08-19T07:06:00.000Z',
-    });
+    return (
+      this.dispatchResult ??
+      of({
+        status: 'requested' as const,
+        workflowId,
+        reference: request.reference,
+        requestedAt: '2026-08-19T07:06:00.000Z',
+      })
+    );
   }
 
   override setRisk(projectId: string, workflowPath: string, level: string): Observable<void> {
@@ -317,6 +331,7 @@ describe('WorkflowsPage', () => {
       new StubWorkflows(
         of(INVENTORY),
         of(JOBS),
+        of({ defaultBranch: 'master', branches: ['master'], hasMore: false }),
         throwError(() => new Error('rate limited')),
       ),
     );
@@ -400,8 +415,13 @@ describe('WorkflowsPage', () => {
     await fixture.whenStable();
 
     const dialog = host.querySelector('co-workflow-run-dialog')!;
-    // The project's registered branch, shown rather than assumed.
-    expect(dialog.textContent).toContain('master');
+    // Branches the repository reports, with the registered one selected: nothing is typed from memory.
+    const branch = dialog.querySelector<HTMLSelectElement>('#run-reference')!;
+    expect(Array.from(branch.options).map((option) => option.value)).toEqual([
+      'master',
+      'release/2026-08',
+    ]);
+    expect(branch.value).toBe('master');
     expect(dialog.querySelector('#run-confirmation')).toBeNull();
 
     dialog.querySelector<HTMLButtonElement>('.primary')!.click();
@@ -447,6 +467,44 @@ describe('WorkflowsPage', () => {
     await fixture.whenStable();
 
     expect(dataSource.dispatches[0].confirmation).toBe('Database restore');
+  });
+
+  it('keeps the panel open and shows why when the provider refuses', async () => {
+    await render(
+      new StubWorkflows(
+        of(INVENTORY),
+        of(JOBS),
+        of({
+          defaultBranch: 'master',
+          branches: ['master'],
+          hasMore: false,
+        }),
+        of({
+          manualRun: 'supported' as const,
+          definitionPath: '.github/workflows/deploy-production.yml',
+          inputs: [],
+        }),
+        throwError(() => ({
+          error: {
+            detail:
+              "GitHub refused the run. The configured token needs write access to this repository's actions.",
+          },
+        })),
+      ),
+    );
+
+    rowFor('Deploy production')!.querySelector<HTMLButtonElement>('button.run')!.click();
+    await fixture.whenStable();
+    host
+      .querySelector('co-workflow-run-dialog')!
+      .querySelector<HTMLButtonElement>('.primary')!
+      .click();
+    await fixture.whenStable();
+
+    // The refusal belongs where the operator asked, not on a page behind the panel.
+    const dialog = host.querySelector('co-workflow-run-dialog');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('needs write access');
   });
 
   it('says a run was requested rather than claiming one is going', async () => {

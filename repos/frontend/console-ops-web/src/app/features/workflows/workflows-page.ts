@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 
 import {
   Workflow,
@@ -63,6 +71,9 @@ export class WorkflowsPage {
   protected readonly dispatchFailure = this.store.dispatchFailure;
   protected readonly awaitingRunFor = this.store.awaitingRunFor;
   protected readonly selectedInputs = this.store.selectedInputs;
+  protected readonly branches = this.store.branches;
+  protected readonly branchesState = this.store.branchesState;
+  protected readonly branchesBounded = this.store.branchesBounded;
 
   /** The workflow a run is being asked for, or `null` when nothing is being asked. */
   protected readonly runTarget = signal<{ workflow: Workflow; defaultBranch: string } | null>(null);
@@ -77,6 +88,13 @@ export class WorkflowsPage {
 
     // A run in progress is what an operator watches, so the screen follows it instead of waiting to be
     // reloaded. While something is running it re-reads only the workflows that are running.
+    // Closed only once the provider accepted. A refusal keeps the panel open, where the operator asked.
+    effect(() => {
+      if (this.store.dispatchStatus() === 'accepted') {
+        untracked(() => this.runTarget.set(null));
+      }
+    });
+
     providerRefresh(
       () => this.store.refresh(),
       () =>
@@ -223,6 +241,8 @@ export class WorkflowsPage {
 
     this.store.clearDispatch();
     this.store.readManualRunSupport(group.projectId, workflow.id, workflow.path);
+    // Read the refs that exist, so the panel offers them rather than asking an operator to remember one.
+    this.store.readBranches(group.projectId, group.defaultBranch);
     this.runTarget.set({ workflow, defaultBranch: group.defaultBranch });
   }
 
@@ -242,8 +262,8 @@ export class WorkflowsPage {
       return;
     }
 
+    // The panel stays open: a refusal belongs where the operator asked, not on a page behind it.
     this.store.dispatch(projectId, target.workflow, request);
-    this.runTarget.set(null);
   }
 
   protected clearFilters(): void {

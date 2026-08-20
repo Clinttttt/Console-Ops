@@ -10,6 +10,7 @@ import {
   WorkflowInventory,
   WorkflowProjectGroup,
   WorkflowReadFailure,
+  WorkflowBranches,
   WorkflowDispatchAccepted,
   WorkflowInput,
   WorkflowRiskLevel,
@@ -143,6 +144,12 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
         level,
       })
       .pipe(map(() => undefined));
+  }
+
+  override loadBranches(projectId: string): Observable<WorkflowBranches> {
+    return this.http.get<WorkflowBranches>(
+      `/api/workflows/projects/${encodeURIComponent(projectId)}/branches`,
+    );
   }
 
   override dispatch(

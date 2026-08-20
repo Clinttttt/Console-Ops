@@ -9,6 +9,7 @@ import {
   WorkflowRiskLevel,
   Workflow,
   WorkflowInput,
+  WorkflowBranches,
 } from '../contracts/workflows';
 import { WorkflowsDataSource } from '../data/workflows.data-source';
 
@@ -205,6 +206,35 @@ export class WorkflowsStore {
   readonly riskFailure = this.riskError.asReadonly();
 
   /**
+   * Reads the refs a run could target.
+   *
+   * A failed read leaves the registered branch as the only option rather than an empty list: a run still has a
+   * sensible default, and the panel says the rest could not be read.
+   */
+  readBranches(projectId: string, defaultBranch: string): void {
+    this.branchState.set('loading');
+    this.branchList.set({ defaultBranch, branches: [defaultBranch], hasMore: false });
+
+    this.dataSource
+      .loadBranches(projectId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (branches) => {
+          this.branchList.set(branches);
+          this.branchState.set('loaded');
+        },
+        error: () => this.branchState.set('unavailable'),
+      });
+  }
+
+  private readonly branchList = signal<WorkflowBranches | null>(null);
+  private readonly branchState = signal<'idle' | 'loading' | 'loaded' | 'unavailable'>('idle');
+
+  readonly branches = computed(() => this.branchList()?.branches ?? []);
+  readonly branchesState = this.branchState.asReadonly();
+  readonly branchesBounded = computed(() => this.branchList()?.hasMore ?? false);
+
+  /**
    * Asks for a run, then looks for the run that request produced.
    *
    * The provider accepts a dispatch without reporting a run, so there is nothing to follow until one appears. The
@@ -228,7 +258,7 @@ export class WorkflowsStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (accepted) => {
-          this.dispatchState.set('requested');
+          this.dispatchState.set('accepted');
           this.requestedFor.set({ workflowId: workflow.id, at: accepted.requestedAt });
           // Ask straight away: the run usually appears within a second or two of being accepted.
           this.adoptRequestedRun(projectId, workflow.id);
@@ -240,7 +270,7 @@ export class WorkflowsStore {
       });
   }
 
-  private readonly dispatchState = signal<'idle' | 'requesting' | 'requested' | 'failed'>('idle');
+  private readonly dispatchState = signal<'idle' | 'requesting' | 'accepted' | 'failed'>('idle');
   private readonly dispatchError = signal<string | null>(null);
   private readonly requestedFor = signal<{ workflowId: string; at: string } | null>(null);
 

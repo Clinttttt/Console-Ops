@@ -24,22 +24,33 @@
     </p>
   }
 
-  <div class="field">
-    <span class="label">Branch</span>
-    @if (branchChanging()) {
-      <label class="co-sr-only" for="run-reference">Branch or tag</label>
-      <input
-        id="run-reference"
-        type="text"
-        [value]="reference()"
-        (input)="reference.set($any($event.target).value)"
-      />
+  <div class="row">
+    <label class="label" for="run-reference">Branch</label>
+    @if (branchesState() === 'loading') {
+      <p class="value co-unavailable">Reading branches...</p>
     } @else {
-      <span class="value co-mono">{{ effectiveReference() }}</span>
-      <!-- The project's registered branch. Changing it is deliberate, never silent. -->
-      <button type="button" class="co-inline-link" (click)="changeBranch()">Change</button>
+      <select
+        id="run-reference"
+        [value]="effectiveReference()"
+        (change)="reference.set($any($event.target).value)"
+      >
+        @for (branch of branches(); track branch) {
+          <option [value]="branch">{{ branch }}</option>
+        }
+      </select>
     }
   </div>
+
+  @if (branchesState() === 'unavailable') {
+    <!-- The registered branch is still offered; the rest could not be read, which is said rather than hidden. -->
+    <p class="note co-unavailable">
+      The repository's branches could not be read, so only the registered branch is offered.
+    </p>
+  } @else if (branchesBounded()) {
+    <p class="note co-unavailable">
+      Showing the first {{ branches().length }} branches the repository reports.
+    </p>
+  }
 
   @if (reading()) {
     <p class="note co-unavailable">Reading what this workflow asks for...</p>
@@ -47,7 +58,7 @@
     <p class="note co-unavailable">These are the inputs the workflow declares.</p>
 
     @for (input of inputs(); track input.name) {
-      <div class="field input-field">
+      <div class="stacked">
         <label class="label" [attr.for]="'run-input-' + input.name">
           {{ input.name }}
           @if (input.required) {
@@ -91,14 +102,15 @@
   }
 
   @if (isDestructive()) {
-    <div class="field">
-      <label class="label" for="run-confirmation">
-        Type <span class="co-mono">{{ item.name }}</span> to confirm
-      </label>
+    <div class="stacked">
+      <!-- One line, with the name it wants on its own line: the label was wrapping into a column. -->
+      <label class="label" for="run-confirmation">Type the workflow name to confirm</label>
+      <p class="expected co-mono">{{ item.name }}</p>
       <input
         id="run-confirmation"
         type="text"
         autocomplete="off"
+        spellcheck="false"
         [value]="typedName()"
         (input)="typedName.set($any($event.target).value)"
       />
@@ -106,6 +118,7 @@
   }
 
   @if (failure() !== null) {
+    <!-- Shown here, where the operator asked, rather than on a page behind this one. -->
     <p class="error">{{ failure() }}</p>
   }
 
@@ -113,6 +126,7 @@
     <button type="button" class="secondary" (click)="dismissed.emit()">Cancel</button>
     <button type="button" class="primary" [disabled]="!canRun()" (click)="run()">
       @if (submitting()) {
+        <co-icon name="refresh" [size]="15" />
         Requesting...
       } @else {
         Run workflow

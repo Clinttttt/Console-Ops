@@ -205,14 +205,13 @@
     [workflow]="target.workflow"
     [defaultBranch]="target.defaultBranch"
     [inputs]="selectedInputs()"
+    [branches]="branches()"
+    [branchesState]="branchesState()"
+    [branchesBounded]="branchesBounded()"
     [reading]="manualRunReading()"
     [submitting]="dispatchStatus() === 'requesting'"
     [failure]="dispatchFailure()"
     (dismissed)="cancelRun()"
     (confirmed)="confirmRun($event)"
   />
-}
-
-@if (dispatchStatus() === 'failed' && dispatchFailure() !== null) {
-  <p class="dispatch-error">{{ dispatchFailure() }}</p>
 }

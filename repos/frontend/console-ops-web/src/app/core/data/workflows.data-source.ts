@@ -7,6 +7,7 @@ import {
   WorkflowRunJob,
   WorkflowRiskLevel,
   WorkflowDispatchAccepted,
+  WorkflowBranches,
 } from '../contracts/workflows';
 
 /**
@@ -56,6 +57,9 @@ export abstract class WorkflowsDataSource {
    *
    * Every gate is re-checked by the API, so a screen that offered a run it should not have is still refused.
    */
+  /** The refs a run could target, read when a run is being asked for. */
+  abstract loadBranches(projectId: string): Observable<WorkflowBranches>;
+
   abstract dispatch(
     projectId: string,
     workflowId: string,

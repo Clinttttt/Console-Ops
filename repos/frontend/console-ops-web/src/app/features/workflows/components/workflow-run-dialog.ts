@@ -29,6 +29,10 @@ export class WorkflowRunDialog {
   /** The project's registered branch, which the ref defaults to. */
   readonly defaultBranch = input.required<string>();
   readonly inputs = input<readonly WorkflowInput[]>([]);
+  /** The refs the repository reports, so a branch is chosen rather than remembered. */
+  readonly branches = input<readonly string[]>([]);
+  readonly branchesState = input<'idle' | 'loading' | 'loaded' | 'unavailable'>('idle');
+  readonly branchesBounded = input(false);
   readonly reading = input(false);
   readonly submitting = input(false);
   readonly failure = input<string | null>(null);
@@ -39,7 +43,6 @@ export class WorkflowRunDialog {
   protected readonly reference = signal('');
   protected readonly typedName = signal('');
   protected readonly values = signal<Record<string, string>>({});
-  protected readonly branchChanging = signal(false);
 
   /** The ref that will be used: the project's branch until an operator changes it themselves. */
   protected readonly effectiveReference = computed(() => {
@@ -83,11 +86,6 @@ export class WorkflowRunDialog {
 
   protected setValue(input: WorkflowInput, value: string): void {
     this.values.update((current) => ({ ...current, [input.name]: value }));
-  }
-
-  protected changeBranch(): void {
-    this.reference.set(this.defaultBranch());
-    this.branchChanging.set(true);
   }
 
   protected run(): void {
