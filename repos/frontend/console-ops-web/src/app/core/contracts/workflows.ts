@@ -154,6 +154,8 @@ export interface WorkflowProjectGroup {
   readonly projectId: string;
   readonly projectName: string;
   readonly repository: string;
+  /** The project's registered branch. A run defaults to it and requires an explicit change. */
+  readonly defaultBranch: string;
   readonly workflows: readonly Workflow[];
   readonly readFailure: WorkflowReadFailure | null;
 }
@@ -177,10 +179,36 @@ export interface WorkflowRunHistory {
  * does not report triggers. Read for the workflow an operator selected, so a page of workflows does not cost a
  * page of extra requests.
  */
+/** One input the workflow declares for a manual run. Nothing here is invented by Console Ops. */
+export interface WorkflowInput {
+  readonly name: string;
+  readonly description: string | null;
+  readonly required: boolean;
+  /** `string`, `choice`, `boolean`, or `environment`, as declared. */
+  readonly type: string;
+  readonly default: string | null;
+  /** Allowed values where the workflow declared them, otherwise empty. */
+  readonly options: readonly string[];
+}
+
 export interface ManualRunSupportReading {
   readonly manualRun: ManualRunSupport;
   /** The file the answer was read from, so the claim can be checked. */
   readonly definitionPath: string;
+  readonly inputs: readonly WorkflowInput[];
+}
+
+/**
+ * What the provider said when asked to start a workflow.
+ *
+ * `requested` is the only status: the provider accepts a dispatch without reporting a run, so Console Ops does not
+ * know which run it started and finds it afterwards rather than claiming one.
+ */
+export interface WorkflowDispatchAccepted {
+  readonly status: 'requested';
+  readonly workflowId: string;
+  readonly reference: string;
+  readonly requestedAt: string;
 }
 
 export interface WorkflowInventory {

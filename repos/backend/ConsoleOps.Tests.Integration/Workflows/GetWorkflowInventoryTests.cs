@@ -21,7 +21,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Inventory_CallsAWorkflowADeploymentOnlyWhereTheOperatorConfiguredIt()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage(
         [
             Workflow(101, "Deploy production", ".github/workflows/deploy-production.yml"),
             Workflow(202, "Database backup", ".github/workflows/database-backup.yml")
@@ -48,7 +48,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Inventory_ReportsAnUnreadableRepositoryAsSuchRatherThanAsHavingNoAutomation()
     {
-        StubInventory inventory = new(GitHubReadFailure.Unauthorized);
+        FakeGitHubWorkflowInventory inventory = new(GitHubReadFailure.Unauthorized);
 
         using WebApplicationFactory<Program> application = CreateApplication(inventory);
         using HttpClient client = CreateClient(application);
@@ -65,7 +65,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Inventory_DescribesARunningRunWithoutAnOutcomeOrADuration()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage(
         [
             Workflow(101, "Deploy production", ".github/workflows/deploy-production.yml") with
             {
@@ -104,7 +104,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Inventory_ReportsAWorkflowWithNoRunWithoutInventingOne()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage(
         [
             Workflow(303, "Database restore", ".github/workflows/database-restore.yml")
         ]));
@@ -125,7 +125,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task RunJobs_RefusesARunWhoseProjectIsNotRegistered()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage([]));
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage([]));
 
         using WebApplicationFactory<Program> application = CreateApplication(inventory);
         using HttpClient client = CreateClient(application);
@@ -140,7 +140,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Inventory_WillNotRunAWorkflowNobodyHasMarked()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage(
         [
             Workflow(101, "Database restore", ".github/workflows/database-restore.yml") with
             {
@@ -166,7 +166,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Risk_BecomesExecutableOnlyAfterAnOperatorMarksIt()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage(
         [
             Workflow(101, "Database restore", ".github/workflows/database-restore.yml") with
             {
@@ -194,7 +194,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Risk_SetBackToUnclassifiedStopsBeingExecutableAgain()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage(
         [
             Workflow(101, "CI", ".github/workflows/ci.yml") with { SupportsManualRun = true }
         ]));
@@ -220,7 +220,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Risk_RefusesALevelItDoesNotUnderstandRatherThanChoosingASaferSoundingOne()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage([]));
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage([]));
 
         using WebApplicationFactory<Program> application = CreateApplication(inventory);
         using HttpClient client = CreateClient(application);
@@ -236,7 +236,7 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
     [Fact]
     public async Task Risk_RefusesAWorkflowPathThatNamesNothing()
     {
-        StubInventory inventory = new(new GitHubWorkflowInventoryPage([]));
+        FakeGitHubWorkflowInventory inventory = new(new GitHubWorkflowInventoryPage([]));
 
         using WebApplicationFactory<Program> application = CreateApplication(inventory);
         using HttpClient client = CreateClient(application);
@@ -301,47 +301,5 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
         ProjectResponse? project = await created.Content.ReadFromJsonAsync<ProjectResponse>();
         Assert.NotNull(project);
         return project;
-    }
-
-    /// <summary>Answers with one prepared page, or one prepared failure, for every repository.</summary>
-    private sealed class StubInventory : IGitHubWorkflowInventory
-    {
-        private readonly GitHubWorkflowInventoryPage? page;
-        private readonly GitHubReadFailure? failure;
-
-        public StubInventory(GitHubWorkflowInventoryPage page) => this.page = page;
-
-        public StubInventory(GitHubReadFailure failure) => this.failure = failure;
-
-        public Task<GitHubFactResult<GitHubWorkflowInventoryPage>> ListWorkflowsAsync(
-            string owner,
-            string repository,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(page is null
-                ? GitHubFactResult<GitHubWorkflowInventoryPage>.Failed(failure!.Value)
-                : GitHubFactResult<GitHubWorkflowInventoryPage>.Success(page));
-
-        public Task<GitHubFactResult<GitHubRunPage>> ListRunsAsync(
-            string owner,
-            string repository,
-            long workflowId,
-            int limit,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(GitHubFactResult<GitHubRunPage>.Success(new GitHubRunPage([], false)));
-
-        public Task<GitHubFactResult<GitHubManualRunSupport>> ReadManualRunSupportAsync(
-            string owner,
-            string repository,
-            string workflowPath,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(GitHubFactResult<GitHubManualRunSupport>.Success(
-                new GitHubManualRunSupport(null, workflowPath)));
-
-        public Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(
-            string owner,
-            string repository,
-            long runId,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(GitHubFactResult<GitHubRunJobs>.Success(new GitHubRunJobs([])));
     }
 }

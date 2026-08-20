@@ -201,6 +201,11 @@ workflowId
 runs[]                              newest first, same shape as latestRun above
 hasMore                             true when the provider reports runs beyond this page
 
+POST /api/workflows/projects/{projectId}/workflows/{workflowId}/runs
+
+{ reference, inputs?, confirmation? }
+-> 202 { status: "requested", workflowId, reference, requestedAt }
+
 PUT /api/workflows/projects/{projectId}/risk
 
 { workflowPath, level }              level: unclassified | normal | destructive
@@ -278,7 +283,23 @@ Rules:
   is in the definition and is established per selection, so a run request is checked against both. Marking does
   not advance a project's `configurationVersion`: it is set from another screen and must not make an unrelated
   edit look stale.
-- **Failure is not emptiness.** `Workflows.Unauthorized`, `Workflows.RateLimited`, `Workflows.NotFound`,
+- **A run is requested, never claimed.** GitHub answers a dispatch with `204` and no body, so Console Ops does not
+  know which run it started. The response is `requested` with the time it was accepted, and the run is adopted
+  afterwards by finding one that started at or after that - the only link available. A screen says `Requested`
+  until then rather than showing a run that may not exist.
+- **Every gate is checked by the API, not the screen.** The project must own the workflow, the provider must report
+  it as active, an operator must have marked its risk, a workflow marked destructive needs its name typed
+  (trimmed, case-insensitive, compared against the provider's name rather than the caller's), the definition must
+  declare a dispatch trigger, and a ref must be stated. Support that could not be established is refused as well:
+  starting a workflow on a guess is what this avoids.
+- **A ref is always stated.** Console Ops never picks one. The screen defaults it to the project's registered
+  branch and requires an explicit change, and the API refuses an empty ref.
+- **Only declared inputs are forwarded.** An input the workflow never declared is dropped whatever a caller sends,
+  and a declared input left blank is omitted so the workflow's own default applies rather than an empty value.
+- **A refused credential is `403`, not `500`.** `Workflows.Unauthorized` carries `ErrorType.Forbidden`: a token
+  scope an operator has not granted is not a server fault, and reporting it as one sends them looking for an
+  outage. Verified live - dispatch against a read-only token answered 403 with the reason naming write access.
+- **Failure is not emptiness.** `Workflows.RateLimited`, `Workflows.NotFound`,
   `Workflows.InvalidResponse`, `Workflows.Unavailable`. An exhausted rate limit is reported as itself, never as
   a rejected credential.
 

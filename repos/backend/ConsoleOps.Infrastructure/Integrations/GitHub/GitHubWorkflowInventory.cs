@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using ConsoleOps.Application.Integrations.GitHub;
 
@@ -168,8 +169,100 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
         // unavailable, which would hide a workflow an operator relies on.
         return GitHubFactResult<GitHubManualRunSupport>.Success(new GitHubManualRunSupport(
             definition is null ? null : WorkflowTriggerScan.DeclaresManualDispatch(definition),
-            workflowPath));
+            workflowPath,
+            definition is null ? [] : ToInputs(WorkflowTriggerScan.ReadDispatchInputs(definition))));
     }
+
+    public async Task<GitHubFactResult<GitHubWorkflowDefinition>> GetWorkflowAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workflowId);
+
+        string path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}"
+            + $"/actions/workflows/{workflowId}";
+        GitHubReadResponse<WorkflowDto> response =
+            await GitHubRead.GetAsync<WorkflowDto>(httpClient, path, cancellationToken);
+
+        if (response.Value is null || response.Value.Id <= 0 || string.IsNullOrWhiteSpace(response.Value.Name))
+        {
+            return GitHubFactResult<GitHubWorkflowDefinition>.Failed(
+                response.Failure ?? GitHubReadFailure.InvalidResponse);
+        }
+
+        return GitHubFactResult<GitHubWorkflowDefinition>.Success(new GitHubWorkflowDefinition(
+            response.Value.Id,
+            response.Value.Name!.Trim(),
+            response.Value.Path?.Trim() ?? string.Empty,
+            IsActive(response.Value.State),
+            SupportsManualRun: null,
+            LatestRun: null));
+    }
+
+    public async Task<GitHubDispatchOutcome> DispatchAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        string reference,
+        IReadOnlyDictionary<string, string> inputs,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workflowId);
+
+        string path = $"repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repository)}"
+            + $"/actions/workflows/{workflowId}/dispatches";
+
+        try
+        {
+            using HttpRequestMessage request = new(HttpMethod.Post, path);
+            request.Headers.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            request.Headers.UserAgent.ParseAdd(GitHubRead.UserAgent);
+            request.Headers.Add("X-GitHub-Api-Version", GitHubRead.ApiVersion);
+            request.Content = JsonContent.Create(new DispatchRequest(
+                reference,
+                // Omitted entirely when the workflow declares none: an empty object is a different request.
+                inputs.Count == 0 ? null : inputs));
+
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
+
+            // The provider answers 204 with no body. There is no run to report yet, which is why this returns
+            // acceptance rather than a run.
+            return response.StatusCode switch
+            {
+                System.Net.HttpStatusCode.NoContent or System.Net.HttpStatusCode.Created =>
+                    GitHubDispatchOutcome.Accepted,
+                System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                    IsRateLimited(response) ? GitHubDispatchOutcome.RateLimited : GitHubDispatchOutcome.Forbidden,
+                System.Net.HttpStatusCode.NotFound => GitHubDispatchOutcome.NotFound,
+                System.Net.HttpStatusCode.UnprocessableEntity or System.Net.HttpStatusCode.BadRequest =>
+                    GitHubDispatchOutcome.Rejected,
+                System.Net.HttpStatusCode.TooManyRequests => GitHubDispatchOutcome.RateLimited,
+                _ => GitHubDispatchOutcome.Unavailable
+            };
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // A dispatch that timed out may or may not have been accepted, so it is reported as unavailable
+            // rather than as a refusal - the run list is what settles it.
+            return GitHubDispatchOutcome.Unavailable;
+        }
+        catch (HttpRequestException)
+        {
+            return GitHubDispatchOutcome.Unavailable;
+        }
+    }
+
+    private static bool IsRateLimited(HttpResponseMessage response) =>
+        response.Headers.TryGetValues("X-RateLimit-Remaining", out IEnumerable<string>? values)
+        && values.Contains("0", StringComparer.Ordinal);
 
     public async Task<GitHubFactResult<GitHubRunJobs>> ListRunJobsAsync(
         string owner,
@@ -307,6 +400,19 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>What the workflow declared it needs, in declaration order and nothing else.</summary>
+    private static GitHubWorkflowInput[] ToInputs(IReadOnlyList<WorkflowInputDeclaration> declarations) =>
+        declarations
+            .Where(declaration => declaration.Name.Length > 0)
+            .Select(declaration => new GitHubWorkflowInput(
+                declaration.Name,
+                declaration.Description,
+                declaration.Required,
+                declaration.Type,
+                declaration.Default,
+                declaration.Options))
+            .ToArray();
+
     /// <summary>Each path segment is escaped, so a workflow in a folder is still addressed correctly.</summary>
     private static string EscapePath(string path) =>
         string.Join('/', path.Trim().Split('/').Select(Uri.EscapeDataString));
@@ -364,6 +470,11 @@ public sealed class GitHubWorkflowInventory(HttpClient httpClient) : IGitHubWork
     private sealed record ActorDto(string? Login);
 
     private sealed record ContentDto(string? Content, string? Encoding);
+
+    /// <param name="Ref">The provider's own field name. Never defaulted here: a caller states the ref.</param>
+    private sealed record DispatchRequest(
+        [property: JsonPropertyName("ref")] string Ref,
+        [property: JsonPropertyName("inputs")] IReadOnlyDictionary<string, string>? Inputs);
 
     private sealed record JobsDto(JobDto[]? Jobs);
 

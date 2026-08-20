@@ -1,0 +1,122 @@
+@let item = workflow();
+
+<!-- Not clickable: a bare div with a handler is neither focusable nor reachable from a keyboard, and Cancel and
+     Escape both already close this. -->
+<div class="backdrop"></div>
+
+<div
+  class="dialog"
+  role="dialog"
+  aria-modal="true"
+  tabindex="-1"
+  [attr.aria-label]="'Run ' + item.name"
+  (keydown.escape)="dismissed.emit()"
+>
+  <p class="co-eyebrow">Run workflow</p>
+  <h2 class="title">{{ item.name }}</h2>
+  <p class="path co-mono">{{ item.path }}</p>
+
+  @if (isDestructive()) {
+    <!-- Stated before anything is filled in: an operator marked this destructive, and that is why it asks more. -->
+    <p class="destructive">
+      <co-icon name="pulse" [size]="15" />
+      Marked destructive. This will run on the provider and cannot be taken back from here.
+    </p>
+  }
+
+  <div class="field">
+    <span class="label">Branch</span>
+    @if (branchChanging()) {
+      <label class="co-sr-only" for="run-reference">Branch or tag</label>
+      <input
+        id="run-reference"
+        type="text"
+        [value]="reference()"
+        (input)="reference.set($any($event.target).value)"
+      />
+    } @else {
+      <span class="value co-mono">{{ effectiveReference() }}</span>
+      <!-- The project's registered branch. Changing it is deliberate, never silent. -->
+      <button type="button" class="co-inline-link" (click)="changeBranch()">Change</button>
+    }
+  </div>
+
+  @if (reading()) {
+    <p class="note co-unavailable">Reading what this workflow asks for...</p>
+  } @else if (inputs().length > 0) {
+    <p class="note co-unavailable">These are the inputs the workflow declares.</p>
+
+    @for (input of inputs(); track input.name) {
+      <div class="field input-field">
+        <label class="label" [attr.for]="'run-input-' + input.name">
+          {{ input.name }}
+          @if (input.required) {
+            <span class="required">required</span>
+          }
+        </label>
+
+        @if (input.options.length > 0) {
+          <select
+            [attr.id]="'run-input-' + input.name"
+            [value]="valueOf(input)"
+            (change)="setValue(input, $any($event.target).value)"
+          >
+            @for (option of input.options; track option) {
+              <option [value]="option">{{ option }}</option>
+            }
+          </select>
+        } @else if (input.type === 'boolean') {
+          <select
+            [attr.id]="'run-input-' + input.name"
+            [value]="valueOf(input)"
+            (change)="setValue(input, $any($event.target).value)"
+          >
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        } @else {
+          <input
+            [attr.id]="'run-input-' + input.name"
+            type="text"
+            [value]="valueOf(input)"
+            (input)="setValue(input, $any($event.target).value)"
+          />
+        }
+
+        @if (input.description !== null) {
+          <span class="description co-unavailable">{{ input.description }}</span>
+        }
+      </div>
+    }
+  }
+
+  @if (isDestructive()) {
+    <div class="field">
+      <label class="label" for="run-confirmation">
+        Type <span class="co-mono">{{ item.name }}</span> to confirm
+      </label>
+      <input
+        id="run-confirmation"
+        type="text"
+        autocomplete="off"
+        [value]="typedName()"
+        (input)="typedName.set($any($event.target).value)"
+      />
+    </div>
+  }
+
+  @if (failure() !== null) {
+    <p class="error">{{ failure() }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="secondary" (click)="dismissed.emit()">Cancel</button>
+    <button type="button" class="primary" [disabled]="!canRun()" (click)="run()">
+      @if (submitting()) {
+        Requesting...
+      } @else {
+        Run workflow
+      }
+    </button>
+  </div>
+</div>

@@ -47,6 +47,7 @@ export class WorkflowDetail {
   readonly riskFailure = input<string | null>(null);
 
   readonly chooseRisk = output<{ workflow: Workflow; level: WorkflowRiskLevel }>();
+  readonly requestRun = output<Workflow>();
 
   /** In order of intent required. Unclassified first, because it is the state that runs nothing. */
   protected readonly riskOptions: readonly { level: WorkflowRiskLevel; label: string }[] = [
@@ -79,6 +80,19 @@ export class WorkflowDetail {
       default:
         return null;
     }
+  });
+
+  /** Why a run cannot be asked for, in the words the panel already uses above. */
+  protected readonly runBlockedReason = computed(() => {
+    if (this.workflow().risk === 'unclassified') {
+      return "Mark this workflow's risk before Console Ops will run it";
+    }
+
+    if (this.workflow().state === 'disabled') {
+      return 'The provider reports this workflow as disabled';
+    }
+
+    return 'The provider has not reported that this workflow accepts a manual run';
   });
 
   protected jobCell(job: WorkflowRunJob): StatusCell | null {

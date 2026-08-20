@@ -46,6 +46,7 @@ public sealed class GetWorkflowInventoryQueryHandler(
                 project.Id,
                 project.Name,
                 $"{project.Repository.Owner}/{project.Repository.Name}",
+                project.Repository.DefaultBranch,
                 result.IsSuccess
                     ? ToWorkflows(
                         result.Observation!.Workflows,

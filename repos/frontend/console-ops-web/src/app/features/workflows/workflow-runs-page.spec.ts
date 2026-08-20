@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 
 import {
   ManualRunSupportReading,
+  WorkflowDispatchAccepted,
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
@@ -22,6 +23,7 @@ const INVENTORY: WorkflowInventory = {
       projectId: 'eemo',
       projectName: 'EEMO-Cantilan-SDS',
       repository: 'clint/EEMO-Cantilan-SDS',
+      defaultBranch: 'master',
       readFailure: null,
       workflows: [
         {
@@ -168,8 +170,17 @@ class StubWorkflows extends WorkflowsDataSource {
     return of(undefined);
   }
 
+  override dispatch(): Observable<WorkflowDispatchAccepted> {
+    return of({
+      status: 'requested' as const,
+      workflowId: '101',
+      reference: 'master',
+      requestedAt: '2026-08-19T07:06:00.000Z',
+    });
+  }
+
   override loadManualRunSupport(): Observable<ManualRunSupportReading> {
-    return of({ manualRun: 'unknown', definitionPath: '.github/workflows/ci.yml' });
+    return of({ manualRun: 'unknown', definitionPath: '.github/workflows/ci.yml', inputs: [] });
   }
 }
 

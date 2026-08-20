@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 
 import {
   ManualRunSupportReading,
+  WorkflowDispatchAccepted,
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
@@ -25,6 +26,7 @@ const INVENTORY: WorkflowInventory = {
       projectId: 'eemo',
       projectName: 'EEMO-Cantilan-SDS',
       repository: 'clint/EEMO-Cantilan-SDS',
+      defaultBranch: 'master',
       readFailure: null,
       workflows: [
         {
@@ -99,6 +101,7 @@ const INVENTORY: WorkflowInventory = {
       projectId: 'spinner',
       projectName: 'Spinner API',
       repository: 'clint/Spinner',
+      defaultBranch: 'main',
       readFailure: null,
       workflows: [
         {
@@ -141,6 +144,13 @@ class StubWorkflows extends WorkflowsDataSource {
   jobRequests: { projectId: string; runId: string }[] = [];
   manualRunRequests: { projectId: string; workflowId: string; workflowPath: string }[] = [];
   riskWrites: { projectId: string; workflowPath: string; level: string }[] = [];
+  dispatches: {
+    projectId: string;
+    workflowId: string;
+    reference: string;
+    inputs: Readonly<Record<string, string>>;
+    confirmation: string | null;
+  }[] = [];
 
   constructor(
     private readonly inventory: Observable<WorkflowInventory> = of(INVENTORY),
@@ -148,6 +158,7 @@ class StubWorkflows extends WorkflowsDataSource {
     private readonly manualRun: Observable<ManualRunSupportReading> = of({
       manualRun: 'supported' as const,
       definitionPath: '.github/workflows/deploy-production.yml',
+      inputs: [],
     }),
   ) {
     super();
@@ -164,6 +175,24 @@ class StubWorkflows extends WorkflowsDataSource {
 
   override loadRuns(_projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
     return of({ workflowId, runs: [], hasMore: false });
+  }
+
+  override dispatch(
+    projectId: string,
+    workflowId: string,
+    request: {
+      reference: string;
+      inputs: Readonly<Record<string, string>>;
+      confirmation: string | null;
+    },
+  ): Observable<WorkflowDispatchAccepted> {
+    this.dispatches.push({ projectId, workflowId, ...request });
+    return of({
+      status: 'requested' as const,
+      workflowId,
+      reference: request.reference,
+      requestedAt: '2026-08-19T07:06:00.000Z',
+    });
   }
 
   override setRisk(projectId: string, workflowPath: string, level: string): Observable<void> {
@@ -348,15 +377,101 @@ describe('WorkflowsPage', () => {
     expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Marked ');
   });
 
-  it('offers a run action only where the provider reported manual dispatch', () => {
-    const deploy = rowFor('Deploy production')!.querySelector('.run');
-    expect(deploy?.textContent?.trim()).toBe('Run');
-    expect(deploy?.classList.contains('is-unavailable')).toBe(true);
+  it('offers Logs on every row and Run only where a run is allowed', () => {
+    const row = rowFor('Database backup')!;
+    const logs = Array.from(row.querySelectorAll('.co-inline-link')).find(
+      (link) => link.textContent?.trim() === 'Logs',
+    );
 
-    // Reported unavailable: no action at all rather than a button that cannot work.
-    expect(rowFor('Security scan')!.querySelector('.run')).toBeNull();
-    // Not established: no action and no claim either way until the definition is read.
-    expect(rowFor('Database backup')!.querySelector('.run')).toBeNull();
+    // One link to this workflow's runs, and no second label claiming to show provider log text.
+    expect(logs).not.toBeUndefined();
+    expect(row.textContent).not.toContain('Run logs');
+
+    // Marked and dispatchable, so Run is a real control.
+    expect(rowFor('Deploy production')!.querySelector('button.run')).not.toBeNull();
+    // Unmarked, so it is present but refuses, and says why.
+    const unmarked = rowFor('Database backup')!.querySelector('.run')!;
+    expect(unmarked.tagName).not.toBe('BUTTON');
+    expect(unmarked.getAttribute('title')).toContain('risk');
+  });
+
+  it('asks for a branch and confirmation before starting a normal workflow', async () => {
+    rowFor('Deploy production')!.querySelector<HTMLButtonElement>('button.run')!.click();
+    await fixture.whenStable();
+
+    const dialog = host.querySelector('co-workflow-run-dialog')!;
+    // The project's registered branch, shown rather than assumed.
+    expect(dialog.textContent).toContain('master');
+    expect(dialog.querySelector('#run-confirmation')).toBeNull();
+
+    dialog.querySelector<HTMLButtonElement>('.primary')!.click();
+    await fixture.whenStable();
+
+    expect(dataSource.dispatches).toEqual([
+      {
+        projectId: 'eemo',
+        workflowId: '101',
+        reference: 'master',
+        inputs: {},
+        confirmation: null,
+      },
+    ]);
+  });
+
+  it('will not start a destructive workflow until its name is typed', async () => {
+    rowFor('Database restore')!.querySelector('.run');
+    await select('Database restore');
+    host
+      .querySelector('co-workflow-detail')!
+      .querySelectorAll<HTMLButtonElement>('.co-inline-link')
+      .forEach((link) => {
+        if (link.textContent?.trim() === 'Run workflow') {
+          link.click();
+        }
+      });
+    await fixture.whenStable();
+
+    const dialog = host.querySelector('co-workflow-run-dialog')!;
+    expect(dialog.textContent).toContain('Marked destructive');
+
+    const run = dialog.querySelector<HTMLButtonElement>('.primary')!;
+    expect(run.disabled).toBe(true);
+
+    const confirmation = dialog.querySelector<HTMLInputElement>('#run-confirmation')!;
+    confirmation.value = 'Database restore';
+    confirmation.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+
+    expect(dialog.querySelector<HTMLButtonElement>('.primary')!.disabled).toBe(false);
+    dialog.querySelector<HTMLButtonElement>('.primary')!.click();
+    await fixture.whenStable();
+
+    expect(dataSource.dispatches[0].confirmation).toBe('Database restore');
+  });
+
+  it('says a run was requested rather than claiming one is going', async () => {
+    rowFor('Deploy production')!.querySelector<HTMLButtonElement>('button.run')!.click();
+    await fixture.whenStable();
+    host
+      .querySelector('co-workflow-run-dialog')!
+      .querySelector<HTMLButtonElement>('.primary')!
+      .click();
+    await fixture.whenStable();
+
+    // The provider accepts without reporting a run, and the stub's newest run predates the request.
+    expect(rowFor('Deploy production')?.textContent).toContain('Requested');
+  });
+
+  it('offers a run action only where the provider reported manual dispatch', () => {
+    const deploy = rowFor('Deploy production')!.querySelector('.run')!;
+    expect(deploy.textContent?.trim()).toBe('Run');
+    // Marked and dispatchable, so it is a control rather than a label.
+    expect(deploy.tagName).toBe('BUTTON');
+
+    // Refuses, and names the risk reason first: an unmarked workflow would not be run even if it were enabled.
+    const refused = rowFor('Security scan')!.querySelector('.run')!;
+    expect(refused.tagName).not.toBe('BUTTON');
+    expect(refused.getAttribute('title')).toContain('risk');
   });
 
   it('reads the jobs of the selected run only, and once', async () => {
@@ -413,6 +528,7 @@ describe('WorkflowsPage', () => {
               projectId: 'eemo',
               projectName: 'EEMO-Cantilan-SDS',
               repository: 'clint/EEMO-Cantilan-SDS',
+              defaultBranch: 'master',
               workflows: [],
               readFailure: 'unauthorized' as const,
             },

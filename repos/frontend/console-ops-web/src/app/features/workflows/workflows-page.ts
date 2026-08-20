@@ -15,6 +15,7 @@ import { Icon } from '../../core/ui/icon';
 import { ProjectMark, ProjectMarkTone } from '../../core/ui/project-mark';
 import { toneForProject } from '../../core/ui/project-tone';
 import { WorkflowDetail } from './components/workflow-detail';
+import { WorkflowRunDialog } from './components/workflow-run-dialog';
 import { WorkflowRow } from './components/workflow-row';
 
 /** Which workflows the inventory is narrowed to. `null` is everything. */
@@ -41,7 +42,7 @@ interface FilteredGroup {
 @Component({
   selector: 'co-workflows-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Icon, ProjectMark, WorkflowDetail, WorkflowRow],
+  imports: [Icon, ProjectMark, WorkflowDetail, WorkflowRow, WorkflowRunDialog],
   templateUrl: './workflows-page.html',
   styleUrl: './workflows-page.scss',
 })
@@ -58,6 +59,13 @@ export class WorkflowsPage {
   protected readonly manualRunReading = this.store.manualRunReading;
   protected readonly savingRiskFor = this.store.savingRiskFor;
   protected readonly riskFailure = this.store.riskFailure;
+  protected readonly dispatchStatus = this.store.dispatchStatus;
+  protected readonly dispatchFailure = this.store.dispatchFailure;
+  protected readonly awaitingRunFor = this.store.awaitingRunFor;
+  protected readonly selectedInputs = this.store.selectedInputs;
+
+  /** The workflow a run is being asked for, or `null` when nothing is being asked. */
+  protected readonly runTarget = signal<{ workflow: Workflow; defaultBranch: string } | null>(null);
 
   protected readonly search = signal('');
   protected readonly typeFilter = signal<TypeFilter>(null);
@@ -196,6 +204,46 @@ export class WorkflowsPage {
     if (projectId !== null) {
       this.store.setRisk(projectId, workflow.path, level);
     }
+  }
+
+  /**
+   * Opens the run panel for one workflow.
+   *
+   * Reads the definition first if it has not been read: the panel asks for what the workflow declares, and the
+   * only way to know that is the definition.
+   */
+  protected requestRun(workflow: Workflow): void {
+    const group = this.store
+      .groups()
+      .find((candidate) => candidate.workflows.some((item) => item.id === workflow.id));
+
+    if (group === undefined) {
+      return;
+    }
+
+    this.store.clearDispatch();
+    this.store.readManualRunSupport(group.projectId, workflow.id, workflow.path);
+    this.runTarget.set({ workflow, defaultBranch: group.defaultBranch });
+  }
+
+  protected cancelRun(): void {
+    this.runTarget.set(null);
+    this.store.clearDispatch();
+  }
+
+  protected confirmRun(request: {
+    reference: string;
+    inputs: Readonly<Record<string, string>>;
+    confirmation: string | null;
+  }): void {
+    const target = this.runTarget();
+    const projectId = target === null ? null : this.projectOf(target.workflow.id);
+    if (target === null || projectId === null) {
+      return;
+    }
+
+    this.store.dispatch(projectId, target.workflow, request);
+    this.runTarget.set(null);
   }
 
   protected clearFilters(): void {

@@ -6,6 +6,7 @@ import {
   WorkflowRunHistory,
   WorkflowRunJob,
   WorkflowRiskLevel,
+  WorkflowDispatchAccepted,
 } from '../contracts/workflows';
 
 /**
@@ -49,6 +50,21 @@ export abstract class WorkflowsDataSource {
     workflowPath: string,
     level: WorkflowRiskLevel,
   ): Observable<void>;
+
+  /**
+   * Asks Console Ops to start a workflow.
+   *
+   * Every gate is re-checked by the API, so a screen that offered a run it should not have is still refused.
+   */
+  abstract dispatch(
+    projectId: string,
+    workflowId: string,
+    request: {
+      readonly reference: string;
+      readonly inputs: Readonly<Record<string, string>>;
+      readonly confirmation: string | null;
+    },
+  ): Observable<WorkflowDispatchAccepted>;
 
   abstract loadManualRunSupport(
     projectId: string,

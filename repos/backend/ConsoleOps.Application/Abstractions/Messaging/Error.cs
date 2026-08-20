@@ -6,6 +6,16 @@ public enum ErrorType
     Validation,
     NotFound,
     Conflict,
+
+    /// <summary>
+    /// The credential Console Ops is configured with is not allowed to do this.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="Failure"/> because nothing broke: reporting a permission the operator has not
+    /// granted as a server fault sends them looking for an outage instead of a token scope.
+    /// </remarks>
+    Forbidden,
+
     Failure
 }
 

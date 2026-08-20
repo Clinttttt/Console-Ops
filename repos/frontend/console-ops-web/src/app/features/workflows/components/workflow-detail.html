@@ -213,13 +213,14 @@
     starting a workflow is a later phase, because Console Ops reads automation before it operates it.
   -->
   <a class="co-inline-link" [routerLink]="['/workflows', projectId(), item.id, 'runs']">
-    View runs
+    View logs
     <co-icon name="arrowRight" [size]="15" />
   </a>
-  <span
-    class="co-inline-link is-unavailable"
-    title="Starting a workflow is a later phase, after read-only inventory is proven"
-  >
-    Run workflow
-  </span>
+  @if (item.executable && manualRun() === 'supported') {
+    <button type="button" class="co-inline-link" (click)="requestRun.emit(item)">
+      Run workflow
+    </button>
+  } @else {
+    <span class="co-inline-link is-unavailable" [title]="runBlockedReason()">Run workflow</span>
+  }
 </div>

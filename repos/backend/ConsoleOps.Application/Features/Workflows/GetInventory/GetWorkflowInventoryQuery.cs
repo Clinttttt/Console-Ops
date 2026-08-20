@@ -25,10 +25,15 @@ public sealed record WorkflowInventoryResponse(
 /// leaves the other projects intact rather than emptying the screen, and it is never reported as a repository
 /// with no automation.
 /// </param>
+/// <param name="DefaultBranch">
+/// The branch registered for this project. A run defaults to it and requires an explicit change, so a dispatch
+/// never quietly targets a ref an operator did not look at.
+/// </param>
 public sealed record WorkflowProjectGroupResponse(
     Guid ProjectId,
     string ProjectName,
     string Repository,
+    string DefaultBranch,
     IReadOnlyList<WorkflowResponse> Workflows,
     string? ReadFailure);
 

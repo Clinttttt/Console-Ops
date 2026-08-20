@@ -10,6 +10,8 @@ import {
   WorkflowInventory,
   WorkflowProjectGroup,
   WorkflowReadFailure,
+  WorkflowDispatchAccepted,
+  WorkflowInput,
   WorkflowRiskLevel,
   WorkflowRun,
   WorkflowRunConclusion,
@@ -29,6 +31,7 @@ interface WorkflowInventoryPayload {
     readonly projectId: string;
     readonly projectName: string;
     readonly repository: string;
+    readonly defaultBranch: string;
     readonly workflows: readonly WorkflowPayload[];
     readonly readFailure: string | null;
   }[];
@@ -92,6 +95,7 @@ interface RunsPayload {
 interface ManualRunPayload {
   readonly manualRun: string;
   readonly definitionPath: string;
+  readonly inputs: readonly WorkflowInput[];
 }
 
 interface RunJobsPayload {
@@ -141,6 +145,23 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
       .pipe(map(() => undefined));
   }
 
+  override dispatch(
+    projectId: string,
+    workflowId: string,
+    request: {
+      readonly reference: string;
+      readonly inputs: Readonly<Record<string, string>>;
+      readonly confirmation: string | null;
+    },
+  ): Observable<WorkflowDispatchAccepted> {
+    return this.http.post<WorkflowDispatchAccepted>(
+      `/api/workflows/projects/${encodeURIComponent(projectId)}/workflows/${encodeURIComponent(
+        workflowId,
+      )}/runs`,
+      request,
+    );
+  }
+
   override loadManualRunSupport(
     projectId: string,
     workflowId: string,
@@ -157,6 +178,7 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
         map((payload) => ({
           manualRun: toManualRun(payload.manualRun),
           definitionPath: payload.definitionPath,
+          inputs: payload.inputs ?? [],
         })),
       );
   }
@@ -189,6 +211,7 @@ function toGroup(payload: WorkflowInventoryPayload['groups'][number]): WorkflowP
     projectId: payload.projectId,
     projectName: payload.projectName,
     repository: payload.repository,
+    defaultBranch: payload.defaultBranch,
     workflows: payload.workflows.map(toWorkflow),
     readFailure: toReadFailure(payload.readFailure),
   };

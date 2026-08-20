@@ -37,24 +37,21 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Steps within a job, naming the step that failed | Real |
 | Workflow screens follow a running run without being reloaded | Real |
 | Operator-set workflow risk, gating whether Console Ops will run a workflow | Real |
+| Starting a workflow, with declared inputs, an explicit ref and typed confirmation | Real |
 | Steps within a job, naming the step that failed | Real |
 | Workflow screens follow a running run without being reloaded | Real |
 | Operator-set workflow risk, gating whether Console Ops will run a workflow | Real |
+| Starting a workflow, with declared inputs, an explicit ref and typed confirmation | Real |
 
 ## Next
 
-1. **Manual dispatch, now that risk marking gates it.** Agreed behaviour: **safety first, so a workflow is not
-   executable until an operator marks its risk**; a `normal` workflow asks for an explicit confirmation naming
-   the workflow and branch; a `destructive` one requires the workflow's name to be typed. The panel already
-   states which of those a run would ask for, before it is asked.
-   What the dispatch slice still needs: read the `workflow_dispatch` **inputs** from the definition (required,
-   type, default, options) and render only what the workflow declares; **default to the project's configured
-   branch and require an explicit change**, never a silent ref; POST the dispatch and then **adopt the run** -
-   GitHub answers 204 with no body, so Console Ops does not know the run id and must poll for a new
-   `workflow_dispatch` run, saying `Requested` until one appears rather than claiming it is running; report the
-   **provider's own actor** once the run is found, never implying the local operator is the GitHub identity; and
-   treat a token without Actions write as `Workflows.Unauthorized`.
-   Re-run and cancel follow, and are cheap once dispatch exists.
+1. **Console Ops cannot start a workflow with the current token.** Dispatch is built and verified end to end, and
+   GitHub refused it: the configured token has read access to Actions but not write, which the API reports as
+   `Workflows.Unauthorized` with a 403. Granting write on Actions is an operator action; nothing in the code
+   changes when it is. Re-run and cancel are the natural follow-ups once a run can be started.
+   Worth knowing: `Azure.Unauthorized` still maps to 500 while `Workflows.Unauthorized` maps to 403. The Workflows
+   answer is the correct one - a missing token scope is not a server fault - and Azure should follow, which is a
+   change to an existing contract rather than part of this slice.
 2. **Workflow execution logs.** The last of the read side: GitHub serves them as a zip archive per run, which is
    why `Run logs` is still named as planned rather than half-built.
 3. **Cross-cutting Workflows follow-ups.** **Cross-link Deployments to Workflows** so a release reaches the run

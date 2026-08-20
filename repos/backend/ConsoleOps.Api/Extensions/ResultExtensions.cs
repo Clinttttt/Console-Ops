@@ -23,6 +23,7 @@ public static class ResultExtensions
             ErrorType.Validation => StatusCodes.Status400BadRequest,
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorType.Failure => StatusCodes.Status500InternalServerError,
             _ => StatusCodes.Status500InternalServerError
         };
@@ -42,6 +43,7 @@ public static class ResultExtensions
         ErrorType.Validation => "Validation failed",
         ErrorType.NotFound => "Resource not found",
         ErrorType.Conflict => "Conflict",
+            ErrorType.Forbidden => "Forbidden",
         _ => "Request failed"
     };
 }
