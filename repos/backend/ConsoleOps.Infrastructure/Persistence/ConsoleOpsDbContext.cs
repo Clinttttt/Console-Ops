@@ -11,6 +11,8 @@ public sealed class ConsoleOpsDbContext(DbContextOptions<ConsoleOpsDbContext> op
 
     public DbSet<ProjectEnvironment> ProjectEnvironments => Set<ProjectEnvironment>();
 
+    public DbSet<ProjectWorkflowRisk> ProjectWorkflowRisks => Set<ProjectWorkflowRisk>();
+
     public DbSet<SourceObservationEntity> SourceObservations => Set<SourceObservationEntity>();
 
     public DbSet<WorkflowObservationEntity> WorkflowObservations => Set<WorkflowObservationEntity>();

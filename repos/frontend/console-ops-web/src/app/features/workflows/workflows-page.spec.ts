@@ -34,6 +34,9 @@ const INVENTORY: WorkflowInventory = {
           state: 'active',
           classification: 'deployment',
           manualRun: 'supported',
+          risk: 'normal',
+          riskDecidedAt: '2026-08-19T06:00:00.000Z',
+          executable: true,
           latestRun: {
             id: '535',
             number: 535,
@@ -58,6 +61,9 @@ const INVENTORY: WorkflowInventory = {
           state: 'active',
           classification: 'unclassified',
           manualRun: 'unknown',
+          risk: 'unclassified',
+          riskDecidedAt: null,
+          executable: false,
           latestRun: {
             id: '212',
             number: 212,
@@ -82,6 +88,9 @@ const INVENTORY: WorkflowInventory = {
           state: 'active',
           classification: 'unclassified',
           manualRun: 'unknown',
+          risk: 'destructive',
+          riskDecidedAt: '2026-08-19T05:00:00.000Z',
+          executable: true,
           latestRun: null,
         },
       ],
@@ -99,6 +108,9 @@ const INVENTORY: WorkflowInventory = {
           state: 'disabled',
           classification: 'unclassified',
           manualRun: 'unavailable',
+          risk: 'unclassified',
+          riskDecidedAt: null,
+          executable: false,
           latestRun: null,
         },
       ],
@@ -128,6 +140,7 @@ const JOBS: readonly WorkflowRunJob[] = [
 class StubWorkflows extends WorkflowsDataSource {
   jobRequests: { projectId: string; runId: string }[] = [];
   manualRunRequests: { projectId: string; workflowId: string; workflowPath: string }[] = [];
+  riskWrites: { projectId: string; workflowPath: string; level: string }[] = [];
 
   constructor(
     private readonly inventory: Observable<WorkflowInventory> = of(INVENTORY),
@@ -151,6 +164,11 @@ class StubWorkflows extends WorkflowsDataSource {
 
   override loadRuns(_projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
     return of({ workflowId, runs: [], hasMore: false });
+  }
+
+  override setRisk(projectId: string, workflowPath: string, level: string): Observable<void> {
+    this.riskWrites.push({ projectId, workflowPath, level });
+    return of(undefined);
   }
 
   override loadManualRunSupport(
@@ -278,6 +296,56 @@ describe('WorkflowsPage', () => {
     const detail = host.querySelector('co-workflow-detail')!;
     expect(detail.textContent).toContain('Unknown');
     expect(detail.textContent).not.toContain('Not available');
+  });
+
+  it('will not offer to run a workflow whose risk nobody has marked', async () => {
+    await select('Database backup');
+    const detail = host.querySelector('co-workflow-detail')!;
+
+    expect(detail.textContent).toContain('will not run this until its risk is marked');
+    // The marking control is the only way forward, and the API decided this workflow is not executable.
+    expect(detail.querySelectorAll('.risk-option').length).toBe(3);
+  });
+
+  it('says what running a marked workflow will ask for, before it is asked', async () => {
+    await select('Deploy production');
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain(
+      'confirmation naming the workflow and branch',
+    );
+
+    await select('Database restore');
+    // Marked destructive and dispatchable, so the stronger confirmation is stated before it is asked for.
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain(
+      "ask for the workflow's name to be typed",
+    );
+  });
+
+  it('records a risk marking against the workflow path an operator can recognise', async () => {
+    await select('Database backup');
+    const destructive = Array.from(host.querySelectorAll<HTMLButtonElement>('.risk-option')).find(
+      (option) => option.textContent?.trim() === 'Destructive',
+    )!;
+
+    destructive.click();
+    await fixture.whenStable();
+
+    expect(dataSource.riskWrites).toEqual([
+      {
+        projectId: 'eemo',
+        workflowPath: '.github/workflows/database-backup.yml',
+        level: 'destructive',
+      },
+    ]);
+  });
+
+  it('shows which marking is in force', async () => {
+    await select('Deploy production');
+
+    const active = Array.from(host.querySelectorAll('.risk-option')).find((option) =>
+      option.classList.contains('is-active'),
+    );
+    expect(active?.textContent?.trim()).toBe('Normal');
+    expect(host.querySelector('co-workflow-detail')?.textContent).toContain('Marked ');
   });
 
   it('offers a run action only where the provider reported manual dispatch', () => {

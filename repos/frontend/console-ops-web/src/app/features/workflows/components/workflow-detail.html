@@ -97,6 +97,75 @@
   </div>
 </dl>
 
+<p class="co-eyebrow">Execution</p>
+
+<div class="risk">
+  <p class="risk-note">
+    How much intent should starting this workflow require? Console Ops does not decide this: a name
+    cannot prove what a workflow does.
+  </p>
+
+  <div class="risk-choice" role="group" aria-label="Risk level">
+    @for (option of riskOptions; track option.level) {
+      <button
+        type="button"
+        class="risk-option"
+        [class.is-active]="item.risk === option.level"
+        [disabled]="saving()"
+        (click)="chooseRisk.emit({ workflow: item, level: option.level })"
+      >
+        {{ option.label }}
+      </button>
+    }
+  </div>
+
+  @if (item.riskDecidedAt !== null) {
+    <p class="risk-decided co-unavailable">
+      Marked {{ item.riskDecidedAt | date: 'MMM d, HH:mm' : 'UTC' }} UTC
+    </p>
+  }
+
+  @if (saving()) {
+    <p class="risk-decided co-unavailable">Saving...</p>
+  }
+
+  <!--
+    What would happen if an operator asked to run it, stated before they ask. Executable is the API's answer, so
+    this screen cannot offer to run something the API would refuse.
+  -->
+  @if (item.executable && manualRun() === 'supported') {
+    @if (item.risk === 'destructive') {
+      <p class="risk-outcome">
+        Marked destructive: running it will ask for the workflow's name to be typed.
+      </p>
+    } @else {
+      <p class="risk-outcome co-unavailable">
+        Running it will ask for a confirmation naming the workflow and branch.
+      </p>
+    }
+  } @else if (item.risk === 'unclassified') {
+    <p class="risk-outcome co-unavailable">
+      Console Ops will not run this until its risk is marked.
+    </p>
+  } @else if (item.state === 'disabled') {
+    <p class="risk-outcome co-unavailable">Disabled at the provider, so it cannot be run.</p>
+  } @else if (manualRunReading()) {
+    <p class="risk-outcome co-unavailable">Reading whether the provider accepts a manual run...</p>
+  } @else if (manualRun() === 'unavailable') {
+    <p class="risk-outcome co-unavailable">
+      The provider reports no manual dispatch for this workflow, so it cannot be run from here.
+    </p>
+  } @else {
+    <p class="risk-outcome co-unavailable">
+      Whether the provider accepts a manual run has not been established.
+    </p>
+  }
+
+  @if (riskFailure() !== null) {
+    <p class="error">{{ riskFailure() }}</p>
+  }
+</div>
+
 @if (run !== null) {
   <p class="co-eyebrow">Latest run overview</p>
   @switch (jobsState()) {

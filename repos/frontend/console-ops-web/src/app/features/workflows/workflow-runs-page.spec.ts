@@ -31,6 +31,9 @@ const INVENTORY: WorkflowInventory = {
           state: 'active',
           classification: 'unclassified',
           manualRun: 'unknown',
+          risk: 'unclassified',
+          riskDecidedAt: null,
+          executable: false,
           latestRun: null,
         },
       ],
@@ -159,6 +162,10 @@ class StubWorkflows extends WorkflowsDataSource {
   override loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]> {
     this.jobRequests.push({ projectId, runId });
     return this.jobs;
+  }
+
+  override setRisk(): Observable<void> {
+    return of(undefined);
   }
 
   override loadManualRunSupport(): Observable<ManualRunSupportReading> {

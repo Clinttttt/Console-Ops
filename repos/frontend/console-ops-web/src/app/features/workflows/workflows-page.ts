@@ -1,6 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
-import { Workflow, WorkflowClassification } from '../../core/contracts/workflows';
+import {
+  Workflow,
+  WorkflowClassification,
+  WorkflowRiskLevel,
+} from '../../core/contracts/workflows';
 import {
   ACTIVE_PROVIDER_REFRESH_INTERVAL_MS,
   IDLE_PROVIDER_REFRESH_INTERVAL_MS,
@@ -52,6 +56,8 @@ export class WorkflowsPage {
   protected readonly selectedJobs = this.store.selectedJobs;
   protected readonly selectedManualRun = this.store.selectedManualRun;
   protected readonly manualRunReading = this.store.manualRunReading;
+  protected readonly savingRiskFor = this.store.savingRiskFor;
+  protected readonly riskFailure = this.store.riskFailure;
 
   protected readonly search = signal('');
   protected readonly typeFilter = signal<TypeFilter>(null);
@@ -182,6 +188,14 @@ export class WorkflowsPage {
 
   protected setProjectFilter(projectId: string): void {
     this.projectFilter.set(projectId === '' ? null : projectId);
+  }
+
+  /** The one write on this screen: an operator saying how much intent running this workflow should require. */
+  protected setRisk(workflow: Workflow, level: WorkflowRiskLevel): void {
+    const projectId = this.projectOf(workflow.id);
+    if (projectId !== null) {
+      this.store.setRisk(projectId, workflow.path, level);
+    }
   }
 
   protected clearFilters(): void {

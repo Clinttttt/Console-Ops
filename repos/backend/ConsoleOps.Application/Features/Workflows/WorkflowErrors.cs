@@ -23,6 +23,11 @@ internal static class WorkflowErrors
         "The workflow's definition path is required to read whether it can be run manually.",
         ErrorType.Validation);
 
+    internal static readonly Error UnknownRiskLevel = new(
+        "Workflows.UnknownRiskLevel",
+        "A workflow's risk must be unclassified, normal, or destructive.",
+        ErrorType.Validation);
+
     internal static Error From(GitHubReadFailure failure) => failure switch
     {
         GitHubReadFailure.NotFound => new Error(

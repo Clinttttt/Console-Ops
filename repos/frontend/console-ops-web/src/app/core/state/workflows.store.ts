@@ -6,6 +6,7 @@ import {
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
+  WorkflowRiskLevel,
 } from '../contracts/workflows';
 import { WorkflowsDataSource } from '../data/workflows.data-source';
 
@@ -157,6 +158,39 @@ export class WorkflowsStore {
         error: () => this.manualRunLoading.set(null),
       });
   }
+
+  /**
+   * Records a workflow's risk, then re-reads the inventory.
+   *
+   * Re-read rather than patched in place: the API decides whether a workflow is executable, and inferring that
+   * here from the level alone would let the screen offer to run something the API would refuse.
+   */
+  setRisk(projectId: string, workflowPath: string, level: WorkflowRiskLevel): void {
+    this.riskSaving.set(workflowPath);
+    this.riskError.set(null);
+
+    this.dataSource
+      .setRisk(projectId, workflowPath, level)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.riskSaving.set(null);
+          this.read();
+        },
+        error: () => {
+          // Named, because a marking that silently failed to save would leave an operator believing a
+          // destructive workflow was marked as such.
+          this.riskSaving.set(null);
+          this.riskError.set('That risk marking could not be saved.');
+        },
+      });
+  }
+
+  private readonly riskSaving = signal<string | null>(null);
+  private readonly riskError = signal<string | null>(null);
+
+  readonly savingRiskFor = this.riskSaving.asReadonly();
+  readonly riskFailure = this.riskError.asReadonly();
 
   read(): void {
     if (untracked(this.state) !== 'loaded') {

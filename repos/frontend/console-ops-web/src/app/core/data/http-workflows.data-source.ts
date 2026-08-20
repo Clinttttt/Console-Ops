@@ -10,6 +10,7 @@ import {
   WorkflowInventory,
   WorkflowProjectGroup,
   WorkflowReadFailure,
+  WorkflowRiskLevel,
   WorkflowRun,
   WorkflowRunConclusion,
   WorkflowRunHistory,
@@ -40,6 +41,9 @@ interface WorkflowPayload {
   readonly state: string;
   readonly classification: string;
   readonly manualRun: string;
+  readonly risk: string;
+  readonly riskDecidedAt: string | null;
+  readonly executable: boolean;
   readonly latestRun: RunPayload | null;
 }
 
@@ -124,6 +128,19 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
       .pipe(map((payload) => payload.jobs.map(toJob)));
   }
 
+  override setRisk(
+    projectId: string,
+    workflowPath: string,
+    level: WorkflowRiskLevel,
+  ): Observable<void> {
+    return this.http
+      .put<unknown>(`/api/workflows/projects/${encodeURIComponent(projectId)}/risk`, {
+        workflowPath,
+        level,
+      })
+      .pipe(map(() => undefined));
+  }
+
   override loadManualRunSupport(
     projectId: string,
     workflowId: string,
@@ -185,6 +202,10 @@ function toWorkflow(payload: WorkflowPayload): Workflow {
     state: payload.state === 'disabled' ? 'disabled' : ('active' as WorkflowState),
     classification: toClassification(payload.classification),
     manualRun: toManualRun(payload.manualRun),
+    risk: toRisk(payload.risk),
+    riskDecidedAt: payload.riskDecidedAt,
+    // Taken from the API rather than re-derived here: one place decides what may be run.
+    executable: payload.executable,
     latestRun: payload.latestRun === null ? null : toRun(payload.latestRun),
   };
 }
@@ -265,6 +286,11 @@ function toConclusion(conclusion: string | null): WorkflowRunConclusion | null {
 /** Anything other than an explicit deployment stays unclassified: the screen never promotes a workflow. */
 function toClassification(classification: string): WorkflowClassification {
   return classification === 'deployment' ? 'deployment' : 'unclassified';
+}
+
+/** An unrecognised level reads as unclassified, which is the state that refuses to run anything. */
+function toRisk(risk: string): WorkflowRiskLevel {
+  return risk === 'normal' || risk === 'destructive' ? risk : 'unclassified';
 }
 
 function toManualRun(manualRun: string): ManualRunSupport {

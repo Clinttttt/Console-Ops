@@ -3,6 +3,7 @@ namespace ConsoleOps.Domain.Projects;
 public sealed class Project
 {
     private readonly List<ProjectEnvironment> _environments = [];
+    private readonly List<ProjectWorkflowRisk> _workflowRisks = [];
 
     private Project()
     {
@@ -63,6 +64,9 @@ public sealed class Project
     public long ConfigurationVersion { get; private set; }
 
     public IReadOnlyCollection<ProjectEnvironment> Environments => _environments.AsReadOnly();
+
+    /// <summary>Risk markings an operator has made, one per workflow they have decided about.</summary>
+    public IReadOnlyCollection<ProjectWorkflowRisk> WorkflowRisks => _workflowRisks.AsReadOnly();
 
     public static Project Create(
         Guid id,
@@ -155,8 +159,72 @@ public sealed class Project
         _environments.AddRange(reconciled);
     }
 
-    public void Archive(DateTimeOffset archivedAtUtc)
+    /// <summary>
+    /// Records how much intent starting one workflow should require.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Passing <see cref="WorkflowRiskLevel.Unclassified"/> removes the marking, returning the workflow to the
+    /// state where Console Ops will not run it. That is deliberate: the absence of a decision is a real state and
+    /// is stored as an absence rather than as a row claiming nothing.
+    /// </para>
+    /// <para>
+    /// This does not advance <see cref="ConfigurationVersion"/>. That version guards the configuration an
+    /// operator edits on the project form against a concurrent save; a risk marking is set from the Workflows
+    /// screen and would otherwise make an unrelated edit look stale.
+    /// </para>
+    /// </remarks>
+    public void SetWorkflowRisk(
+        Guid id,
+        string workflowPath,
+        WorkflowRiskLevel level,
+        DateTimeOffset decidedAtUtc)
     {
+        if (IsArchived)
+        {
+            throw new InvalidOperationException("An archived project cannot be updated.");
+        }
+
+        string normalized = ProjectRules.Normalize(workflowPath ?? string.Empty);
+        ProjectWorkflowRisk? existing = _workflowRisks
+            .FirstOrDefault(risk => risk.NormalizedWorkflowPath == normalized);
+
+        if (level == WorkflowRiskLevel.Unclassified)
+        {
+            if (existing is not null)
+            {
+                _workflowRisks.Remove(existing);
+                UpdatedAtUtc = decidedAtUtc;
+            }
+
+            return;
+        }
+
+        if (existing is null)
+        {
+            _workflowRisks.Add(ProjectWorkflowRisk.Create(id, workflowPath!, level, decidedAtUtc));
+        }
+        else
+        {
+            existing.ChangeLevel(level, decidedAtUtc);
+        }
+
+        UpdatedAtUtc = decidedAtUtc;
+    }
+
+    /// <summary>
+    /// What an operator decided about one workflow, or <see cref="WorkflowRiskLevel.Unclassified"/> when nobody
+    /// has decided.
+    /// </summary>
+    public WorkflowRiskLevel RiskOf(string workflowPath)
+    {
+        string normalized = ProjectRules.Normalize(workflowPath ?? string.Empty);
+        return _workflowRisks
+            .FirstOrDefault(risk => risk.NormalizedWorkflowPath == normalized)
+            ?.Level ?? WorkflowRiskLevel.Unclassified;
+    }
+
+    public void Archive(DateTimeOffset archivedAtUtc)    {
         if (IsArchived)
         {
             throw new InvalidOperationException("The project is already archived.");

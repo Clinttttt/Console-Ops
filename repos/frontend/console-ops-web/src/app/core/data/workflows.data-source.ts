@@ -5,6 +5,7 @@ import {
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
+  WorkflowRiskLevel,
 } from '../contracts/workflows';
 
 /**
@@ -37,6 +38,18 @@ export abstract class WorkflowsDataSource {
    * Read on selection because the answer costs one request for the workflow's definition, which the inventory
    * deliberately does not spend for every workflow on the page.
    */
+  /**
+   * Records how much intent starting this workflow should require.
+   *
+   * The only write on this screen. Setting `unclassified` withdraws the decision, which returns the workflow to
+   * not being executable.
+   */
+  abstract setRisk(
+    projectId: string,
+    workflowPath: string,
+    level: WorkflowRiskLevel,
+  ): Observable<void>;
+
   abstract loadManualRunSupport(
     projectId: string,
     workflowId: string,

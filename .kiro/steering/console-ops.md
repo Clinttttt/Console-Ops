@@ -87,8 +87,9 @@ Deployments screen — Deployments answers which release reached an environment.
 workflow reads as a deployment only where an operator configured it as an environment's primary deployment
 workflow, everything else stays `Unclassified`, and no type, icon, or risk level is inferred from a workflow's
 name or trigger. Workflow execution logs belong to Workflows; application logs belong to Logs. A run action
-appears only where the provider reports manual dispatch, and starting workflows is a later phase than reading
-them. `docs/Console_Ops_Workflows_Context.md` is the product authority.
+appears only where the provider reports manual dispatch. Starting a workflow additionally requires a risk level an
+operator set: unmarked means Console Ops refuses to run it, `normal` asks for an explicit confirmation, and
+`destructive` requires the workflow's name to be typed. Risk is never inferred from a name. `docs/Console_Ops_Workflows_Context.md` is the product authority.
 
 Release history records what GitHub proves — a run built a commit and ended a certain way — and links it
 to an environment only through that environment's own version observation. Never store or infer which

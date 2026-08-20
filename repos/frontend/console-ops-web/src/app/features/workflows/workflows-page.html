@@ -186,6 +186,9 @@
             [jobsState]="jobsState()"
             [manualRun]="selectedManualRun()"
             [manualRunReading]="manualRunReading()"
+            [saving]="savingRiskFor() === choice.workflow.path"
+            [riskFailure]="riskFailure()"
+            (chooseRisk)="setRisk($event.workflow, $event.level)"
           />
         }
       </aside>

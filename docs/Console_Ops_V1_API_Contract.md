@@ -180,6 +180,9 @@ groups[]
     |-- state: active | disabled
     |-- classification: deployment | unclassified
     |-- manualRun: supported | unavailable | unknown
+    |-- risk: unclassified | normal | destructive
+    |-- riskDecidedAt (optional)     when an operator marked it; null when nobody has
+    |-- executable                   false while the risk is unclassified, or the workflow is disabled
     `-- latestRun (optional)        null when the provider reports no run
         |-- id, number
         |-- status: queued | inProgress | waiting | completed | unknown
@@ -197,6 +200,11 @@ GET /api/workflows/projects/{projectId}/workflows/{workflowId}/runs?limit=
 workflowId
 runs[]                              newest first, same shape as latestRun above
 hasMore                             true when the provider reports runs beyond this page
+
+PUT /api/workflows/projects/{projectId}/risk
+
+{ workflowPath, level }              level: unclassified | normal | destructive
+-> { workflowPath, level, decidedAt }
 
 GET /api/workflows/projects/{projectId}/workflows/{workflowId}/manual-run?path=
 
@@ -260,6 +268,16 @@ Rules:
   failed with **no** failing step - a runner that died, a cancelled queue - names none rather than blaming a step
   that reported success. Verified live against a real failure: `Backup freshness` run #3 named
   `Fail the run so the badge and the Actions tab both show it` out of five steps.
+- **Risk is an operator's decision, never derived.** A name cannot prove what a workflow does: "Database
+  restore" reads destructive to a person and is unprovable to Console Ops, and a workflow called "cleanup" may
+  drop a production schema. The default is `unclassified`, and an unclassified workflow reports
+  `executable: false` - refusing to run something whose risk nobody has stated is the only safe default.
+  Marking it `unclassified` again withdraws the decision, stored as the absence of a row rather than a row that
+  says nothing. A level the API does not recognise is a 400 rather than a fall back to a safer-sounding one.
+- **`executable` covers what Console Ops has stored**, not whether the provider accepts a dispatch. That answer
+  is in the definition and is established per selection, so a run request is checked against both. Marking does
+  not advance a project's `configurationVersion`: it is set from another screen and must not make an unrelated
+  edit look stale.
 - **Failure is not emptiness.** `Workflows.Unauthorized`, `Workflows.RateLimited`, `Workflows.NotFound`,
   `Workflows.InvalidResponse`, `Workflows.Unavailable`. An exhausted rate limit is reported as itself, never as
   a rejected credential.

@@ -10,6 +10,7 @@ using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
 using ConsoleOps.Application.Integrations.AzureMonitor;
 using ConsoleOps.Application.Integrations.Diagnostics;
+using ConsoleOps.Application.Features.Workflows;
 using ConsoleOps.Application.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Integrations.ApplicationMonitoring;
 using ConsoleOps.Infrastructure.Integrations.AzureMonitor;
@@ -70,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IConsoleOpsBuildInfo, ConsoleOpsBuildInfo>();
         services.AddScoped<IIntegrationProbe, DatabaseProbe>();
         services.AddScoped<IIntegrationProbe, AzureCredentialProbe>();
+        services.AddScoped<IWorkflowRiskReadStore, WorkflowRiskReadStore>();
         services.AddScoped<IIntegrationProbe, GitHubTokenProbe>();
         services.AddHttpClient(nameof(GitHubTokenProbe), client =>
             ConfigureGitHubClient(client, configuration));

@@ -35,23 +35,34 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Workflow run jobs, read for the selected workflow | Real |
 | Workflow run history with jobs per run, on its own screen | Real |
 | Steps within a job, naming the step that failed | Real |
+| Workflow screens follow a running run without being reloaded | Real |
+| Operator-set workflow risk, gating whether Console Ops will run a workflow | Real |
 | Steps within a job, naming the step that failed | Real |
+| Workflow screens follow a running run without being reloaded | Real |
+| Operator-set workflow risk, gating whether Console Ops will run a workflow | Real |
 
 ## Next
 
-1. **Workflows: execution logs, then manual dispatch.** The read side is complete through steps. What is left:
-   **workflow execution logs**, which GitHub serves as a zip archive per run - the reason `Run logs` is still
-   named as planned rather than half-built; and **manual dispatch**, now unblocked because dispatch support is
-   established from the definition, but the first mutation Console Ops would make and so needing the
-   confirmation and destructive-workflow safety the Workflows context sets out. Two real destructive workflows
-   exist (`Drop a rehearsal database`, `Database restore`), so that slice needs explicit operator agreement
-   before it is written.
-   Also outstanding: **cross-link Deployments to Workflows** so a release reaches the run that built it;
-   **converge the two workflow-listing ports** (`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
+1. **Manual dispatch, now that risk marking gates it.** Agreed behaviour: **safety first, so a workflow is not
+   executable until an operator marks its risk**; a `normal` workflow asks for an explicit confirmation naming
+   the workflow and branch; a `destructive` one requires the workflow's name to be typed. The panel already
+   states which of those a run would ask for, before it is asked.
+   What the dispatch slice still needs: read the `workflow_dispatch` **inputs** from the definition (required,
+   type, default, options) and render only what the workflow declares; **default to the project's configured
+   branch and require an explicit change**, never a silent ref; POST the dispatch and then **adopt the run** -
+   GitHub answers 204 with no body, so Console Ops does not know the run id and must poll for a new
+   `workflow_dispatch` run, saying `Requested` until one appears rather than claiming it is running; report the
+   **provider's own actor** once the run is found, never implying the local operator is the GitHub identity; and
+   treat a token without Actions write as `Workflows.Unauthorized`.
+   Re-run and cancel follow, and are cheap once dispatch exists.
+2. **Workflow execution logs.** The last of the read side: GitHub serves them as a zip archive per run, which is
+   why `Run logs` is still named as planned rather than half-built.
+3. **Cross-cutting Workflows follow-ups.** **Cross-link Deployments to Workflows** so a release reaches the run
+   that built it; **converge the two workflow-listing ports** (`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
    `IGitHubWorkflowInventory.ListWorkflowsAsync` list workflows for different callers) now that the richer one is
    proven; and **a deployment workflow is recorded against the project, not an environment**, so no environment
    is named on the screen - the feature context wants zero or one per environment, which is a domain change.
-2. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
+4. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
    not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in
@@ -62,10 +73,10 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    add a diagnostic setting on the site sending `AppServiceConsoleLogs`. Console Ops has read-only Azure
    access by rule and cannot do it. Once rows exist, the reader is a platform discriminator on the log source,
    a reader chosen by that platform, and a KQL query verified against those rows.
-3. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
+5. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
-4. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+6. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
@@ -73,11 +84,11 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    projects: StallTrack's `/version` answers `200` with the Angular application, Spinner's answers `401`, and
    EEMO's `301`s - all three are configured and unreadable, which the Overview now reports as `Not reported`
    rather than as unconfigured.
-5. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
+7. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
    projects hold health checks against the same host and their verdicts can never disagree. They deploy from
    different repositories, which argues for keeping both projects - but only one should own the health check,
    or EEMO should become an environment of StallTrack. Undecided, and recorded so it is not rediscovered.
-6. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+8. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
