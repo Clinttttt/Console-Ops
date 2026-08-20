@@ -40,6 +40,20 @@ public sealed record WorkflowProjectGroupResponse(
 /// <c>supported</c>, <c>unavailable</c>, or <c>unknown</c>. Unknown until the workflow definition is read, which
 /// is where a dispatch trigger is declared.
 /// </param>
+/// <param name="Risk">
+/// <c>unclassified</c>, <c>normal</c>, or <c>destructive</c>, as an operator marked it. Never derived: a name
+/// cannot prove what a workflow does.
+/// </param>
+/// <param name="RiskDecidedAt">When an operator marked it, or <c>null</c> when nobody has.</param>
+/// <param name="Executable">
+/// Whether anything Console Ops has stored refuses to run this: <c>false</c> while the risk is unclassified, and
+/// <c>false</c> for a workflow the provider has disabled.
+/// <para>
+/// It deliberately does not include whether the provider accepts a manual dispatch. That answer lives in the
+/// workflow definition and is established for the workflow an operator selects, because reading it for every
+/// workflow would double the cost of opening the screen. A run request is checked against both.
+/// </para>
+/// </param>
 public sealed record WorkflowResponse(
     string Id,
     string Name,
@@ -47,6 +61,9 @@ public sealed record WorkflowResponse(
     string State,
     string Classification,
     string ManualRun,
+    string Risk,
+    DateTimeOffset? RiskDecidedAt,
+    bool Executable,
     WorkflowRunResponse? LatestRun);
 
 /// <param name="Status">Where the run is: <c>queued</c>, <c>inProgress</c>, <c>waiting</c>, <c>completed</c>, or <c>unknown</c>.</param>
@@ -75,8 +92,24 @@ public sealed record WorkflowRunResponse(
     string? RunUrl,
     IReadOnlyList<WorkflowRunJobResponse> Jobs);
 
+/// <param name="FailedStep">
+/// The name of the step that failed, or <c>null</c> when none did.
+/// </param>
+/// <remarks>
+/// Carried because "which job failed" is one question short of the useful one. It is the provider's own step
+/// conclusion, not a guess: a job that failed without any step reporting a failure has no failing step to name.
+/// </remarks>
 public sealed record WorkflowRunJobResponse(
     string Name,
+    string Status,
+    string? Conclusion,
+    int? DurationSeconds,
+    string? FailedStep,
+    IReadOnlyList<WorkflowRunStepResponse> Steps);
+
+public sealed record WorkflowRunStepResponse(
+    string Name,
+    int? Number,
     string Status,
     string? Conclusion,
     int? DurationSeconds);

@@ -4,6 +4,7 @@ using ConsoleOps.Application.Features.Workflows.GetInventory;
 using ConsoleOps.Application.Features.Workflows.GetManualRunSupport;
 using ConsoleOps.Application.Features.Workflows.GetRunJobs;
 using ConsoleOps.Application.Features.Workflows.GetRuns;
+using ConsoleOps.Application.Features.Workflows.SetRisk;
 using MediatR;
 
 namespace ConsoleOps.Api.Features.Workflows;
@@ -19,6 +20,7 @@ public static class WorkflowEndpoints
         workflows.MapGetWorkflowRunsEndpoint();
         workflows.MapGetWorkflowRunJobsEndpoint();
         workflows.MapGetManualRunSupportEndpoint();
+        workflows.MapSetWorkflowRiskEndpoint();
         return endpoints;
     }
 }
@@ -145,4 +147,39 @@ internal static class GetManualRunSupportEndpoint
 
         return result.ToHttpResult();
     }
+}
+internal static class SetWorkflowRiskEndpoint
+{
+    public static RouteGroupBuilder MapSetWorkflowRiskEndpoint(this RouteGroupBuilder workflows)
+    {
+        workflows.MapPut("/projects/{projectId:guid}/risk", Handle)
+            .WithName("SetWorkflowRisk")
+            .WithSummary("Records how much intent starting one workflow should require.")
+            .WithDescription(
+                "The one thing on the Workflows screen an operator changes. Console Ops does not decide this: a "
+                + "name cannot prove that a workflow drops a database, so until an operator marks it the "
+                + "workflow is not offered for execution. Marking it unclassified again removes the decision.")
+            .Produces<WorkflowRiskResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        return workflows;
+    }
+
+    private static async Task<IResult> Handle(
+        Guid projectId,
+        SetWorkflowRiskRequest request,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<WorkflowRiskResponse> result = await sender.Send(
+            new SetWorkflowRiskCommand(projectId, request.WorkflowPath, request.Level),
+            cancellationToken);
+
+        return result.ToHttpResult();
+    }
+
+    /// <param name="WorkflowPath">The definition path, which is what an operator recognises and what survives a
+    /// provider workflow id changing.</param>
+    internal sealed record SetWorkflowRiskRequest(string WorkflowPath, string Level);
 }

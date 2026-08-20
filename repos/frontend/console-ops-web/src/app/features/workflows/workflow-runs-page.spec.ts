@@ -9,6 +9,7 @@ import {
   WorkflowRunJob,
 } from '../../core/contracts/workflows';
 import { WorkflowsDataSource } from '../../core/data/workflows.data-source';
+import { WorkflowRunHistoryStore } from '../../core/state/workflow-run-history.store';
 import { WorkflowRunsPage } from './workflow-runs-page';
 
 const READ_AT = '2026-08-19T07:05:00.000Z';
@@ -30,6 +31,9 @@ const INVENTORY: WorkflowInventory = {
           state: 'active',
           classification: 'unclassified',
           manualRun: 'unknown',
+          risk: 'unclassified',
+          riskDecidedAt: null,
+          executable: false,
           latestRun: null,
         },
       ],
@@ -77,8 +81,62 @@ const HISTORY: WorkflowRunHistory = {
 };
 
 const JOBS: readonly WorkflowRunJob[] = [
-  { name: 'Backend', status: 'completed', conclusion: 'passed', durationSeconds: 161 },
-  { name: 'Frontend', status: 'completed', conclusion: 'failed', durationSeconds: 97 },
+  {
+    name: 'Backend',
+    status: 'completed',
+    conclusion: 'passed',
+    durationSeconds: 161,
+    failedStep: null,
+    steps: [
+      {
+        name: 'Checkout',
+        number: 1,
+        status: 'completed',
+        conclusion: 'passed',
+        durationSeconds: 4,
+      },
+      { name: 'Build', number: 2, status: 'completed', conclusion: 'passed', durationSeconds: 157 },
+    ],
+  },
+  {
+    name: 'Frontend',
+    status: 'completed',
+    conclusion: 'failed',
+    durationSeconds: 97,
+    failedStep: 'Unit tests',
+    steps: [
+      {
+        name: 'Install',
+        number: 1,
+        status: 'completed',
+        conclusion: 'passed',
+        durationSeconds: 31,
+      },
+      {
+        name: 'Unit tests',
+        number: 2,
+        status: 'completed',
+        conclusion: 'failed',
+        durationSeconds: 66,
+      },
+      {
+        name: 'Publish',
+        number: 3,
+        status: 'completed',
+        conclusion: 'skipped',
+        durationSeconds: null,
+      },
+    ],
+  },
+  {
+    // Queued, so the provider reports no steps yet - which is not a job that ran nothing.
+    name: 'Deploy',
+    status: 'queued',
+    conclusion: null,
+    durationSeconds: null,
+    failedStep: null,
+    steps: [],
+  },
 ];
 
 class StubWorkflows extends WorkflowsDataSource {
@@ -104,6 +162,10 @@ class StubWorkflows extends WorkflowsDataSource {
   override loadRunJobs(projectId: string, runId: string): Observable<readonly WorkflowRunJob[]> {
     this.jobRequests.push({ projectId, runId });
     return this.jobs;
+  }
+
+  override setRisk(): Observable<void> {
+    return of(undefined);
   }
 
   override loadManualRunSupport(): Observable<ManualRunSupportReading> {
@@ -181,12 +243,13 @@ describe('WorkflowRunsPage', () => {
     await fixture.whenStable();
 
     expect(dataSource.jobRequests).toEqual([{ projectId: 'eemo', runId: '938' }]);
-    const jobs = Array.from(runRow('938')!.querySelectorAll('.job'));
-    expect(jobs.length).toBe(2);
+    const jobs = Array.from(runRow('938')!.querySelectorAll('.job-entry'));
+    expect(jobs.length).toBe(3);
     expect(jobs[0].textContent).toContain('Backend');
     expect(jobs[0].textContent).toContain('2m 41s');
-    // The failing job is identifiable without opening the provider.
+    // The failing job is identifiable without opening the provider, and so is its step.
     expect(jobs[1].textContent).toContain('Failed');
+    expect(jobs[1].textContent).toContain('Failed at Unit tests');
 
     // Closing and reopening does not ask the provider again for a run already read.
     runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
@@ -194,6 +257,83 @@ describe('WorkflowRunsPage', () => {
     runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
     await fixture.whenStable();
     expect(dataSource.jobRequests.length).toBe(1);
+  });
+
+  it('names the step that failed without the job having to be opened', async () => {
+    runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const frontend = Array.from(host.querySelectorAll('.job-entry')).find((entry) =>
+      entry.textContent?.includes('Frontend'),
+    )!;
+
+    // "Which job failed" is one question short of the useful one.
+    expect(frontend.textContent).toContain('Failed at Unit tests');
+    expect(frontend.querySelectorAll('.step').length).toBe(0);
+  });
+
+  it('opens one job at a time and lists its steps in provider order', async () => {
+    runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const jobs = () => Array.from(host.querySelectorAll('.job-entry'));
+    jobs()[1].querySelector<HTMLButtonElement>('.job')!.click();
+    await fixture.whenStable();
+
+    const steps = Array.from(jobs()[1].querySelectorAll('.step'));
+    expect(steps.length).toBe(3);
+    expect(steps[0].textContent).toContain('Install');
+    expect(steps[1].textContent).toContain('Unit tests');
+    expect(steps[1].textContent).toContain('Failed');
+    // Skipped because the failure cascaded, which is a different outcome from failing.
+    expect(steps[2].textContent).toContain('Skipped');
+
+    // Opening another job closes this one: a run with ten jobs is otherwise a wall of steps.
+    jobs()[0].querySelector<HTMLButtonElement>('.job')!.click();
+    await fixture.whenStable();
+    expect(jobs()[1].querySelectorAll('.step').length).toBe(0);
+    expect(jobs()[0].querySelectorAll('.step').length).toBe(2);
+  });
+
+  it('does not offer to open a job the provider has reported no steps for', async () => {
+    runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const queued = Array.from(host.querySelectorAll('.job-entry')).find((entry) =>
+      entry.textContent?.includes('Deploy'),
+    )!;
+    const button = queued.querySelector<HTMLButtonElement>('.job')!;
+
+    expect(button.disabled).toBe(true);
+    button.click();
+    await fixture.whenStable();
+    expect(queued.querySelectorAll('.step').length).toBe(0);
+  });
+
+  it('follows a running run without being reloaded, and re-reads its steps', async () => {
+    runRow('937')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const before = dataSource.jobRequests.length;
+    // #937 is still going, so a refresh re-reads the history and that run's jobs. Serving its jobs from the
+    // cache would freeze the steps an operator is watching.
+    TestBed.inject(WorkflowRunHistoryStore).refresh('eemo', '101');
+    await fixture.whenStable();
+
+    expect(dataSource.runRequests.length).toBeGreaterThan(1);
+    expect(dataSource.jobRequests.length).toBe(before + 1);
+  });
+
+  it('does not re-read the jobs of a run that has finished', async () => {
+    runRow('938')!.querySelector<HTMLButtonElement>('.summary')!.click();
+    await fixture.whenStable();
+
+    const before = dataSource.jobRequests.length;
+    TestBed.inject(WorkflowRunHistoryStore).refresh('eemo', '101');
+    await fixture.whenStable();
+
+    // A finished run's jobs cannot change, so asking again would spend a request for the same answer.
+    expect(dataSource.jobRequests.length).toBe(before);
   });
 
   it('offers the provider run only where one was reported', async () => {

@@ -31,9 +31,8 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
         using HttpClient client = CreateClient(application);
         ProjectResponse project = await RegisterAsync(client, workflowFile: "deploy-production.yml");
 
-        WorkflowInventoryResponse response = await ReadAsync(client);
         WorkflowProjectGroupResponse group = Assert.Single(
-            response.Groups,
+            await ReadAsync(client),
             candidate => candidate.ProjectId == project.Id);
 
         Assert.Equal(
@@ -55,9 +54,8 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
         using HttpClient client = CreateClient(application);
         ProjectResponse project = await RegisterAsync(client);
 
-        WorkflowInventoryResponse response = await ReadAsync(client);
         WorkflowProjectGroupResponse group = Assert.Single(
-            response.Groups,
+            await ReadAsync(client),
             candidate => candidate.ProjectId == project.Id);
 
         Assert.Empty(group.Workflows);
@@ -90,9 +88,8 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
         using HttpClient client = CreateClient(application);
         ProjectResponse project = await RegisterAsync(client);
 
-        WorkflowInventoryResponse response = await ReadAsync(client);
         WorkflowRunResponse run = Assert.Single(
-            Assert.Single(response.Groups, group => group.ProjectId == project.Id).Workflows).LatestRun!;
+            Assert.Single(await ReadAsync(client), group => group.ProjectId == project.Id).Workflows).LatestRun!;
 
         Assert.Equal("inProgress", run.Status);
         Assert.Null(run.Conclusion);
@@ -116,9 +113,8 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
         using HttpClient client = CreateClient(application);
         ProjectResponse project = await RegisterAsync(client);
 
-        WorkflowInventoryResponse response = await ReadAsync(client);
         WorkflowResponse workflow = Assert.Single(
-            Assert.Single(response.Groups, group => group.ProjectId == project.Id).Workflows);
+            Assert.Single(await ReadAsync(client), group => group.ProjectId == project.Id).Workflows);
 
         Assert.Null(workflow.LatestRun);
         // Not knowing whether it can be dispatched is different from knowing it cannot.
@@ -141,6 +137,118 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
         Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Inventory_WillNotRunAWorkflowNobodyHasMarked()
+    {
+        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        [
+            Workflow(101, "Database restore", ".github/workflows/database-restore.yml") with
+            {
+                // The provider says it can be dispatched, which is not the same as Console Ops being willing to.
+                SupportsManualRun = true
+            }
+        ]));
+
+        using WebApplicationFactory<Program> application = CreateApplication(inventory);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client);
+
+        WorkflowResponse workflow = Assert.Single(
+            Assert.Single(await ReadAsync(client), group => group.ProjectId == project.Id).Workflows);
+
+        Assert.Equal("supported", workflow.ManualRun);
+        Assert.Equal("unclassified", workflow.Risk);
+        Assert.Null(workflow.RiskDecidedAt);
+        // Running something whose risk nobody has stated is the one outcome worth refusing outright.
+        Assert.False(workflow.Executable);
+    }
+
+    [Fact]
+    public async Task Risk_BecomesExecutableOnlyAfterAnOperatorMarksIt()
+    {
+        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        [
+            Workflow(101, "Database restore", ".github/workflows/database-restore.yml") with
+            {
+                SupportsManualRun = true
+            }
+        ]));
+
+        using WebApplicationFactory<Program> application = CreateApplication(inventory);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client);
+
+        using HttpResponseMessage marked = await client.PutAsJsonAsync(
+            $"/api/workflows/projects/{project.Id}/risk",
+            new { workflowPath = ".github/workflows/database-restore.yml", level = "destructive" });
+        marked.EnsureSuccessStatusCode();
+
+        WorkflowResponse workflow = Assert.Single(
+            Assert.Single(await ReadAsync(client), group => group.ProjectId == project.Id).Workflows);
+
+        Assert.Equal("destructive", workflow.Risk);
+        Assert.NotNull(workflow.RiskDecidedAt);
+        Assert.True(workflow.Executable);
+    }
+
+    [Fact]
+    public async Task Risk_SetBackToUnclassifiedStopsBeingExecutableAgain()
+    {
+        StubInventory inventory = new(new GitHubWorkflowInventoryPage(
+        [
+            Workflow(101, "CI", ".github/workflows/ci.yml") with { SupportsManualRun = true }
+        ]));
+
+        using WebApplicationFactory<Program> application = CreateApplication(inventory);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client);
+
+        await client.PutAsJsonAsync(
+            $"/api/workflows/projects/{project.Id}/risk",
+            new { workflowPath = ".github/workflows/ci.yml", level = "normal" });
+        await client.PutAsJsonAsync(
+            $"/api/workflows/projects/{project.Id}/risk",
+            new { workflowPath = ".github/workflows/ci.yml", level = "unclassified" });
+
+        WorkflowResponse workflow = Assert.Single(
+            Assert.Single(await ReadAsync(client), group => group.ProjectId == project.Id).Workflows);
+
+        Assert.Equal("unclassified", workflow.Risk);
+        Assert.False(workflow.Executable);
+    }
+
+    [Fact]
+    public async Task Risk_RefusesALevelItDoesNotUnderstandRatherThanChoosingASaferSoundingOne()
+    {
+        StubInventory inventory = new(new GitHubWorkflowInventoryPage([]));
+
+        using WebApplicationFactory<Program> application = CreateApplication(inventory);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client);
+
+        using HttpResponseMessage response = await client.PutAsJsonAsync(
+            $"/api/workflows/projects/{project.Id}/risk",
+            new { workflowPath = ".github/workflows/ci.yml", level = "probably-fine" });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Risk_RefusesAWorkflowPathThatNamesNothing()
+    {
+        StubInventory inventory = new(new GitHubWorkflowInventoryPage([]));
+
+        using WebApplicationFactory<Program> application = CreateApplication(inventory);
+        using HttpClient client = CreateClient(application);
+        ProjectResponse project = await RegisterAsync(client);
+
+        using HttpResponseMessage response = await client.PutAsJsonAsync(
+            $"/api/workflows/projects/{project.Id}/risk",
+            new { workflowPath = "  ", level = "normal" });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private static GitHubWorkflowDefinition Workflow(long id, string name, string path) =>
         new(id, name, path, Active: true, SupportsManualRun: null, LatestRun: null);
 
@@ -157,13 +265,13 @@ public sealed class GetWorkflowInventoryTests(ConsoleOpsApiFactory factory)
             BaseAddress = new Uri("https://localhost"),
         });
 
-    private static async Task<WorkflowInventoryResponse> ReadAsync(HttpClient client)
+    private static async Task<IReadOnlyList<WorkflowProjectGroupResponse>> ReadAsync(HttpClient client)
     {
         WorkflowInventoryResponse? response =
             await client.GetFromJsonAsync<WorkflowInventoryResponse>("/api/workflows");
 
         Assert.NotNull(response);
-        return response;
+        return response.Groups;
     }
 
     private static async Task<ProjectResponse> RegisterAsync(

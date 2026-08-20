@@ -1,7 +1,13 @@
 import { DestroyRef, Injectable, computed, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { ManualRunSupport, WorkflowInventory, WorkflowRunJob } from '../contracts/workflows';
+import {
+  ManualRunSupport,
+  WorkflowInventory,
+  WorkflowRunHistory,
+  WorkflowRunJob,
+  WorkflowRiskLevel,
+} from '../contracts/workflows';
 import { WorkflowsDataSource } from '../data/workflows.data-source';
 
 export type WorkflowsLoadState = 'loading' | 'loaded' | 'unavailable';
@@ -153,6 +159,39 @@ export class WorkflowsStore {
       });
   }
 
+  /**
+   * Records a workflow's risk, then re-reads the inventory.
+   *
+   * Re-read rather than patched in place: the API decides whether a workflow is executable, and inferring that
+   * here from the level alone would let the screen offer to run something the API would refuse.
+   */
+  setRisk(projectId: string, workflowPath: string, level: WorkflowRiskLevel): void {
+    this.riskSaving.set(workflowPath);
+    this.riskError.set(null);
+
+    this.dataSource
+      .setRisk(projectId, workflowPath, level)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.riskSaving.set(null);
+          this.read();
+        },
+        error: () => {
+          // Named, because a marking that silently failed to save would leave an operator believing a
+          // destructive workflow was marked as such.
+          this.riskSaving.set(null);
+          this.riskError.set('That risk marking could not be saved.');
+        },
+      });
+  }
+
+  private readonly riskSaving = signal<string | null>(null);
+  private readonly riskError = signal<string | null>(null);
+
+  readonly savingRiskFor = this.riskSaving.asReadonly();
+  readonly riskFailure = this.riskError.asReadonly();
+
   read(): void {
     if (untracked(this.state) !== 'loaded') {
       this.state.set('loading');
@@ -172,5 +211,106 @@ export class WorkflowsStore {
           }
         },
       });
+  }
+
+  /** Whether any workflow on the page has a run that has not finished. */
+  readonly hasRunningWorkflow = computed(() =>
+    this.groups().some((group) =>
+      group.workflows.some(
+        (workflow) => workflow.latestRun !== null && workflow.latestRun.status !== 'completed',
+      ),
+    ),
+  );
+
+  /**
+   * Re-reads what is moving.
+   *
+   * While a run is in progress it asks for that workflow's newest run only - one small request each - rather
+   * than re-reading the whole inventory, which costs a request per workflow against a shared rate limit. With
+   * nothing running there is nothing to follow, so it re-reads the inventory instead and picks up a workflow
+   * that has started since.
+   */
+  refresh(): void {
+    const running = this.groups().flatMap((group) =>
+      group.workflows
+        .filter(
+          (workflow) => workflow.latestRun !== null && workflow.latestRun.status !== 'completed',
+        )
+        .map((workflow) => ({ projectId: group.projectId, workflowId: workflow.id })),
+    );
+
+    if (running.length === 0) {
+      this.read();
+      return;
+    }
+
+    for (const target of running) {
+      this.dataSource
+        .loadRuns(target.projectId, target.workflowId, 1)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (history) => this.applyLatestRun(target.workflowId, history),
+          // A failed refresh keeps what is on screen: it is a moment out of date, not wrong.
+          error: () => undefined,
+        });
+    }
+
+    const openRun = untracked(this.selectedRunId);
+    if (openRun !== null) {
+      this.refreshOpenRunJobs(openRun);
+    }
+  }
+
+  /** Replaces one workflow's latest run in place, leaving the rest of the inventory as it was read. */
+  private applyLatestRun(workflowId: string, history: WorkflowRunHistory): void {
+    const latest = history.runs[0] ?? null;
+    if (latest === null) {
+      return;
+    }
+
+    this.current.update((inventory) =>
+      inventory === null
+        ? inventory
+        : {
+            ...inventory,
+            groups: inventory.groups.map((group) => ({
+              ...group,
+              workflows: group.workflows.map((workflow) =>
+                workflow.id === workflowId ? { ...workflow, latestRun: latest } : workflow,
+              ),
+            })),
+          },
+    );
+  }
+
+  /**
+   * Re-reads the jobs of the open run while it is still going.
+   *
+   * The cache is deliberately bypassed here: jobs of a finished run do not change, but the jobs of a running one
+   * are the thing an operator is watching, and serving them from a cache would freeze the screen.
+   */
+  private refreshOpenRunJobs(runId: string): void {
+    const projectId = this.projectOfRun(runId);
+    if (projectId === null) {
+      return;
+    }
+
+    this.dataSource
+      .loadRunJobs(projectId, runId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (jobs) => this.jobsByRun.update((current) => ({ ...current, [runId]: jobs })),
+        error: () => undefined,
+      });
+  }
+
+  private projectOfRun(runId: string): string | null {
+    for (const group of this.groups()) {
+      if (group.workflows.some((workflow) => workflow.latestRun?.id === runId)) {
+        return group.projectId;
+      }
+    }
+
+    return null;
   }
 }

@@ -109,9 +109,73 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.failed-step {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--co-status-down);
+}
+
 .job-duration {
   font-size: 11.5px;
   color: var(--co-ink-muted);
+}
+
+.risk {
+  margin-top: var(--co-space-3);
+}
+
+.risk-note {
+  margin: 0 0 var(--co-space-3);
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+}
+
+.risk-choice {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+}
+
+.risk-option {
+  padding: 5px var(--co-space-3);
+  border-radius: var(--co-radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+}
+
+.risk-option.is-active {
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-strong);
+}
+
+.risk-option:disabled {
+  cursor: default;
+}
+
+.risk-decided,
+.risk-outcome {
+  margin: var(--co-space-3) 0 0;
+  font-size: 11.5px;
+}
+
+/* A destructive marking is stated in the status colour that means "look at this", not in decoration. */
+.risk-outcome {
+  color: var(--co-status-warning);
+}
+
+.risk-outcome.co-unavailable {
+  color: var(--co-ink-muted);
+}
+
+.error {
+  margin: var(--co-space-3) 0 0;
+  font-size: 11.5px;
+  color: var(--co-status-down);
 }
 
 .panel-actions {

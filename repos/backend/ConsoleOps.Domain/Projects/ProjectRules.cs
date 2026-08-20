@@ -8,6 +8,9 @@ public static class ProjectRules
     public const int RepositoryNameMaxLength = 100;
     public const int DefaultBranchMaxLength = 255;
     public const int WorkflowFileMaxLength = 255;
+
+    /// <summary>A workflow's definition path, such as <c>.github/workflows/deploy-production.yml</c>.</summary>
+    public const int WorkflowPathMaxLength = 400;
     public const int EnvironmentNameMaxLength = 100;
     public const int UrlMaxLength = 2_048;
 

@@ -1,8 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 
 import { StatusCell } from '../../../core/contracts/dashboard-overview';
-import { ManualRunSupport, Workflow, WorkflowRunJob } from '../../../core/contracts/workflows';
+import {
+  ManualRunSupport,
+  Workflow,
+  WorkflowRiskLevel,
+  WorkflowRunJob,
+} from '../../../core/contracts/workflows';
 import { DurationPipe } from '../../../core/ui/duration.pipe';
 import { RouterLink } from '@angular/router';
 
@@ -36,6 +41,19 @@ export class WorkflowDetail {
   /** Established from the workflow definition on selection, rather than taken from the inventory. */
   readonly manualRun = input<ManualRunSupport>('unknown');
   readonly manualRunReading = input(false);
+
+  /** Whether this workflow's marking is being saved, so the control cannot be clicked twice. */
+  readonly saving = input(false);
+  readonly riskFailure = input<string | null>(null);
+
+  readonly chooseRisk = output<{ workflow: Workflow; level: WorkflowRiskLevel }>();
+
+  /** In order of intent required. Unclassified first, because it is the state that runs nothing. */
+  protected readonly riskOptions: readonly { level: WorkflowRiskLevel; label: string }[] = [
+    { level: 'unclassified', label: 'Unmarked' },
+    { level: 'normal', label: 'Normal' },
+    { level: 'destructive', label: 'Destructive' },
+  ];
 
   protected readonly icon = computed<IconName>(() =>
     this.workflow().classification === 'deployment' ? 'rocket' : 'ciCd',

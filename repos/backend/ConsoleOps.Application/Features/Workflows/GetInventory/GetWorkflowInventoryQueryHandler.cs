@@ -23,6 +23,7 @@ namespace ConsoleOps.Application.Features.Workflows.GetInventory;
 public sealed class GetWorkflowInventoryQueryHandler(
     IProjectReadStore projects,
     IGitHubWorkflowInventory inventory,
+    IWorkflowRiskReadStore risks,
     TimeProvider timeProvider)
     : IRequestHandler<GetWorkflowInventoryQuery, Result<WorkflowInventoryResponse>>
 {
@@ -31,6 +32,7 @@ public sealed class GetWorkflowInventoryQueryHandler(
         CancellationToken cancellationToken)
     {
         ProjectResponse[] registered = await projects.ListAsync(cancellationToken);
+        IReadOnlyList<WorkflowRiskRecord> markings = await risks.ListAsync(cancellationToken);
         List<WorkflowProjectGroupResponse> groups = new(registered.Length);
 
         foreach (ProjectResponse project in registered)
@@ -45,7 +47,10 @@ public sealed class GetWorkflowInventoryQueryHandler(
                 project.Name,
                 $"{project.Repository.Owner}/{project.Repository.Name}",
                 result.IsSuccess
-                    ? ToWorkflows(result.Observation!.Workflows, project.Repository.WorkflowFile)
+                    ? ToWorkflows(
+                        result.Observation!.Workflows,
+                        project.Repository.WorkflowFile,
+                        markings.Where(marking => marking.ProjectId == project.Id).ToArray())
                     : [],
                 result.IsSuccess ? null : WorkflowRunMapping.ToCamelCase(result.Failure!.Value)));
         }
@@ -57,16 +62,33 @@ public sealed class GetWorkflowInventoryQueryHandler(
 
     private static WorkflowResponse[] ToWorkflows(
         IReadOnlyList<GitHubWorkflowDefinition> workflows,
-        string? deploymentWorkflowFile) =>
+        string? deploymentWorkflowFile,
+        IReadOnlyList<WorkflowRiskRecord> markings) =>
         workflows
-            .Select(workflow => new WorkflowResponse(
-                workflow.WorkflowId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                workflow.Name,
-                workflow.Path,
-                workflow.Active ? "active" : "disabled",
-                IsDeploymentWorkflow(workflow, deploymentWorkflowFile) ? "deployment" : "unclassified",
-                ToManualRun(workflow.SupportsManualRun),
-                WorkflowRunMapping.ToRun(workflow.LatestRun)))
+            .Select(workflow =>
+            {
+                WorkflowRiskRecord? marking = markings.FirstOrDefault(candidate =>
+                    string.Equals(
+                        candidate.NormalizedWorkflowPath,
+                        Domain.Projects.ProjectRules.Normalize(workflow.Path),
+                        StringComparison.Ordinal));
+
+                string risk = marking?.Level ?? "unclassified";
+
+                return new WorkflowResponse(
+                    workflow.WorkflowId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    workflow.Name,
+                    workflow.Path,
+                    workflow.Active ? "active" : "disabled",
+                    IsDeploymentWorkflow(workflow, deploymentWorkflowFile) ? "deployment" : "unclassified",
+                    ToManualRun(workflow.SupportsManualRun),
+                    risk,
+                    marking?.DecidedAtUtc,
+                    // Everything Console Ops has stored that would refuse a run. Whether the provider accepts a
+                    // manual dispatch is read from the definition on selection, and a run request checks both.
+                    workflow.Active && risk is "normal" or "destructive",
+                    WorkflowRunMapping.ToRun(workflow.LatestRun));
+            })
             .ToArray();
 
     /// <summary>

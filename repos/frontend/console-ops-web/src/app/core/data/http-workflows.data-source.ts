@@ -10,11 +10,13 @@ import {
   WorkflowInventory,
   WorkflowProjectGroup,
   WorkflowReadFailure,
+  WorkflowRiskLevel,
   WorkflowRun,
   WorkflowRunConclusion,
   WorkflowRunHistory,
   WorkflowRunJob,
   WorkflowRunStatus,
+  WorkflowRunStep,
   WorkflowState,
   WorkflowTrigger,
 } from '../contracts/workflows';
@@ -39,6 +41,9 @@ interface WorkflowPayload {
   readonly state: string;
   readonly classification: string;
   readonly manualRun: string;
+  readonly risk: string;
+  readonly riskDecidedAt: string | null;
+  readonly executable: boolean;
   readonly latestRun: RunPayload | null;
 }
 
@@ -61,6 +66,16 @@ interface RunPayload {
 
 interface JobPayload {
   readonly name: string;
+  readonly status: string;
+  readonly conclusion: string | null;
+  readonly durationSeconds: number | null;
+  readonly failedStep: string | null;
+  readonly steps: readonly StepPayload[];
+}
+
+interface StepPayload {
+  readonly name: string;
+  readonly number: number | null;
   readonly status: string;
   readonly conclusion: string | null;
   readonly durationSeconds: number | null;
@@ -113,6 +128,19 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
       .pipe(map((payload) => payload.jobs.map(toJob)));
   }
 
+  override setRisk(
+    projectId: string,
+    workflowPath: string,
+    level: WorkflowRiskLevel,
+  ): Observable<void> {
+    return this.http
+      .put<unknown>(`/api/workflows/projects/${encodeURIComponent(projectId)}/risk`, {
+        workflowPath,
+        level,
+      })
+      .pipe(map(() => undefined));
+  }
+
   override loadManualRunSupport(
     projectId: string,
     workflowId: string,
@@ -133,12 +161,18 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
       );
   }
 
-  override loadRuns(projectId: string, workflowId: string): Observable<WorkflowRunHistory> {
+  override loadRuns(
+    projectId: string,
+    workflowId: string,
+    limit?: number,
+  ): Observable<WorkflowRunHistory> {
     return this.http
       .get<RunsPayload>(
         `/api/workflows/projects/${encodeURIComponent(projectId)}/workflows/${encodeURIComponent(
           workflowId,
         )}/runs`,
+        // A live refresh asks for one run: the page already has the rest, and the API clamps this anyway.
+        limit === undefined ? {} : { params: { limit } },
       )
       .pipe(
         map((payload) => ({
@@ -168,6 +202,10 @@ function toWorkflow(payload: WorkflowPayload): Workflow {
     state: payload.state === 'disabled' ? 'disabled' : ('active' as WorkflowState),
     classification: toClassification(payload.classification),
     manualRun: toManualRun(payload.manualRun),
+    risk: toRisk(payload.risk),
+    riskDecidedAt: payload.riskDecidedAt,
+    // Taken from the API rather than re-derived here: one place decides what may be run.
+    executable: payload.executable,
     latestRun: payload.latestRun === null ? null : toRun(payload.latestRun),
   };
 }
@@ -194,6 +232,18 @@ function toRun(payload: RunPayload): WorkflowRun {
 function toJob(payload: JobPayload): WorkflowRunJob {
   return {
     name: payload.name,
+    status: toStatus(payload.status),
+    conclusion: toConclusion(payload.conclusion),
+    durationSeconds: payload.durationSeconds,
+    failedStep: payload.failedStep,
+    steps: (payload.steps ?? []).map(toStep),
+  };
+}
+
+function toStep(payload: StepPayload): WorkflowRunStep {
+  return {
+    name: payload.name,
+    number: payload.number,
     status: toStatus(payload.status),
     conclusion: toConclusion(payload.conclusion),
     durationSeconds: payload.durationSeconds,
@@ -236,6 +286,11 @@ function toConclusion(conclusion: string | null): WorkflowRunConclusion | null {
 /** Anything other than an explicit deployment stays unclassified: the screen never promotes a workflow. */
 function toClassification(classification: string): WorkflowClassification {
   return classification === 'deployment' ? 'deployment' : 'unclassified';
+}
+
+/** An unrecognised level reads as unclassified, which is the state that refuses to run anything. */
+function toRisk(risk: string): WorkflowRiskLevel {
+  return risk === 'normal' || risk === 'destructive' ? risk : 'unclassified';
 }
 
 function toManualRun(manualRun: string): ManualRunSupport {

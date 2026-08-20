@@ -53,6 +53,9 @@ internal sealed class ProjectRepository(ConsoleOpsDbContext dbContext) : IProjec
     public Task<Project?> GetActiveByIdAsync(Guid projectId, CancellationToken cancellationToken) =>
         dbContext.Projects
             .Include(project => project.Environments)
+            // Loaded because a risk marking is removed by taking it out of this collection, and a collection that
+            // was never loaded has nothing to take out - the row would survive a decision to withdraw it.
+            .Include(project => project.WorkflowRisks)
             .SingleOrDefaultAsync(
                 project => project.Id == projectId && !project.IsArchived,
                 cancellationToken);

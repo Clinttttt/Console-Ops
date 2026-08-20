@@ -1,6 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 
-import { Workflow, WorkflowClassification } from '../../core/contracts/workflows';
+import {
+  Workflow,
+  WorkflowClassification,
+  WorkflowRiskLevel,
+} from '../../core/contracts/workflows';
+import {
+  ACTIVE_PROVIDER_REFRESH_INTERVAL_MS,
+  IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+  providerRefresh,
+} from '../../core/state/auto-refresh';
 import { WorkflowsStore } from '../../core/state/workflows.store';
 import { Icon } from '../../core/ui/icon';
 import { ProjectMark, ProjectMarkTone } from '../../core/ui/project-mark';
@@ -47,6 +56,8 @@ export class WorkflowsPage {
   protected readonly selectedJobs = this.store.selectedJobs;
   protected readonly selectedManualRun = this.store.selectedManualRun;
   protected readonly manualRunReading = this.store.manualRunReading;
+  protected readonly savingRiskFor = this.store.savingRiskFor;
+  protected readonly riskFailure = this.store.riskFailure;
 
   protected readonly search = signal('');
   protected readonly typeFilter = signal<TypeFilter>(null);
@@ -55,6 +66,16 @@ export class WorkflowsPage {
 
   constructor() {
     this.store.read();
+
+    // A run in progress is what an operator watches, so the screen follows it instead of waiting to be
+    // reloaded. While something is running it re-reads only the workflows that are running.
+    providerRefresh(
+      () => this.store.refresh(),
+      () =>
+        this.store.hasRunningWorkflow()
+          ? ACTIVE_PROVIDER_REFRESH_INTERVAL_MS
+          : IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+    );
   }
 
   /** Projects to offer in the filter, from the inventory rather than from a separate list. */
@@ -167,6 +188,14 @@ export class WorkflowsPage {
 
   protected setProjectFilter(projectId: string): void {
     this.projectFilter.set(projectId === '' ? null : projectId);
+  }
+
+  /** The one write on this screen: an operator saying how much intent running this workflow should require. */
+  protected setRisk(workflow: Workflow, level: WorkflowRiskLevel): void {
+    const projectId = this.projectOf(workflow.id);
+    if (projectId !== null) {
+      this.store.setRisk(projectId, workflow.path, level);
+    }
   }
 
   protected clearFilters(): void {

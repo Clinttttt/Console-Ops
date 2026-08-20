@@ -314,6 +314,80 @@ public sealed class GitHubWorkflowInventoryTests
             });
     }
 
+    [Fact]
+    public async Task ListRunJobsAsync_NamesTheStepThatFailedRatherThanOnlyTheJob()
+    {
+        StubHandler handler = new(_ => JsonResponse("""
+            {
+              "jobs": [
+                {
+                  "name": "Backend",
+                  "status": "completed",
+                  "conclusion": "failure",
+                  "started_at": "2026-08-19T06:00:00Z",
+                  "completed_at": "2026-08-19T06:02:41Z",
+                  "steps": [
+                    {
+                      "name": "Checkout",
+                      "number": 1,
+                      "status": "completed",
+                      "conclusion": "success",
+                      "started_at": "2026-08-19T06:00:00Z",
+                      "completed_at": "2026-08-19T06:00:04Z"
+                    },
+                    {
+                      "name": "Integration tests",
+                      "number": 2,
+                      "status": "completed",
+                      "conclusion": "failure",
+                      "started_at": "2026-08-19T06:00:04Z",
+                      "completed_at": "2026-08-19T06:02:35Z"
+                    },
+                    {
+                      "name": "Publish results",
+                      "number": 3,
+                      "status": "completed",
+                      "conclusion": "skipped",
+                      "started_at": null,
+                      "completed_at": null
+                    }
+                  ]
+                }
+              ]
+            }
+            """));
+
+        GitHubFactResult<GitHubRunJobs> result =
+            await CreateInventory(handler).ListRunJobsAsync("clint", "eemo", 535, CancellationToken.None);
+
+        GitHubRunJob job = Assert.Single(result.Observation!.Jobs);
+        Assert.Equal(3, job.Steps.Count);
+        Assert.Equal("Integration tests", job.Steps[1].Name);
+        Assert.Equal(GitHubRunConclusion.Failed, job.Steps[1].Conclusion);
+        // Skipped because the failure cascaded, which is a different outcome from failing.
+        Assert.Equal(GitHubRunConclusion.Skipped, job.Steps[2].Conclusion);
+        Assert.Null(job.Steps[2].StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task ListRunJobsAsync_ReportsNoStepsForAJobThatHasNotStarted()
+    {
+        StubHandler handler = new(_ => JsonResponse("""
+            {
+              "jobs": [
+                { "name": "Deploy", "status": "queued", "conclusion": null, "steps": [] }
+              ]
+            }
+            """));
+
+        GitHubFactResult<GitHubRunJobs> result =
+            await CreateInventory(handler).ListRunJobsAsync("clint", "eemo", 535, CancellationToken.None);
+
+        GitHubRunJob job = Assert.Single(result.Observation!.Jobs);
+        Assert.Empty(job.Steps);
+        Assert.Equal(GitHubRunStatus.Queued, job.Status);
+    }
+
     private static GitHubWorkflowInventory CreateInventory(HttpMessageHandler handler) =>
         new(new HttpClient(handler)
         {

@@ -102,5 +102,16 @@ internal sealed class ProjectConfiguration : IEntityTypeConfiguration<Project>
 
         builder.Navigation(project => project.Environments)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Cascade for the same reason environments do: a risk marking is a decision about a workflow of this
+        // project and means nothing without it.
+        builder.HasMany(project => project.WorkflowRisks)
+            .WithOne()
+            .HasForeignKey(risk => risk.ProjectId)
+            .HasConstraintName("fk_project_workflow_risks_projects_project_id")
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(project => project.WorkflowRisks)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

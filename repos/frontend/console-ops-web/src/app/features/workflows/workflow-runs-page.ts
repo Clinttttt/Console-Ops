@@ -1,8 +1,26 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { StatusCell } from '../../core/contracts/dashboard-overview';
-import { Workflow, WorkflowRun, WorkflowRunJob } from '../../core/contracts/workflows';
+import {
+  Workflow,
+  WorkflowRun,
+  WorkflowRunJob,
+  WorkflowRunStep,
+} from '../../core/contracts/workflows';
+import {
+  ACTIVE_PROVIDER_REFRESH_INTERVAL_MS,
+  IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+  providerRefresh,
+} from '../../core/state/auto-refresh';
 import { WorkflowRunHistoryStore } from '../../core/state/workflow-run-history.store';
 import { WorkflowsStore } from '../../core/state/workflows.store';
 import { DurationPipe } from '../../core/ui/duration.pipe';
@@ -69,6 +87,17 @@ export class WorkflowRunsPage implements OnInit {
     if (this.inventory.loadState() !== 'loaded') {
       this.inventory.read();
     }
+
+    // A run in progress advances on its own here: the steps an operator is watching are the whole point of this
+    // screen, so it follows them rather than waiting to be reloaded. Registered here because the refresh needs
+    // an injection context; the route inputs it reads are set before the first tick.
+    providerRefresh(
+      () => this.history.refresh(this.projectId(), this.workflowId()),
+      () =>
+        this.history.hasRunningRun()
+          ? ACTIVE_PROVIDER_REFRESH_INTERVAL_MS
+          : IDLE_PROVIDER_REFRESH_INTERVAL_MS,
+    );
   }
 
   ngOnInit(): void {
@@ -79,16 +108,29 @@ export class WorkflowRunsPage implements OnInit {
     return workflowRunCell(run.status, run.conclusion);
   }
 
-  protected jobCell(job: WorkflowRunJob): StatusCell | null {
-    return workflowRunCell(job.status, job.conclusion);
+  /** Which job's steps are open. One at a time: a run with ten jobs is a wall of steps otherwise. */
+  private readonly openJobName = signal<string | null>(null);
+  protected readonly openJob = this.openJobName.asReadonly();
+
+  /** Shared by jobs and steps, which report the same states and so read the same. */
+  protected jobCell(entry: WorkflowRunJob | WorkflowRunStep): StatusCell | null {
+    return workflowRunCell(entry.status, entry.conclusion);
   }
 
-  protected jobIcon(job: WorkflowRunJob): IconName {
-    if (job.status !== 'completed') {
-      return job.status === 'inProgress' ? 'refresh' : 'pause';
+  protected jobIcon(entry: WorkflowRunJob | WorkflowRunStep): IconName {
+    if (entry.status !== 'completed') {
+      return entry.status === 'inProgress' ? 'refresh' : 'pause';
     }
 
-    return job.conclusion === 'passed' ? 'checkCircle' : 'close';
+    return entry.conclusion === 'passed' ? 'checkCircle' : 'close';
+  }
+
+  protected toggleJob(job: WorkflowRunJob): void {
+    if (job.steps.length === 0) {
+      return;
+    }
+
+    this.openJobName.update((current) => (current === job.name ? null : job.name));
   }
 
   protected trigger(value: string): string {

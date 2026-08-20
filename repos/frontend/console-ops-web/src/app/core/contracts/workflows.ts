@@ -50,6 +50,15 @@ export type WorkflowTrigger = string;
  */
 export type ManualRunSupport = 'supported' | 'unavailable' | 'unknown';
 
+/** One step within a job. The provider numbers them, so an order is reported rather than assumed. */
+export interface WorkflowRunStep {
+  readonly name: string;
+  readonly number: number | null;
+  readonly status: WorkflowRunStatus;
+  readonly conclusion: WorkflowRunConclusion | null;
+  readonly durationSeconds: number | null;
+}
+
 /** One job within a run, so "where is this stuck" is answerable without opening the provider. */
 export interface WorkflowRunJob {
   readonly name: string;
@@ -57,6 +66,15 @@ export interface WorkflowRunJob {
   readonly conclusion: WorkflowRunConclusion | null;
   /** `null` while the job has not finished, or when the provider reported no timing. */
   readonly durationSeconds: number | null;
+  /**
+   * The step the provider reported as failed, or `null` when none did.
+   *
+   * A job that failed without any step failing - a runner that died, a cancelled queue - names none rather than
+   * blaming a step that reported success.
+   */
+  readonly failedStep: string | null;
+  /** Empty while the job has not started, which is not the same as a job that ran nothing. */
+  readonly steps: readonly WorkflowRunStep[];
 }
 
 export interface WorkflowRun {
@@ -89,6 +107,14 @@ export interface WorkflowRun {
   readonly jobs: readonly WorkflowRunJob[];
 }
 
+/**
+ * How much intent starting a workflow should require, as an operator marked it.
+ *
+ * Never derived. `unclassified` is the default and a real state: Console Ops will not run a workflow whose risk
+ * nobody has stated, because a name cannot prove that one drops a database.
+ */
+export type WorkflowRiskLevel = 'unclassified' | 'normal' | 'destructive';
+
 export interface Workflow {
   readonly id: string;
   readonly name: string;
@@ -98,6 +124,18 @@ export interface Workflow {
   readonly classification: WorkflowClassification;
 
   readonly manualRun: ManualRunSupport;
+  readonly risk: WorkflowRiskLevel;
+  /** When an operator marked it, or `null` when nobody has. */
+  readonly riskDecidedAt: string | null;
+  /**
+   * Whether anything Console Ops has stored refuses to run this: `false` while the risk is unclassified, and
+   * `false` for a workflow the provider has disabled.
+   *
+   * Decided by the API rather than re-derived here. It does not cover whether the provider accepts a manual
+   * dispatch - that is read from the definition on selection, because reading it for every workflow would double
+   * the cost of opening the screen.
+   */
+  readonly executable: boolean;
   /** `null` when the provider has recorded no run, which is not the same as a run that failed. */
   readonly latestRun: WorkflowRun | null;
 }
