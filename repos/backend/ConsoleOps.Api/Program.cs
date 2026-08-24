@@ -18,8 +18,7 @@ builder.Services.AddHealthChecks();
 WebApplication app = builder.Build();
 
 
-app.UseSwagger();
-app.UseSwaggerUI();
+
 app.EnsureSafeExposure(builder.Configuration);
 app.UseConsoleOpsPipeline();
 app.MapConsoleOpsEndpoints();
