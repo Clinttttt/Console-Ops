@@ -31,9 +31,8 @@ public static class RequestPipelineExtensions
         app.UseMiddleware<ExceptionMiddleware>();
         app.UseMiddleware<ApiKeyMiddleware>();
         app.UseStatusCodePages();
-        app.UseHttpsRedirection();
         app.UseRateLimiter();
-
+        app.UseHealthChecks("/health");
         return app;
     }
 

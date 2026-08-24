@@ -1,6 +1,7 @@
 using ConsoleOps.Api.Extensions;
 using ConsoleOps.Application;
 using ConsoleOps.Infrastructure;
+using Microsoft.OpenApi;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -11,9 +12,14 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddConsoleOpsRateLimiter();
 builder.Services.AddScheduledCollection(builder.Configuration);
 builder.Services.AddConsoleOpsConfigurationInspection();
+builder.Services.AddSwagger();
+builder.Services.AddHealthChecks();
 
 WebApplication app = builder.Build();
 
+
+app.UseSwagger();
+app.UseSwaggerUI();
 app.EnsureSafeExposure(builder.Configuration);
 app.UseConsoleOpsPipeline();
 app.MapConsoleOpsEndpoints();
