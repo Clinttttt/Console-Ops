@@ -323,6 +323,36 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
     private static string EscapePath(string path) =>
         string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
 
+    public async Task<GitHubFactResult<GitHubBranchList>> ListBranchesAsync(
+        string owner,
+        string repository,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repository);
+
+        string path = $"repos/{Escape(owner)}/{Escape(repository)}/branches?per_page={PageSize}";
+        GitHubReadResponse<GitHubBranchDto[]> response =
+            await GetAsync<GitHubBranchDto[]>(path, cancellationToken);
+
+        if (response.Value is null)
+        {
+            return GitHubFactResult<GitHubBranchList>.Failed(
+                response.Failure ?? GitHubReadFailure.Unavailable);
+        }
+
+        string[] names = response.Value
+            .Select(branch => branch.Name?.Trim())
+            .Where(name => !string.IsNullOrEmpty(name))
+            .Select(name => name!)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return GitHubFactResult<GitHubBranchList>.Success(
+            new GitHubBranchList(names, response.HasNextPage));
+    }
+
     /// <summary>Every read goes through the shared GitHub request, so failure means the same thing here.</summary>
     private Task<GitHubReadResponse<T>> GetAsync<T>(
         string relativePath,
@@ -383,6 +413,8 @@ public sealed class GitHubRepositoryCatalog(HttpClient httpClient) : IGitHubRepo
     private sealed record GitHubLatestRun(
         GitHubWorkflowRunConclusion Conclusion,
         DateTimeOffset? CompletedAtUtc);
+
+    private sealed record GitHubBranchDto(string? Name);
 
     private sealed record GitHubRepositoryDto(
         string? Name,

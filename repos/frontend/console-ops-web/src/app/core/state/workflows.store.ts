@@ -7,10 +7,22 @@ import {
   WorkflowRunHistory,
   WorkflowRunJob,
   WorkflowRiskLevel,
+  Workflow,
+  WorkflowInput,
+  WorkflowBranches,
+  WorkflowRiskReading,
 } from '../contracts/workflows';
 import { WorkflowsDataSource } from '../data/workflows.data-source';
 
 export type WorkflowsLoadState = 'loading' | 'loaded' | 'unavailable';
+
+/**
+ * How long a requested run is waited for before Console Ops stops expecting it.
+ *
+ * A provider that accepted a dispatch normally reports the run within seconds. Waiting indefinitely would keep a
+ * row saying Requested and hold the screen in its fast refresh for as long as it stayed open.
+ */
+const AdoptionWindowMs = 120_000;
 
 /**
  * Holds the workflow inventory for the Workflows screen.
@@ -115,6 +127,9 @@ export class WorkflowsStore {
    * already read does not change while the screen is open.
    */
   private readonly manualRunByWorkflow = signal<Readonly<Record<string, ManualRunSupport>>>({});
+  private readonly inputsByWorkflow = signal<Readonly<Record<string, readonly WorkflowInput[]>>>(
+    {},
+  );
   private readonly manualRunLoading = signal<string | null>(null);
   private readonly selectedWorkflowId = signal<string | null>(null);
 
@@ -130,6 +145,12 @@ export class WorkflowsStore {
   });
 
   readonly manualRunReading = computed(() => this.manualRunLoading() === this.selectedWorkflowId());
+
+  /** What the selected workflow declares it needs for a run, once its definition has been read. */
+  readonly selectedInputs = computed<readonly WorkflowInput[]>(() => {
+    const workflowId = this.selectedWorkflowId();
+    return workflowId === null ? [] : (this.inputsByWorkflow()[workflowId] ?? []);
+  });
 
   /** Reads a workflow's dispatch support once. A failed read leaves it unknown rather than unavailable. */
   readManualRunSupport(projectId: string, workflowId: string, workflowPath: string): void {
@@ -153,6 +174,7 @@ export class WorkflowsStore {
             ...current,
             [workflowId]: reading.manualRun,
           }));
+          this.inputsByWorkflow.update((current) => ({ ...current, [workflowId]: reading.inputs }));
           this.manualRunLoading.set(null);
         },
         error: () => this.manualRunLoading.set(null),
@@ -160,10 +182,14 @@ export class WorkflowsStore {
   }
 
   /**
-   * Records a workflow's risk, then re-reads the inventory.
+   * Records a workflow's risk and shows it straight away.
    *
-   * Re-read rather than patched in place: the API decides whether a workflow is executable, and inferring that
-   * here from the level alone would let the screen offer to run something the API would refuse.
+   * The marking is applied in place from what the API returned, then the inventory is re-read in the background to
+   * reconcile. Waiting for that read before releasing the control left the choice unclickable for seconds while
+   * the previous outcome sat on screen - the marking looked rejected and then corrected itself.
+   *
+   * `executable` is recomputed here with the rule the API applies - active, and marked - rather than guessed at.
+   * The two agree because the rule is one line; the re-read is what proves it.
    */
   setRisk(projectId: string, workflowPath: string, level: WorkflowRiskLevel): void {
     this.riskSaving.set(workflowPath);
@@ -173,7 +199,8 @@ export class WorkflowsStore {
       .setRisk(projectId, workflowPath, level)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
+        next: (marking) => {
+          this.applyRisk(workflowPath, marking);
           this.riskSaving.set(null);
           this.read();
         },
@@ -186,13 +213,166 @@ export class WorkflowsStore {
       });
   }
 
+  private applyRisk(workflowPath: string, marking: WorkflowRiskReading): void {
+    this.current.update((inventory) =>
+      inventory === null
+        ? inventory
+        : {
+            ...inventory,
+            groups: inventory.groups.map((group) => ({
+              ...group,
+              workflows: group.workflows.map((workflow) =>
+                workflow.path === workflowPath
+                  ? {
+                      ...workflow,
+                      risk: marking.level,
+                      riskDecidedAt: marking.decidedAt,
+                      executable: workflow.state === 'active' && marking.level !== 'unclassified',
+                    }
+                  : workflow,
+              ),
+            })),
+          },
+    );
+  }
+
   private readonly riskSaving = signal<string | null>(null);
   private readonly riskError = signal<string | null>(null);
 
   readonly savingRiskFor = this.riskSaving.asReadonly();
   readonly riskFailure = this.riskError.asReadonly();
 
-  read(): void {
+  /**
+   * Reads the refs a run could target.
+   *
+   * A failed read leaves the registered branch as the only option rather than an empty list: a run still has a
+   * sensible default, and the panel says the rest could not be read.
+   */
+  readBranches(projectId: string, defaultBranch: string): void {
+    this.branchState.set('loading');
+    this.branchList.set({ defaultBranch, branches: [defaultBranch], hasMore: false });
+
+    this.dataSource
+      .loadBranches(projectId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (branches) => {
+          this.branchList.set(branches);
+          this.branchState.set('loaded');
+        },
+        error: () => this.branchState.set('unavailable'),
+      });
+  }
+
+  private readonly branchList = signal<WorkflowBranches | null>(null);
+  private readonly branchState = signal<'idle' | 'loading' | 'loaded' | 'unavailable'>('idle');
+
+  readonly branches = computed(() => this.branchList()?.branches ?? []);
+  readonly branchesState = this.branchState.asReadonly();
+  readonly branchesBounded = computed(() => this.branchList()?.hasMore ?? false);
+
+  /**
+   * Asks for a run, then looks for the run that request produced.
+   *
+   * The provider accepts a dispatch without reporting a run, so there is nothing to follow until one appears. The
+   * screen says `Requested` in the meantime rather than claiming a run is going, and the refresh that already
+   * follows running workflows is what finds it.
+   */
+  dispatch(
+    projectId: string,
+    workflow: Workflow,
+    request: {
+      readonly reference: string;
+      readonly inputs: Readonly<Record<string, string>>;
+      readonly confirmation: string | null;
+    },
+  ): void {
+    this.dispatchState.set('requesting');
+    this.dispatchError.set(null);
+
+    this.dataSource
+      .dispatch(projectId, workflow.id, request)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (accepted) => {
+          this.dispatchState.set('accepted');
+          this.requestedFor.set({ workflowId: workflow.id, at: accepted.requestedAt });
+          // Ask straight away: the run usually appears within a second or two of being accepted.
+          this.adoptRequestedRun(projectId, workflow.id);
+        },
+        error: (error: unknown) => {
+          this.dispatchState.set('failed');
+          this.dispatchError.set(dispatchMessage(error));
+        },
+      });
+  }
+
+  private readonly dispatchState = signal<'idle' | 'requesting' | 'accepted' | 'failed'>('idle');
+  private readonly dispatchError = signal<string | null>(null);
+  private readonly requestedFor = signal<{ workflowId: string; at: string } | null>(null);
+
+  readonly dispatchStatus = this.dispatchState.asReadonly();
+  readonly dispatchFailure = this.dispatchError.asReadonly();
+
+  /** The workflow a run was requested for and not yet seen, so the screen can say so on that row. */
+  readonly awaitingRunFor = computed(() => this.requestedFor()?.workflowId ?? null);
+
+  clearDispatch(): void {
+    this.dispatchState.set('idle');
+    this.dispatchError.set(null);
+    this.requestedFor.set(null);
+  }
+
+  /**
+   * Looks for the run a dispatch produced and stops waiting once it is found.
+   *
+   * A run counts as the one requested when it started at or after the request was accepted. That is the only link
+   * available: the provider never said which run it created, so anything stronger would be invented.
+   */
+  private adoptRequestedRun(projectId: string, workflowId: string): void {
+    const requested = untracked(this.requestedFor);
+    if (requested === null) {
+      return;
+    }
+
+    // Stop waiting after a bounded while. Without this a request the provider never turned into a run - a
+    // repository whose runs are not visible, a clock far enough out to fail the comparison - would keep the row
+    // saying Requested and keep the screen in its fast refresh for as long as it stayed open.
+    if (Date.now() - Date.parse(requested.at) > AdoptionWindowMs) {
+      this.requestedFor.set(null);
+      this.dispatchState.set('idle');
+      return;
+    }
+
+    this.dataSource
+      .loadRuns(projectId, workflowId, 1)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (history) => {
+          const latest = history.runs[0];
+          if (latest === undefined) {
+            return;
+          }
+
+          this.applyLatestRun(workflowId, history);
+
+          const startedAt = latest.startedAt;
+          if (startedAt !== null && Date.parse(startedAt) + 1000 >= Date.parse(requested.at)) {
+            this.requestedFor.set(null);
+            this.dispatchState.set('idle');
+          }
+        },
+        error: () => undefined,
+      });
+  }
+
+  /**
+   * Reads the inventory.
+   *
+   * <paramref name="onDone"/> runs whether the read succeeded or not, so a caller waiting on it - a marking
+   * holding its saving state until the screen reflects the change - is never left waiting on a failure.
+   */
+  read(onDone?: () => void): void {
     if (untracked(this.state) !== 'loaded') {
       this.state.set('loading');
     }
@@ -204,22 +384,28 @@ export class WorkflowsStore {
         next: (inventory) => {
           this.current.set(inventory);
           this.state.set('loaded');
+          onDone?.();
         },
         error: () => {
           if (untracked(this.current) === null) {
             this.state.set('unavailable');
           }
+
+          onDone?.();
         },
       });
   }
 
   /** Whether any workflow on the page has a run that has not finished. */
-  readonly hasRunningWorkflow = computed(() =>
-    this.groups().some((group) =>
-      group.workflows.some(
-        (workflow) => workflow.latestRun !== null && workflow.latestRun.status !== 'completed',
+  /** A requested run that has not appeared yet is also something to follow closely. */
+  readonly hasRunningWorkflow = computed(
+    () =>
+      this.requestedFor() !== null ||
+      this.groups().some((group) =>
+        group.workflows.some(
+          (workflow) => workflow.latestRun !== null && workflow.latestRun.status !== 'completed',
+        ),
       ),
-    ),
   );
 
   /**
@@ -231,6 +417,15 @@ export class WorkflowsStore {
    * that has started since.
    */
   refresh(): void {
+    // A run was requested and has not appeared yet, so the thing to re-read is that workflow.
+    const awaiting = this.requestedFor();
+    if (awaiting !== null) {
+      const projectId = this.projectOfWorkflow(awaiting.workflowId);
+      if (projectId !== null) {
+        this.adoptRequestedRun(projectId, awaiting.workflowId);
+      }
+    }
+
     const running = this.groups().flatMap((group) =>
       group.workflows
         .filter(
@@ -304,6 +499,16 @@ export class WorkflowsStore {
       });
   }
 
+  private projectOfWorkflow(workflowId: string): string | null {
+    for (const group of this.groups()) {
+      if (group.workflows.some((workflow) => workflow.id === workflowId)) {
+        return group.projectId;
+      }
+    }
+
+    return null;
+  }
+
   private projectOfRun(runId: string): string | null {
     for (const group of this.groups()) {
       if (group.workflows.some((workflow) => workflow.latestRun?.id === runId)) {
@@ -313,4 +518,15 @@ export class WorkflowsStore {
 
     return null;
   }
+}
+
+/**
+ * What to tell an operator when a run was refused.
+ *
+ * The API's own reason is used where it gave one, because it names what to check - a token without write access,
+ * a ref that does not exist, a marking that was withdrawn - and a generic message would send them looking.
+ */
+function dispatchMessage(error: unknown): string {
+  const detail = (error as { error?: { detail?: string; title?: string } } | null)?.error;
+  return detail?.detail ?? detail?.title ?? 'That run could not be started.';
 }

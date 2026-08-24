@@ -50,24 +50,30 @@
   </button>
 
   <span class="actions">
-    <!-- Run history is real; workflow execution logs are a separate provider read and stay named as planned. -->
-    <a class="co-inline-link" [routerLink]="['/workflows', projectId(), item.id, 'runs']">Runs</a>
-    <span
-      class="co-inline-link is-unavailable"
-      title="Workflow execution logs - planned for a later slice. Application logs are on the Logs screen."
-    >
-      Run logs
-    </span>
-
     <!--
-      Nothing here for a workflow whose dispatch support has not been established. The inventory cannot know it -
-      a trigger is declared in the definition - and repeating "unknown" on every row states the same
-      non-answer as many times as there are workflows. It is established on selection and shown in the panel.
+      Two actions and no dead ends: Logs opens this workflow's runs, and Run asks for one. The provider's raw
+      execution log text is not rendered yet, so nothing here claims to show it.
     -->
-    @if (item.manualRun === 'supported') {
+    <a class="co-inline-link" [routerLink]="['/workflows', projectId(), item.id, 'runs']">Logs</a>
+
+    @if (awaitingRun()) {
+      <!-- Accepted by the provider, which reports no run yet: saying "running" would be claiming one exists. -->
+      <span
+        class="run is-pending"
+        title="The provider accepted the request and has not reported a run yet"
+      >
+        Requested
+      </span>
+    } @else if (item.executable) {
+      <button type="button" class="run" (click)="requestRun.emit(workflow())">Run</button>
+    } @else {
       <span
         class="run is-unavailable"
-        title="Manual runs are a later phase: Console Ops reads workflows before it starts them"
+        [title]="
+          item.risk === 'unclassified'
+            ? 'Mark this workflow\'s risk before Console Ops will run it'
+            : 'The provider reports this workflow as disabled'
+        "
       >
         Run
       </span>

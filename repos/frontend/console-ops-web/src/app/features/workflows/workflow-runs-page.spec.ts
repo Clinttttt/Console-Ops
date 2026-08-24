@@ -4,6 +4,9 @@ import { Observable, of, throwError } from 'rxjs';
 
 import {
   ManualRunSupportReading,
+  WorkflowBranches,
+  WorkflowDispatchAccepted,
+  WorkflowRiskReading,
   WorkflowInventory,
   WorkflowRunHistory,
   WorkflowRunJob,
@@ -22,6 +25,7 @@ const INVENTORY: WorkflowInventory = {
       projectId: 'eemo',
       projectName: 'EEMO-Cantilan-SDS',
       repository: 'clint/EEMO-Cantilan-SDS',
+      defaultBranch: 'master',
       readFailure: null,
       workflows: [
         {
@@ -164,12 +168,29 @@ class StubWorkflows extends WorkflowsDataSource {
     return this.jobs;
   }
 
-  override setRisk(): Observable<void> {
-    return of(undefined);
+  override setRisk(): Observable<WorkflowRiskReading> {
+    return of({
+      workflowPath: '.github/workflows/ci.yml',
+      level: 'normal' as const,
+      decidedAt: '2026-08-20T09:00:00.000Z',
+    });
+  }
+
+  override loadBranches(): Observable<WorkflowBranches> {
+    return of({ defaultBranch: 'master', branches: ['master'], hasMore: false });
+  }
+
+  override dispatch(): Observable<WorkflowDispatchAccepted> {
+    return of({
+      status: 'requested' as const,
+      workflowId: '101',
+      reference: 'master',
+      requestedAt: new Date().toISOString(),
+    });
   }
 
   override loadManualRunSupport(): Observable<ManualRunSupportReading> {
-    return of({ manualRun: 'unknown', definitionPath: '.github/workflows/ci.yml' });
+    return of({ manualRun: 'unknown', definitionPath: '.github/workflows/ci.yml', inputs: [] });
   }
 }
 

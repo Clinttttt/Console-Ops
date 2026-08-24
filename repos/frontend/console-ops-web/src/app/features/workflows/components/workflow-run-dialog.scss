@@ -1,0 +1,169 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(16 24 35 / 35%);
+  z-index: 20;
+}
+
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 21;
+  width: min(460px, calc(100vw - var(--co-space-6) * 2));
+  /*
+    Tall enough that a workflow with a couple of inputs fits without a scrollbar. One with many still scrolls,
+    which is honest: hiding an overflow an operator has to reach is worse than showing it.
+  */
+  max-height: calc(100vh - var(--co-space-6) * 2);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: var(--co-space-5);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-lg);
+  box-shadow: 0 18px 48px rgb(16 24 35 / 18%);
+}
+
+.title {
+  margin: var(--co-space-2) 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.path {
+  margin: var(--co-space-2) 0 0;
+  font-size: 11.5px;
+  color: var(--co-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+/* A hairline border and text colour, not a filled block: the warning is the words. */
+.destructive {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin: var(--co-space-4) 0 0;
+  padding: var(--co-space-3) var(--co-space-4);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font-size: 12px;
+  color: var(--co-status-warning);
+}
+
+/* Label beside the control for a single short field, sized to the label rather than to a fixed column. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--co-space-3);
+  margin-top: var(--co-space-4);
+}
+
+.row co-select {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+  Label above the control everywhere else. Beside it, a label as long as "Type the workflow name to confirm"
+  wrapped into a narrow column of single words.
+*/
+.stacked {
+  display: grid;
+  gap: var(--co-space-2);
+  margin-top: var(--co-space-4);
+}
+
+.expected {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--co-ink-muted);
+}
+
+.required {
+  margin-left: var(--co-space-2);
+  font-weight: 400;
+  color: var(--co-ink-faint);
+}
+
+.value {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+}
+
+input {
+  width: 100%;
+  padding: 7px var(--co-space-4);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+.description,
+.note {
+  font-size: 11.5px;
+}
+
+.note {
+  margin: var(--co-space-4) 0 0;
+}
+
+.error {
+  margin: var(--co-space-4) 0 0;
+  font-size: 12px;
+  color: var(--co-status-down);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--co-space-3);
+  margin-top: var(--co-space-5);
+}
+
+.secondary,
+.primary {
+  padding: var(--co-space-3) var(--co-space-5);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.secondary {
+  border: 1px solid var(--co-line);
+  color: var(--co-ink);
+}
+
+.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--co-space-2);
+  background: var(--co-navy);
+  color: var(--co-surface);
+}
+
+.primary:disabled {
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-faint);
+  cursor: not-allowed;
+}

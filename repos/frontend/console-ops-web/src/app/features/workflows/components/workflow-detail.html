@@ -119,21 +119,28 @@
     }
   </div>
 
-  @if (item.riskDecidedAt !== null) {
+  @if (saving()) {
+    <p class="co-reading">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Saving the marking...
+    </p>
+  } @else if (item.riskDecidedAt !== null) {
     <p class="risk-decided co-unavailable">
       Marked {{ item.riskDecidedAt | date: 'MMM d, HH:mm' : 'UTC' }} UTC
     </p>
-  }
-
-  @if (saving()) {
-    <p class="risk-decided co-unavailable">Saving...</p>
   }
 
   <!--
     What would happen if an operator asked to run it, stated before they ask. Executable is the API's answer, so
     this screen cannot offer to run something the API would refuse.
   -->
-  @if (item.executable && manualRun() === 'supported') {
+  @if (saving() || manualRunReading()) {
+    <!--
+      Nothing is claimed while a marking is saving or the definition is being read. The outcome below depends on
+      both, and showing the previous answer during the wait read as a refusal that had already been lifted.
+    -->
+    <p class="risk-outcome co-unavailable">Working out what a run would require...</p>
+  } @else if (item.executable && manualRun() === 'supported') {
     @if (item.risk === 'destructive') {
       <p class="risk-outcome">
         Marked destructive: running it will ask for the workflow's name to be typed.
@@ -149,8 +156,6 @@
     </p>
   } @else if (item.state === 'disabled') {
     <p class="risk-outcome co-unavailable">Disabled at the provider, so it cannot be run.</p>
-  } @else if (manualRunReading()) {
-    <p class="risk-outcome co-unavailable">Reading whether the provider accepts a manual run...</p>
   } @else if (manualRun() === 'unavailable') {
     <p class="risk-outcome co-unavailable">
       The provider reports no manual dispatch for this workflow, so it cannot be run from here.
@@ -213,13 +218,19 @@
     starting a workflow is a later phase, because Console Ops reads automation before it operates it.
   -->
   <a class="co-inline-link" [routerLink]="['/workflows', projectId(), item.id, 'runs']">
-    View runs
+    View logs
     <co-icon name="arrowRight" [size]="15" />
   </a>
-  <span
-    class="co-inline-link is-unavailable"
-    title="Starting a workflow is a later phase, after read-only inventory is proven"
-  >
-    Run workflow
-  </span>
+  @if (saving() || manualRunReading()) {
+    <!-- Neither offered nor refused while the answer is still being worked out. -->
+    <span class="co-inline-link is-unavailable" title="Working out what a run would require">
+      Run workflow
+    </span>
+  } @else if (item.executable && manualRun() === 'supported') {
+    <button type="button" class="co-inline-link" (click)="requestRun.emit(item)">
+      Run workflow
+    </button>
+  } @else {
+    <span class="co-inline-link is-unavailable" [title]="runBlockedReason()">Run workflow</span>
+  }
 </div>

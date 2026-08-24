@@ -1,0 +1,85 @@
+:host {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-3);
+  width: 100%;
+  padding: 7px var(--co-space-4);
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  font-size: 12.5px;
+  color: var(--co-ink-strong);
+  text-align: left;
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--co-line-strong);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: var(--co-blue);
+  box-shadow: 0 0 0 1px var(--co-blue);
+}
+
+.trigger:disabled {
+  color: var(--co-ink-faint);
+  cursor: default;
+}
+
+.current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list {
+  position: fixed;
+  z-index: 40;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--co-space-1);
+  list-style: none;
+  background: var(--co-surface);
+  border: 1px solid var(--co-line);
+  border-radius: var(--co-radius-md);
+  box-shadow: 0 12px 28px rgb(16 24 35 / 12%);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--co-space-3);
+  padding: var(--co-space-3) var(--co-space-3);
+  border-radius: var(--co-radius-sm);
+  font-size: 12.5px;
+  color: var(--co-ink);
+  cursor: pointer;
+}
+
+/* One highlight, ours: the keyboard and the pointer land on the same row rather than on two different ones. */
+.option.is-active,
+.option:focus-visible {
+  outline: none;
+  background: var(--co-surface-sunken);
+  color: var(--co-ink-strong);
+}
+
+.option[aria-selected='true'] {
+  font-weight: 600;
+  color: var(--co-ink-strong);
+}
+
+.option-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

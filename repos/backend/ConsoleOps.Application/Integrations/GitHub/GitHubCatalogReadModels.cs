@@ -72,3 +72,8 @@ public sealed record GitHubDetectedEndpoint(
 public sealed record GitHubEndpointDetection(
     IReadOnlyList<GitHubDetectedEndpoint> Endpoints,
     int InspectedFileCount);
+
+/// <param name="HasMore">
+/// Whether the repository has more branches than this page, so a screen can say the list is bounded.
+/// </param>
+public sealed record GitHubBranchList(IReadOnlyList<string> Names, bool HasMore);

@@ -388,6 +388,75 @@ public sealed class GitHubWorkflowInventoryTests
         Assert.Equal(GitHubRunStatus.Queued, job.Status);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent)]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.Created)]
+    public async Task DispatchAsync_TreatsAnySuccessAsAcceptance(HttpStatusCode status)
+    {
+        StubHandler handler = new(_ => new HttpResponseMessage(status));
+
+        GitHubDispatchResult result = await CreateInventory(handler).DispatchAsync(
+            "clint",
+            "eemo",
+            101,
+            "master",
+            new Dictionary<string, string>(),
+            CancellationToken.None);
+
+        // Matching only 204 reported a started run as unreachable, and that answer invites a retry which starts a
+        // second one. GitHub has answered both 204 and 200 here depending on the API version.
+        Assert.Equal(GitHubDispatchOutcome.Accepted, result.Outcome);
+        Assert.Null(result.ProviderMessage);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_OmitsInputsRatherThanSendingNull()
+    {
+        string? body = null;
+        StubHandler handler = new(request =>
+        {
+            body = request.Content?.ReadAsStringAsync(CancellationToken.None).GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+
+        await CreateInventory(handler).DispatchAsync(
+            "clint",
+            "eemo",
+            101,
+            "master",
+            new Dictionary<string, string>(),
+            CancellationToken.None);
+
+        // GitHub rejects a null there with "for 'properties/inputs', nil is not an object".
+        Assert.NotNull(body);
+        Assert.DoesNotContain("inputs", body, StringComparison.Ordinal);
+        Assert.Contains("\"ref\":\"master\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DispatchAsync_CarriesTheProvidersReasonForARefusal()
+    {
+        StubHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.UnprocessableEntity)
+        {
+            Content = new StringContent(
+                """{ "message": "No ref found for: nope" }""",
+                Encoding.UTF8,
+                "application/json"),
+        });
+
+        GitHubDispatchResult result = await CreateInventory(handler).DispatchAsync(
+            "clint",
+            "eemo",
+            101,
+            "nope",
+            new Dictionary<string, string>(),
+            CancellationToken.None);
+
+        Assert.Equal(GitHubDispatchOutcome.Rejected, result.Outcome);
+        Assert.Equal("No ref found for: nope", result.ProviderMessage);
+    }
+
     private static GitHubWorkflowInventory CreateInventory(HttpMessageHandler handler) =>
         new(new HttpClient(handler)
         {

@@ -10,7 +10,11 @@ import {
   WorkflowInventory,
   WorkflowProjectGroup,
   WorkflowReadFailure,
+  WorkflowBranches,
+  WorkflowDispatchAccepted,
+  WorkflowInput,
   WorkflowRiskLevel,
+  WorkflowRiskReading,
   WorkflowRun,
   WorkflowRunConclusion,
   WorkflowRunHistory,
@@ -29,6 +33,7 @@ interface WorkflowInventoryPayload {
     readonly projectId: string;
     readonly projectName: string;
     readonly repository: string;
+    readonly defaultBranch: string;
     readonly workflows: readonly WorkflowPayload[];
     readonly readFailure: string | null;
   }[];
@@ -92,6 +97,7 @@ interface RunsPayload {
 interface ManualRunPayload {
   readonly manualRun: string;
   readonly definitionPath: string;
+  readonly inputs: readonly WorkflowInput[];
 }
 
 interface RunJobsPayload {
@@ -132,13 +138,42 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
     projectId: string,
     workflowPath: string,
     level: WorkflowRiskLevel,
-  ): Observable<void> {
+  ): Observable<WorkflowRiskReading> {
     return this.http
-      .put<unknown>(`/api/workflows/projects/${encodeURIComponent(projectId)}/risk`, {
-        workflowPath,
-        level,
-      })
-      .pipe(map(() => undefined));
+      .put<{ workflowPath: string; level: string; decidedAt: string | null }>(
+        `/api/workflows/projects/${encodeURIComponent(projectId)}/risk`,
+        { workflowPath, level },
+      )
+      .pipe(
+        map((payload) => ({
+          workflowPath: payload.workflowPath,
+          level: toRisk(payload.level),
+          decidedAt: payload.decidedAt,
+        })),
+      );
+  }
+
+  override loadBranches(projectId: string): Observable<WorkflowBranches> {
+    return this.http.get<WorkflowBranches>(
+      `/api/workflows/projects/${encodeURIComponent(projectId)}/branches`,
+    );
+  }
+
+  override dispatch(
+    projectId: string,
+    workflowId: string,
+    request: {
+      readonly reference: string;
+      readonly inputs: Readonly<Record<string, string>>;
+      readonly confirmation: string | null;
+    },
+  ): Observable<WorkflowDispatchAccepted> {
+    return this.http.post<WorkflowDispatchAccepted>(
+      `/api/workflows/projects/${encodeURIComponent(projectId)}/workflows/${encodeURIComponent(
+        workflowId,
+      )}/runs`,
+      request,
+    );
   }
 
   override loadManualRunSupport(
@@ -157,6 +192,7 @@ export class HttpWorkflowsDataSource extends WorkflowsDataSource {
         map((payload) => ({
           manualRun: toManualRun(payload.manualRun),
           definitionPath: payload.definitionPath,
+          inputs: payload.inputs ?? [],
         })),
       );
   }
@@ -189,6 +225,7 @@ function toGroup(payload: WorkflowInventoryPayload['groups'][number]): WorkflowP
     projectId: payload.projectId,
     projectName: payload.projectName,
     repository: payload.repository,
+    defaultBranch: payload.defaultBranch,
     workflows: payload.workflows.map(toWorkflow),
     readFailure: toReadFailure(payload.readFailure),
   };

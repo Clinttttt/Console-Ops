@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: var(--co-space-5) var(--co-space-4) var(--co-space-4);
+  padding: var(--co-space-5) var(--co-space-3) var(--co-space-4);
   background: var(--co-rail);
   border-right: 1px solid var(--co-line);
 }
@@ -10,26 +10,27 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--co-space-3);
-  min-height: 52px;
-  padding: 0 var(--co-space-2) var(--co-space-4);
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 var(--co-space-2) var(--co-space-5);
 }
 
 .mark {
   display: grid;
   place-items: center;
-  flex: 0 0 64px;
-  width: 64px;
-  height: 52px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   overflow: hidden;
 }
 
 .mark-image {
   display: block;
-  width: 76px;
+  width: 54px;
   max-width: none;
-  height: 76px;
+  height: 54px;
   object-fit: contain;
+  transform: translateY(-3px);
 }
 
 .brand.is-collapsed {
@@ -57,14 +58,15 @@
 .brand-name {
   font-family: var(--co-font-display);
   font-size: 18px;
-  line-height: 1.15;
+  line-height: 1.1;
   color: var(--co-ink-strong);
+  white-space: nowrap;
 }
 
 .brand-tagline {
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: 9.5px;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--co-ink-muted);
   white-space: nowrap;
 }
@@ -82,7 +84,7 @@
   display: flex;
   align-items: center;
   gap: var(--co-space-3);
-  padding: 8px var(--co-space-3);
+  padding: 8px 10px;
   border-radius: var(--co-radius-md);
   font-size: 12.5px;
   color: var(--co-ink-muted);
@@ -104,7 +106,7 @@ a.nav-item:hover {
 .nav-item.is-active::before {
   content: '';
   position: absolute;
-  right: calc((var(--co-space-4) + 1px) * -1);
+  right: calc((var(--co-space-3) + 1px) * -1);
   top: 5px;
   bottom: 5px;
   width: 2px;

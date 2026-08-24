@@ -82,12 +82,16 @@
   A reserved trailing slot, so "Runs" and "Run logs" sit in the same column whether or not the provider
   reported manual dispatch. Right-aligning them made every second row's links land somewhere different.
 */
+/*
+  A reserved trailing slot, so Logs sits in the same column whether or not this workflow can be run. Right
+  aligning them made every second row's link land somewhere different.
+*/
 .actions {
   display: grid;
-  grid-template-columns: auto auto 84px;
+  grid-template-columns: auto 66px;
   align-items: center;
   justify-items: end;
-  gap: var(--co-space-4);
+  gap: var(--co-space-3);
   flex-shrink: 0;
 }
 
@@ -101,7 +105,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px var(--co-space-4);
+  width: 100%;
+  padding: 5px var(--co-space-3);
   font-size: 12px;
   font-weight: 600;
   border: 1px solid var(--co-line);
@@ -111,4 +116,10 @@
 .run.is-unavailable {
   color: var(--co-ink-faint);
   cursor: not-allowed;
+}
+
+/* Requested and not yet seen: neither an action nor a state the provider has confirmed. */
+.run.is-pending {
+  color: var(--co-status-running);
+  border-color: var(--co-status-running);
 }

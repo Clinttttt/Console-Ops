@@ -51,6 +51,190 @@ internal static class WorkflowTriggerScan
     }
 
     /// <summary>
+    /// The inputs the dispatch trigger declares, in declaration order.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Read from the <c>workflow_dispatch.inputs</c> block only, so nothing a form asks for was invented here: a
+    /// workflow that declares no inputs yields none, and a definition this scan cannot follow yields none rather
+    /// than a guess at what it might want.
+    /// </para>
+    /// <para>
+    /// Deliberately shallow. Each input's own keys - description, required, type, default, options - are read
+    /// where they are simple scalars or an inline list, which is how workflows are actually written. Anything more
+    /// elaborate is left out rather than half understood.
+    /// </para>
+    /// </remarks>
+    internal static IReadOnlyList<WorkflowInputDeclaration> ReadDispatchInputs(string definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition))
+        {
+            return [];
+        }
+
+        string[] lines = definition.Replace("\r\n", "\n").Split('\n');
+        int inputsIndent = -1;
+        int start = -1;
+
+        for (int index = 0; index < lines.Length; index++)
+        {
+            string line = WithoutComment(lines[index]);
+            string trimmed = line.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            int indent = IndentOf(line);
+
+            if (start < 0)
+            {
+                // Find `inputs:` nested under `workflow_dispatch:`; anything shallower ends the search area.
+                if (trimmed.StartsWith("workflow_dispatch:", StringComparison.Ordinal))
+                {
+                    inputsIndent = indent;
+                    continue;
+                }
+
+                if (inputsIndent >= 0 && indent <= inputsIndent && !trimmed.StartsWith("inputs:", StringComparison.Ordinal))
+                {
+                    inputsIndent = -1;
+                    continue;
+                }
+
+                if (inputsIndent >= 0 && trimmed.StartsWith("inputs:", StringComparison.Ordinal))
+                {
+                    start = index + 1;
+                    inputsIndent = indent;
+                }
+
+                continue;
+            }
+
+            if (indent <= inputsIndent)
+            {
+                break;
+            }
+        }
+
+        return start < 0 ? [] : ReadInputBlock(lines, start, inputsIndent);
+    }
+
+    private static List<WorkflowInputDeclaration> ReadInputBlock(string[] lines, int start, int inputsIndent)
+    {
+        List<WorkflowInputDeclaration> inputs = [];
+        int nameIndent = -1;
+        string? name = null;
+        string? description = null;
+        string? type = null;
+        string? defaultValue = null;
+        bool required = false;
+        List<string> options = [];
+
+        void Flush()
+        {
+            if (name is not null)
+            {
+                inputs.Add(new WorkflowInputDeclaration(
+                    name,
+                    description,
+                    required,
+                    type ?? "string",
+                    defaultValue,
+                    options));
+            }
+
+            name = null;
+            description = null;
+            type = null;
+            defaultValue = null;
+            required = false;
+            options = [];
+        }
+
+        for (int index = start; index < lines.Length; index++)
+        {
+            string line = WithoutComment(lines[index]);
+            string trimmed = line.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            int indent = IndentOf(line);
+            if (indent <= inputsIndent)
+            {
+                break;
+            }
+
+            if (nameIndent < 0)
+            {
+                nameIndent = indent;
+            }
+
+            if (indent == nameIndent)
+            {
+                Flush();
+                name = Unquote(trimmed.Split(':', 2)[0]);
+                continue;
+            }
+
+            string[] parts = trimmed.Split(':', 2);
+            string key = Unquote(parts[0]);
+            string value = parts.Length > 1 ? parts[1].Trim() : string.Empty;
+
+            switch (key)
+            {
+                case "description":
+                    description = Unquote(value);
+                    break;
+                case "required":
+                    required = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+                    break;
+                case "type":
+                    type = Unquote(value);
+                    break;
+                case "default":
+                    defaultValue = Unquote(value);
+                    break;
+                case "options":
+                    options = ReadInlineList(value);
+                    break;
+                default:
+                    // A nested list under `options:` arrives as `- value` lines.
+                    if (trimmed.StartsWith("- ", StringComparison.Ordinal))
+                    {
+                        options.Add(Unquote(trimmed[2..].Trim()));
+                    }
+
+                    break;
+            }
+        }
+
+        Flush();
+        return inputs;
+    }
+
+    private static List<string> ReadInlineList(string value)
+    {
+        string trimmed = value.Trim();
+        if (!trimmed.StartsWith('[') || !trimmed.EndsWith(']'))
+        {
+            return [];
+        }
+
+        return trimmed[1..^1]
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Unquote)
+            .Where(entry => entry.Length > 0)
+            .ToList();
+    }
+
+    private static int IndentOf(string line) => line.Length - line.TrimStart().Length;
+
+    private static string Unquote(string value) => value.Trim().Trim('"', '\'').Trim();
+
+    /// <summary>
     /// Whether the indented block beneath <c>on:</c> lists a manual dispatch trigger.
     /// </summary>
     /// <remarks>
@@ -128,3 +312,12 @@ internal static class WorkflowTriggerScan
         return comment < 0 ? line : line[..comment];
     }
 }
+
+/// <summary>One declared dispatch input, as written in the workflow definition.</summary>
+internal sealed record WorkflowInputDeclaration(
+    string Name,
+    string? Description,
+    bool Required,
+    string Type,
+    string? Default,
+    IReadOnlyList<string> Options);

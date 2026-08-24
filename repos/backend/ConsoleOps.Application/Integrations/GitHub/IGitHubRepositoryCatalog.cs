@@ -20,6 +20,18 @@ public interface IGitHubRepositoryCatalog
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Lists a repository's branches, so a ref is chosen from what exists rather than typed from memory.
+    /// </summary>
+    /// <remarks>
+    /// Bounded to one page. A repository with more branches than that has more than an operator would pick from a
+    /// list, and the caller says the list is bounded rather than implying it is all of them.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubBranchList>> ListBranchesAsync(
+        string owner,
+        string repository,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads the head commit of one branch so a screen can compare source with a deployed commit.
     /// </summary>
     Task<GitHubFactResult<GitHubLatestCommit>> GetLatestCommitAsync(

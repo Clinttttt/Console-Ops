@@ -156,7 +156,9 @@
                     [projectId]="group.projectId"
                     [selected]="isSelected(workflow)"
                     [readAt]="readAt()"
+                    [awaitingRun]="awaitingRunFor() === workflow.id"
                     (choose)="select($event)"
+                    (requestRun)="requestRun($event)"
                   />
                 }
               </div>
@@ -189,9 +191,28 @@
             [saving]="savingRiskFor() === choice.workflow.path"
             [riskFailure]="riskFailure()"
             (chooseRisk)="setRisk($event.workflow, $event.level)"
+            (requestRun)="requestRun($event)"
           />
         }
       </aside>
     </div>
   }
+}
+
+@let target = runTarget();
+@if (target !== null) {
+  <co-workflow-run-dialog
+    [workflow]="target.workflow"
+    [defaultBranch]="target.defaultBranch"
+    [inputs]="selectedInputs()"
+    [branches]="branches()"
+    [branchesState]="branchesState()"
+    [branchesBounded]="branchesBounded()"
+    [reading]="manualRunReading()"
+    [manualRun]="selectedManualRun()"
+    [submitting]="dispatchStatus() === 'requesting'"
+    [failure]="dispatchFailure()"
+    (dismissed)="cancelRun()"
+    (confirmed)="confirmRun($event)"
+  />
 }

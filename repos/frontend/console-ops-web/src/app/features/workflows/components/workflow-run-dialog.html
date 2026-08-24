@@ -1,0 +1,151 @@
+@let item = workflow();
+
+<!-- Not clickable: a bare div with a handler is neither focusable nor reachable from a keyboard, and Cancel and
+     Escape both already close this. -->
+<div class="backdrop"></div>
+
+<div
+  class="dialog"
+  role="dialog"
+  aria-modal="true"
+  tabindex="-1"
+  [attr.aria-label]="'Run ' + item.name"
+  (keydown.escape)="dismissed.emit()"
+>
+  <p class="co-eyebrow">Run workflow</p>
+  <h2 class="title">{{ item.name }}</h2>
+  <p class="path co-mono">{{ item.path }}</p>
+
+  @if (isDestructive()) {
+    <!-- Stated before anything is filled in: an operator marked this destructive, and that is why it asks more. -->
+    <p class="destructive">
+      <co-icon name="pulse" [size]="15" />
+      Marked destructive. This will run on the provider and cannot be taken back from here.
+    </p>
+  }
+
+  <div class="row">
+    <span class="label">Branch</span>
+    @if (branchesState() === 'loading') {
+      <span class="co-reading">
+        <span class="co-spinner" aria-hidden="true"></span>
+        Reading branches...
+      </span>
+    } @else {
+      <co-select
+        label="Branch"
+        [options]="branches()"
+        [value]="effectiveReference()"
+        (changed)="reference.set($event)"
+      />
+    }
+  </div>
+
+  @if (branchesState() === 'unavailable') {
+    <!-- The registered branch is still offered; the rest could not be read, which is said rather than hidden. -->
+    <p class="note co-unavailable">
+      The repository's branches could not be read, so only the registered branch is offered.
+    </p>
+  } @else if (branchesBounded()) {
+    <p class="note co-unavailable">
+      Showing the first {{ branches().length }} branches the repository reports.
+    </p>
+  }
+
+  @if (reading()) {
+    <p class="co-reading note">
+      <span class="co-spinner" aria-hidden="true"></span>
+      Reading what this workflow asks for...
+    </p>
+  } @else if (manualRun() !== 'supported') {
+    <!--
+      Said here, before anything is filled in. The row offers Run from what Console Ops has stored; this is where
+      the definition's answer arrives, and being refused after typing a confirmation is worse than being told now.
+    -->
+    <p class="error">
+      @if (manualRun() === 'unavailable') {
+        This workflow does not declare a manual dispatch trigger, so it cannot be started from here.
+      } @else {
+        Console Ops could not read this workflow's definition, so it will not start it on a guess.
+      }
+    </p>
+  } @else if (inputs().length > 0) {
+    <p class="note co-unavailable">These are the inputs the workflow declares.</p>
+
+    @for (input of inputs(); track input.name) {
+      <div class="stacked">
+        <!--
+          A span rather than a label: two of the three controls below are a listbox, and a `for` pointing at an
+          element that has no matching id associates nothing. Each control carries its own accessible name.
+        -->
+        <span class="label">
+          {{ labelFor(input) }}
+          @if (input.required) {
+            <span class="required">required</span>
+          }
+        </span>
+
+        @if (input.options.length > 0) {
+          <co-select
+            [label]="labelFor(input)"
+            [options]="input.options"
+            [value]="valueOf(input)"
+            (changed)="setValue(input, $event)"
+          />
+        } @else if (input.type === 'boolean') {
+          <co-select
+            [label]="labelFor(input)"
+            [options]="booleanOptions"
+            [value]="valueOf(input) === 'true' ? 'true' : 'false'"
+            (changed)="setValue(input, $event)"
+          />
+        } @else {
+          <input
+            [attr.id]="'run-input-' + input.name"
+            type="text"
+            [attr.aria-label]="labelFor(input)"
+            [value]="valueOf(input)"
+            (input)="setValue(input, $any($event.target).value)"
+          />
+        }
+
+        @if (input.description !== null) {
+          <span class="description co-unavailable">{{ input.description }}</span>
+        }
+      </div>
+    }
+  }
+
+  @if (isDestructive()) {
+    <div class="stacked">
+      <!-- One line, with the name it wants on its own line: the label was wrapping into a column. -->
+      <label class="label" for="run-confirmation">Type the workflow name to confirm</label>
+      <p class="expected co-mono">{{ item.name }}</p>
+      <input
+        id="run-confirmation"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        [value]="typedName()"
+        (input)="typedName.set($any($event.target).value)"
+      />
+    </div>
+  }
+
+  @if (failure() !== null) {
+    <!-- Shown here, where the operator asked, rather than on a page behind this one. -->
+    <p class="error">{{ failure() }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="secondary" (click)="dismissed.emit()">Cancel</button>
+    <button type="button" class="primary" [disabled]="!canRun()" (click)="run()">
+      @if (submitting()) {
+        <span class="co-spinner" aria-hidden="true"></span>
+        Requesting...
+      } @else {
+        Run workflow
+      }
+    </button>
+  </div>
+</div>

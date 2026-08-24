@@ -1,5 +1,7 @@
 using ConsoleOps.Api.Extensions;
 using ConsoleOps.Application.Abstractions.Messaging;
+using ConsoleOps.Application.Features.Workflows.Dispatch;
+using ConsoleOps.Application.Features.Workflows.GetBranches;
 using ConsoleOps.Application.Features.Workflows.GetInventory;
 using ConsoleOps.Application.Features.Workflows.GetManualRunSupport;
 using ConsoleOps.Application.Features.Workflows.GetRunJobs;
@@ -21,6 +23,8 @@ public static class WorkflowEndpoints
         workflows.MapGetWorkflowRunJobsEndpoint();
         workflows.MapGetManualRunSupportEndpoint();
         workflows.MapSetWorkflowRiskEndpoint();
+        workflows.MapDispatchWorkflowEndpoint();
+        workflows.MapGetWorkflowBranchesEndpoint();
         return endpoints;
     }
 }
@@ -182,4 +186,81 @@ internal static class SetWorkflowRiskEndpoint
     /// <param name="WorkflowPath">The definition path, which is what an operator recognises and what survives a
     /// provider workflow id changing.</param>
     internal sealed record SetWorkflowRiskRequest(string WorkflowPath, string Level);
+}
+internal static class DispatchWorkflowEndpoint
+{
+    public static RouteGroupBuilder MapDispatchWorkflowEndpoint(this RouteGroupBuilder workflows)
+    {
+        workflows.MapPost("/projects/{projectId:guid}/workflows/{workflowId:long}/runs", Handle)
+            .WithName("DispatchWorkflow")
+            .WithSummary("Asks the provider to start a workflow.")
+            .WithDescription(
+                "Every gate is checked here rather than trusted from the screen: the project must own the "
+                + "workflow, an operator must have marked its risk, a destructive workflow needs its name typed, "
+                + "the definition must declare a dispatch trigger, and a ref must be stated. The provider accepts "
+                + "a dispatch without reporting a run, so the answer is `requested` with the time it was accepted "
+                + "- the run is found afterwards rather than claimed here.")
+            .Produces<WorkflowDispatchResponse>(StatusCodes.Status202Accepted)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        return workflows;
+    }
+
+    private static async Task<IResult> Handle(
+        Guid projectId,
+        long workflowId,
+        DispatchWorkflowRequest request,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<WorkflowDispatchResponse> result = await sender.Send(
+            new DispatchWorkflowCommand(
+                projectId,
+                workflowId,
+                request.Reference,
+                request.Inputs ?? new Dictionary<string, string>(),
+                request.Confirmation),
+            cancellationToken);
+
+        return result.IsSuccess
+            ? Results.Accepted(value: result.Value)
+            : result.ToHttpResult();
+    }
+
+    /// <param name="Reference">Branch or tag. Stated by the caller; Console Ops never picks one.</param>
+    /// <param name="Confirmation">The workflow's name, for a workflow marked destructive.</param>
+    internal sealed record DispatchWorkflowRequest(
+        string Reference,
+        Dictionary<string, string>? Inputs,
+        string? Confirmation);
+}
+internal static class GetWorkflowBranchesEndpoint
+{
+    public static RouteGroupBuilder MapGetWorkflowBranchesEndpoint(this RouteGroupBuilder workflows)
+    {
+        workflows.MapGet("/projects/{projectId:guid}/branches", Handle)
+            .WithName("GetWorkflowBranches")
+            .WithSummary("Lists the refs a run could target.")
+            .WithDescription(
+                "Read when a run is being asked for, so a branch is chosen from what the repository has rather "
+                + "than typed from memory. Bounded to one page, and the project's registered branch is always "
+                + "included so the default a run uses is selectable even if the provider no longer lists it.")
+            .Produces<WorkflowBranchesResponse>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        return workflows;
+    }
+
+    private static async Task<IResult> Handle(
+        Guid projectId,
+        ISender sender,
+        CancellationToken cancellationToken)
+    {
+        Result<WorkflowBranchesResponse> result = await sender.Send(
+            new GetWorkflowBranchesQuery(projectId),
+            cancellationToken);
+
+        return result.ToHttpResult();
+    }
 }

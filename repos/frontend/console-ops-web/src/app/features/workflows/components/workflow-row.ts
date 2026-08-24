@@ -30,7 +30,11 @@ export class WorkflowRow {
   /** When the inventory was read, so "8 min ago" is relative to the read rather than to the browser clock. */
   readonly readAt = input.required<string | null>();
 
+  /** Whether a run was asked for and the provider has not reported one yet. */
+  readonly awaitingRun = input(false);
+
   readonly choose = output<Workflow>();
+  readonly requestRun = output<Workflow>();
 
   /**
    * One glyph for every workflow, and a deployment glyph only where a deployment was configured.

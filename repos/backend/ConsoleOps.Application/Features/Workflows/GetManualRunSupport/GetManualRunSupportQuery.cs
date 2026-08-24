@@ -19,7 +19,20 @@ public sealed record GetManualRunSupportQuery(Guid ProjectId, long WorkflowId, s
 
 /// <param name="ManualRun"><c>supported</c>, <c>unavailable</c>, or <c>unknown</c>.</param>
 /// <param name="DefinitionPath">The file the answer was read from, so the claim can be checked.</param>
-public sealed record ManualRunSupportResponse(string ManualRun, string DefinitionPath);
+public sealed record ManualRunSupportResponse(
+    string ManualRun,
+    string DefinitionPath,
+    IReadOnlyList<WorkflowInputResponse> Inputs);
+
+/// <param name="Type"><c>string</c>, <c>choice</c>, <c>boolean</c>, or <c>environment</c>, as declared.</param>
+/// <param name="Options">Allowed values where the workflow declared them, otherwise empty.</param>
+public sealed record WorkflowInputResponse(
+    string Name,
+    string? Description,
+    bool Required,
+    string Type,
+    string? Default,
+    IReadOnlyList<string> Options);
 
 public sealed class GetManualRunSupportQueryHandler(
     IProjectReadStore projects,
@@ -55,7 +68,17 @@ public sealed class GetManualRunSupportQueryHandler(
 
         return Result<ManualRunSupportResponse>.Success(new ManualRunSupportResponse(
             ToManualRun(result.Observation!.SupportsManualRun),
-            result.Observation.DefinitionPath));
+            result.Observation.DefinitionPath,
+            // Only what the workflow declared: a form must not ask for anything the run cannot accept.
+            result.Observation.Inputs
+                .Select(input => new WorkflowInputResponse(
+                    input.Name,
+                    input.Description,
+                    input.Required,
+                    input.Type,
+                    input.Default,
+                    input.Options))
+                .ToArray()));
     }
 
     /// <summary>

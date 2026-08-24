@@ -97,13 +97,63 @@ public sealed record GitHubRunJob(
 
 public sealed record GitHubRunJobs(IReadOnlyList<GitHubRunJob> Jobs);
 
+/// <param name="Type">
+/// The provider's own input type: <c>choice</c>, <c>boolean</c>, <c>environment</c>, or <c>string</c>. Carried so
+/// a form renders what the workflow declared rather than a text box for everything.
+/// </param>
+/// <param name="Options">Allowed values where the workflow declared them, otherwise empty.</param>
+public sealed record GitHubWorkflowInput(
+    string Name,
+    string? Description,
+    bool Required,
+    string Type,
+    string? Default,
+    IReadOnlyList<string> Options);
+
 /// <param name="SupportsManualRun">
 /// <c>true</c> or <c>false</c> where the workflow's trigger declaration was read, and <c>null</c> where it was
 /// not. Unknown is a real answer: it means Console Ops could not establish the fact, which is different from
 /// establishing that a manual run is unavailable.
 /// </param>
 /// <param name="DefinitionPath">The file the answer was read from, so a claim can be checked.</param>
-public sealed record GitHubManualRunSupport(bool? SupportsManualRun, string DefinitionPath);
+/// <param name="Inputs">
+/// What the workflow asks for when it is dispatched, in declaration order. Empty when it asks for nothing, which
+/// is different from not knowing - an unread definition reports <c>null</c> support and no inputs.
+/// </param>
+public sealed record GitHubManualRunSupport(
+    bool? SupportsManualRun,
+    string DefinitionPath,
+    IReadOnlyList<GitHubWorkflowInput> Inputs);
+
+/// <summary>How a dispatch request ended. The provider reports acceptance, never a run.</summary>
+public enum GitHubDispatchOutcome
+{
+    /// <summary>The provider accepted the request. A run may not exist yet.</summary>
+    Accepted,
+
+    /// <summary>The credential cannot start workflows in this repository.</summary>
+    Forbidden,
+
+    /// <summary>The workflow or ref does not exist as far as the provider is concerned.</summary>
+    NotFound,
+
+    /// <summary>The provider rejected the inputs or the ref as unusable.</summary>
+    Rejected,
+
+    RateLimited,
+
+    Unavailable
+}
+
+/// <param name="ProviderMessage">
+/// What the provider said, when it said anything.
+/// </param>
+/// <remarks>
+/// Carried because a rejected dispatch is the one failure Console Ops cannot explain on its own: GitHub knows
+/// whether the ref was wrong, the trigger was missing on that ref, or an input was not accepted, and repeating a
+/// guess in place of its answer sends an operator through all three.
+/// </remarks>
+public sealed record GitHubDispatchResult(GitHubDispatchOutcome Outcome, string? ProviderMessage);
 
 /// <summary>
 /// Reads a repository's automation and how it executed, for the Workflows screen.
@@ -159,6 +209,34 @@ public interface IGitHubWorkflowInventory
         string owner,
         string repository,
         string workflowPath,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One workflow as the provider currently describes it, or a failure when it does not.
+    /// </summary>
+    /// <remarks>
+    /// Read before a dispatch so the name and path used to authorise it are the provider's, not the caller's. A
+    /// request that could name its own workflow could name a path whose risk marking is not the one that applies.
+    /// </remarks>
+    Task<GitHubFactResult<GitHubWorkflowDefinition>> GetWorkflowAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Asks the provider to start a workflow on a ref.
+    /// </summary>
+    /// <remarks>
+    /// The provider answers with acceptance and no run: there is no run id to return, so a caller must find the
+    /// run afterwards rather than being told which one it started. Reporting a run here would be an invention.
+    /// </remarks>
+    Task<GitHubDispatchResult> DispatchAsync(
+        string owner,
+        string repository,
+        long workflowId,
+        string reference,
+        IReadOnlyDictionary<string, string> inputs,
         CancellationToken cancellationToken);
 
     /// <summary>

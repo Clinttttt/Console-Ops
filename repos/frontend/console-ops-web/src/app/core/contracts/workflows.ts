@@ -154,6 +154,8 @@ export interface WorkflowProjectGroup {
   readonly projectId: string;
   readonly projectName: string;
   readonly repository: string;
+  /** The project's registered branch. A run defaults to it and requires an explicit change. */
+  readonly defaultBranch: string;
   readonly workflows: readonly Workflow[];
   readonly readFailure: WorkflowReadFailure | null;
 }
@@ -177,10 +179,56 @@ export interface WorkflowRunHistory {
  * does not report triggers. Read for the workflow an operator selected, so a page of workflows does not cost a
  * page of extra requests.
  */
+/** What the API recorded when a risk was marked, so a screen shows the decision it actually stored. */
+export interface WorkflowRiskReading {
+  readonly workflowPath: string;
+  readonly level: WorkflowRiskLevel;
+  /** `null` for `unclassified`: the absence of a decision has no date. */
+  readonly decidedAt: string | null;
+}
+
+/** One input the workflow declares for a manual run. Nothing here is invented by Console Ops. */
+export interface WorkflowInput {
+  readonly name: string;
+  readonly description: string | null;
+  readonly required: boolean;
+  /** `string`, `choice`, `boolean`, or `environment`, as declared. */
+  readonly type: string;
+  readonly default: string | null;
+  /** Allowed values where the workflow declared them, otherwise empty. */
+  readonly options: readonly string[];
+}
+
 export interface ManualRunSupportReading {
   readonly manualRun: ManualRunSupport;
   /** The file the answer was read from, so the claim can be checked. */
   readonly definitionPath: string;
+  readonly inputs: readonly WorkflowInput[];
+}
+
+/**
+ * The refs a run could target.
+ *
+ * Read from the repository so a branch is chosen from what exists. `hasMore` is carried because the page is
+ * bounded, and the registered default is always present even when the provider no longer lists it.
+ */
+export interface WorkflowBranches {
+  readonly defaultBranch: string;
+  readonly branches: readonly string[];
+  readonly hasMore: boolean;
+}
+
+/**
+ * What the provider said when asked to start a workflow.
+ *
+ * `requested` is the only status: the provider accepts a dispatch without reporting a run, so Console Ops does not
+ * know which run it started and finds it afterwards rather than claiming one.
+ */
+export interface WorkflowDispatchAccepted {
+  readonly status: 'requested';
+  readonly workflowId: string;
+  readonly reference: string;
+  readonly requestedAt: string;
 }
 
 export interface WorkflowInventory {
