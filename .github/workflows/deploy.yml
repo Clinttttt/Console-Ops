@@ -53,6 +53,7 @@ jobs:
           az containerapp update \
             --name "${{ vars.AZURE_CONTAINER_APP }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --container-name "console-ops-container" \
             --image "${{ vars.AZURE_ACR }}.azurecr.io/consoleops-api:${{ github.event.workflow_run.head_sha }}"
 
       - name: Verify deployment
