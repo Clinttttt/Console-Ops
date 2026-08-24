@@ -28,6 +28,8 @@ public static class RequestPipelineExtensions
             app.MapOpenApi();
         }
 
+        app.UseSwagger();
+        app.UseSwaggerUI();
         app.UseMiddleware<ExceptionMiddleware>();
         app.UseMiddleware<ApiKeyMiddleware>();
         app.UseStatusCodePages();
