@@ -53,9 +53,38 @@
     }
   </button>
 
-  <button type="button" class="operator" aria-haspopup="menu">
-    <span class="avatar" aria-hidden="true">{{ operatorInitials }}</span>
-    <span class="operator-name">{{ operatorName }}</span>
-    <co-icon name="chevronDown" [size]="15" />
-  </button>
+  <div class="operator-menu">
+    <button
+      type="button"
+      class="operator"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="menuOpen()"
+      (click)="toggleMenu()"
+    >
+      @if (avatarUrl() !== null) {
+        <!-- GitHub's own avatar for the account that signed in, so the face matches the actor on a run. -->
+        <img class="avatar-image" [src]="avatarUrl()" [alt]="''" width="26" height="26" />
+      } @else {
+        <span class="avatar" aria-hidden="true">{{ operatorInitials() }}</span>
+      }
+      <span class="operator-name">{{ operatorName() }}</span>
+      <co-icon name="chevronDown" [size]="15" />
+    </button>
+
+    @if (menuOpen()) {
+      <div class="menu" role="menu">
+        @if (isSignedIn()) {
+          <span class="menu-identity">
+            Signed in as <span class="co-mono">{{ operatorName() }}</span>
+          </span>
+          <button type="button" class="menu-item" role="menuitem" (click)="signOut()">
+            Sign out
+          </button>
+        } @else {
+          <!-- Nothing to sign out of: the honest action is the one that gets them in. -->
+          <a class="menu-item" role="menuitem" href="/api/auth/github/start">Sign in with GitHub</a>
+        }
+      </div>
+    }
+  </div>
 </div>

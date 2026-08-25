@@ -14,15 +14,22 @@ public static class ExposureGuardExtensions
 {
     public static WebApplication EnsureSafeExposure(this WebApplication app, IConfiguration configuration)
     {
-        if (!NetworkExposure.MustRefuseToStart(BoundUrls(app, configuration), configuration["Api:Key"]))
+        bool signInConfigured =
+            !string.IsNullOrWhiteSpace(configuration["GitHub:App:ClientId"])
+            && !string.IsNullOrWhiteSpace(configuration["GitHub:App:ClientSecret"]);
+
+        if (!NetworkExposure.MustRefuseToStart(
+                BoundUrls(app, configuration),
+                configuration["Api:Key"],
+                signInConfigured))
         {
             return app;
         }
 
         throw new InvalidOperationException(
-            "Console Ops is bound to a non-loopback address without 'Api:Key' configured. Set Api:Key "
-            + "(user-secrets or environment) so requests must send the "
-            + $"{ApiKeyAuthentication.HeaderName} header, or bind to localhost only.");
+            "Console Ops is bound to a non-loopback address with nothing guarding it. Configure GitHub sign-in "
+            + "(GitHub:App:ClientId, GitHub:App:ClientSecret and Auth:AllowedGitHubLogins), or set Api:Key so "
+            + $"requests must send the {ApiKeyAuthentication.HeaderName} header, or bind to localhost only.");
     }
 
     /// <summary>

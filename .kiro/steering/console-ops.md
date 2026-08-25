@@ -54,6 +54,10 @@ Remaining work, blockers, and what must not be built yet are tracked in `docs/Co
 
 - Never print, log, commit, or document connection strings, tokens, keys, or secrets. Inspect config
   by key name and display only `Configured` / `Missing` / `Unknown`.
+- Operators sign in with the GitHub App. Authorizing it proves identity; `Auth:AllowedGitHubLogins` decides who may
+  use this Console Ops, is checked before a session is written and again on every request, and admits **nobody** when
+  empty. A GitHub token never reaches the browser: the cookie carries an opaque session id and the token is stored
+  encrypted. Scheduled collection keeps its own configured token because it runs with no session.
 - Credentials come from user-secrets, environment variables, or a secret store.
 - Flag any network-exposed endpoint added without authentication.
 

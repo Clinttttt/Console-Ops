@@ -1,0 +1,55 @@
+<div class="panel">
+  <div class="brand">
+    <img class="logo" src="/console-ops-logo.png" alt="" width="34" height="34" />
+    <span class="mark">
+      <span class="name">Console Ops</span>
+      <span class="tagline">Deployment Control Center</span>
+    </span>
+  </div>
+
+  <h1 class="title">Sign in to continue</h1>
+  <p class="lead">
+    Console Ops reads your repositories and can start the workflows you allow it to. It acts as the
+    GitHub account you sign in with, so a run it starts is recorded against you.
+  </p>
+
+  @if (refusal() !== null) {
+    <p class="refusal" role="alert">
+      @switch (refusal()) {
+        @case ('Auth.NotAnOperator') {
+          That GitHub account is not an operator of this Console Ops. Sign in with an account that
+          is, or add it to the allowed logins.
+        }
+        @case ('Auth.NoOperatorsConfigured') {
+          This Console Ops has no operators configured, so nobody can sign in yet.
+        }
+        @case ('declined') {
+          The authorization was not completed on GitHub.
+        }
+        @case ('state') {
+          That sign-in could not be verified. Start again from this page rather than from a saved
+          link.
+        }
+        @case ('Auth.ProviderUnavailable') {
+          GitHub could not be reached to complete the sign-in. Nothing is wrong with your account.
+        }
+        @default {
+          That sign-in did not complete. Try again.
+        }
+      }
+    </p>
+  }
+
+  <!--
+    A link rather than a button: the sign-in is a redirect the server owns, so the browser navigates to it instead
+    of the app fetching it and trying to follow a redirect it cannot see.
+  -->
+  <a class="continue" href="/api/auth/github/start">
+    <co-icon name="github" [size]="17" />
+    Continue with GitHub
+  </a>
+
+  <p class="note">
+    Console Ops keeps your GitHub token on its own server. It is never sent to this page.
+  </p>
+</div>

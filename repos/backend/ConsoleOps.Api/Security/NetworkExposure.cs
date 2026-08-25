@@ -16,14 +16,24 @@ namespace ConsoleOps.Api.Security;
 public static class NetworkExposure
 {
     /// <summary>
-    /// Whether Console Ops must refuse to start: reachable from another machine with no key configured.
+    /// Whether Console Ops must refuse to start: reachable from another machine with nothing guarding it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The decision lives here rather than in the startup wiring so it can be tested directly. A guard that
     /// only runs when a host boots is a guard nobody checks.
+    /// </para>
+    /// <para>
+    /// Configured sign-in satisfies it as well as a key. Sign-in is the stronger of the two - it says who a caller
+    /// is, and the allow list says whether they may be here - so requiring a shared key alongside it would only
+    /// mean an exposed deployment needed a secret it no longer uses.
+    /// </para>
     /// </remarks>
-    public static bool MustRefuseToStart(IEnumerable<string> urls, string? apiKey) =>
-        !IsLoopbackOnly(urls) && string.IsNullOrWhiteSpace(apiKey);
+    public static bool MustRefuseToStart(
+        IEnumerable<string> urls,
+        string? apiKey,
+        bool signInConfigured = false) =>
+        !IsLoopbackOnly(urls) && string.IsNullOrWhiteSpace(apiKey) && !signInConfigured;
 
     /// <summary>Marker for "Kestrel's default addresses", which are loopback.</summary>
     public static bool IsLoopbackOnly(IEnumerable<string> urls)
