@@ -113,6 +113,31 @@ internal static class SignInCallbackEndpoint
         string? error,
         ISender sender,
         IConfiguration configuration,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await CompleteAsync(context, code, state, error, sender, configuration, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A browser is here, mid-redirect, having already authorized on GitHub. Letting this reach the global
+            // handler leaves the operator looking at a problem document in the address bar with no way back, which
+            // is exactly what a missing database table did. The fault is still logged in full; the operator gets
+            // the sign-in screen and a reason it knows how to explain.
+            logger.LogError(exception, "Completing GitHub sign-in failed unexpectedly.");
+            return Failed(configuration, "unavailable");
+        }
+    }
+
+    private static async Task<IResult> CompleteAsync(
+        HttpContext context,
+        string? code,
+        string? state,
+        string? error,
+        ISender sender,
+        IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         string expected = context.Request.Cookies[SessionCookie.StateName] ?? string.Empty;

@@ -37,6 +37,53 @@ jobs:
         run: |
           az acr login --name "${{ vars.AZURE_ACR }}"
 
+      # The schema is brought forward before the new image serves traffic. A migration that fails stops the job
+      # here, so the previous revision keeps answering rather than a new one meeting a database it does not match.
+      # This exists because it already went wrong: sign-in shipped while `operator_sessions` was missing in
+      # production, and the callback answered 500 after GitHub had already authorized the operator.
+      - name: Open the database to this runner
+        id: database-access
+        run: |
+          runner_ip="$(curl -fsS https://api.ipify.org)"
+          rule="ci-${{ github.run_id }}"
+          echo "rule=$rule" >> "$GITHUB_OUTPUT"
+          az postgres flexible-server firewall-rule create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_POSTGRES_SERVER }}" \
+            --rule-name "$rule" \
+            --start-ip-address "$runner_ip" \
+            --end-ip-address "$runner_ip" \
+            --output none
+
+      - name: Apply database migrations
+        env:
+          # Passed as configuration rather than on the command line, so the connection string is never an argument
+          # in a process list or a log line.
+          ConnectionStrings__DefaultConnection: ${{ secrets.PROD_DB_CONNECTION }}
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.4
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef migrations list \
+            --project repos/backend/ConsoleOps.Infrastructure \
+            --startup-project repos/backend/ConsoleOps.Api \
+            --configuration Release
+          dotnet ef database update \
+            --project repos/backend/ConsoleOps.Infrastructure \
+            --startup-project repos/backend/ConsoleOps.Api \
+            --configuration Release
+
+      # Always removed, including when the migration failed: a standing rule for a runner IP that no longer exists
+      # is an opening nobody is watching.
+      - name: Close the database to this runner
+        if: always() && steps.database-access.outputs.rule != ''
+        run: |
+          az postgres flexible-server firewall-rule delete \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_POSTGRES_SERVER }}" \
+            --rule-name "${{ steps.database-access.outputs.rule }}" \
+            --yes \
+            --output none
+
       - name: Build and push container image
         run: |
           dotnet publish repos/backend/ConsoleOps.Api/ConsoleOps.Api.csproj \

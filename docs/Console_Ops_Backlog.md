@@ -45,15 +45,16 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Starting a workflow, with declared inputs, an explicit ref and typed confirmation | Real |
 | GitHub App sign-in: session, operator allow list, real identity in the top bar | Real |
 | Reading GitHub as the operator who asked, and as the service when nobody did | Real |
+| Sessions that survive a restart and a second replica, and a sign-in that never answers JSON | Real |
 
 ## Next
 
-1. **Finish what sign-in started.** Two follow-ups remain.
-   **Persist Data Protection keys** outside the container, or every Azure revision signs every operator out.
+1. **Finish what sign-in started.** One follow-up remains.
    **Managed identity for Azure**: `DefaultAzureCredential` currently relies on a developer sign-in, so Logs and
    Azure discovery will fail once deployed; the container app needs Reader on the subscription and Log Analytics
-   Reader on the workspace. Later, an App installation token could replace the worker's configured token and leave
-   Console Ops with one GitHub credential instead of two.
+   Reader on the workspace. It would also let `DataProtection:BlobUri` drop its SAS and be read as the app's own
+   identity. Later, an App installation token could replace the worker's configured token and leave Console Ops
+   with one GitHub credential instead of two.
 2. **More than one operator on one Console Ops.** Sign-in admits several logins, but nothing yet says whose project
    a project is: the catalogue is global, so a second operator would see and could dispatch the first one's
    workflows. Two pieces, in order - **an owner and invitations** so adding somebody is not an environment variable
@@ -109,6 +110,13 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 
 
+- **The deploy workflow now applies migrations and needs two settings that only an operator can add.** A
+  `PROD_DB_CONNECTION` secret and an `AZURE_POSTGRES_SERVER` variable, plus permission for the deployment identity
+  to add and remove a Postgres firewall rule for the runner. Until both exist the deploy job stops before the
+  schema step, which leaves the previous revision serving - the intended failure, but the deployment does not move.
+- **`DataProtection:BlobUri` is required in production and not yet set.** A storage account, a private container,
+  and either a SAS on the blob or managed identity with Storage Blob Data Contributor. Until it is set, sessions do
+  not survive a restart and a second replica cannot decrypt what the first one wrote.
 - **Azure runtime awareness (V2).** Unlocks the runtime revision, the runtime target, and a `Current`
   release derived from the runtime itself rather than only from `/version`. Also unlocks the platform
   source on the Logs screen (revision activated, image pull failure, replica problems).
