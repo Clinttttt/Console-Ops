@@ -1,4 +1,5 @@
 using ConsoleOps.Application.Behaviors;
+using ConsoleOps.Application.Features.Authentication;
 using ConsoleOps.Application.Features.Projects.RefreshProject;
 using FluentValidation;
 using MediatR;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<ProjectRefreshCoordinator>();
+        services.TryAddScoped<OperatorSessionRefresher>();
 
         return services;
     }

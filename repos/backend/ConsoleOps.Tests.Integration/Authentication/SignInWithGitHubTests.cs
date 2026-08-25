@@ -198,8 +198,16 @@ public sealed class SignInWithGitHubTests
     private static GetOperatorSessionQueryHandler SessionHandler(
         IGitHubUserAuthentication github,
         IOperatorSessionStore sessions,
-        string[] operators) =>
-        new(sessions, github, new OperatorAllowList(operators), new FixedTimeProvider(Now));
+        string[] operators)
+    {
+        FixedTimeProvider time = new(Now);
+
+        return new GetOperatorSessionQueryHandler(
+            sessions,
+            new OperatorSessionRefresher(sessions, github, time),
+            new OperatorAllowList(operators),
+            time);
+    }
 
     private static OperatorSession Session() => new(
         Guid.CreateVersion7(),

@@ -12,8 +12,10 @@ namespace ConsoleOps.Api.Security;
 /// and the key remains the way something that is not a person - a script, a probe - reaches it without a session.
 /// </para>
 /// <para>
-/// A session is validated here without being refreshed. Refreshing on every request would write to the database on
-/// every request; the session endpoint the screens already poll is where a token is kept alive.
+/// A session is renewed here when its access token is close to expiring, because the request that follows may read
+/// GitHub as this operator and a token that dies mid-request would surface as a provider failure. That is a database
+/// write only inside the renewal window, not on every request, and doing it here - once, before anything fans out -
+/// means concurrent provider reads never race to renew the same session.
 /// </para>
 /// </remarks>
 public sealed class ApiAuthenticationMiddleware(RequestDelegate next, IConfiguration configuration)
@@ -89,8 +91,24 @@ public sealed class ApiAuthenticationMiddleware(RequestDelegate next, IConfigura
         TimeProvider time = context.RequestServices.GetRequiredService<TimeProvider>();
         DateTimeOffset now = time.GetUtcNow();
 
-        // A session whose refresh token has expired cannot be renewed, so it is over. An access token that has
-        // merely expired is not: the session endpoint renews it from the refresh token.
-        return session.RefreshTokenExpiresAtUtc is null || session.RefreshTokenExpiresAtUtc > now;
+        // A session whose refresh token has expired cannot be renewed, so it is over.
+        if (session.RefreshTokenExpiresAtUtc is { } refreshExpiry && refreshExpiry <= now)
+        {
+            return false;
+        }
+
+        // An access token near expiry is renewed now rather than allowed to die during the request it is about to
+        // serve. A session that cannot be renewed is not signed in.
+        OperatorSessionRefresher refresher = context.RequestServices
+            .GetRequiredService<OperatorSessionRefresher>();
+        OperatorSession? fresh = await refresher.EnsureFreshAsync(session, context.RequestAborted);
+        if (fresh is null)
+        {
+            return false;
+        }
+
+        // Carried forward so the GitHub credential can act as this operator without reading the session again.
+        OperatorRequestContext.Set(context, fresh);
+        return true;
     }
 }

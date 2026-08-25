@@ -45,15 +45,26 @@ public static class DependencyInjection
         services.AddScoped<Application.Features.Health.GetOverview.IHealthOverviewReadStore, HealthOverviewReadStore>();
         services.AddScoped<Application.Features.Logs.GetStream.ILogMarkerReadStore, LogMarkerReadStore>();
         AddAzureMonitor(services, configuration);
+
+        // Whose token goes out is decided per request. The default is Console Ops' own configured token, which is
+        // what scheduled collection uses; the Api project replaces this with one that prefers the signed-in
+        // operator's token, so the reading adapters below never learn that sign-in exists.
+        services.AddSingleton<ConfiguredGitHubCredential>();
+        services.AddSingleton<IGitHubCredential>(sp => sp.GetRequiredService<ConfiguredGitHubCredential>());
+        services.AddTransient<GitHubAuthorizationHandler>();
+
         services.AddHttpClient<IGitHubProjectReader, GitHubProjectReader>(client =>
-            ConfigureGitHubClient(client, configuration));
+            ConfigureGitHubClient(client, configuration))
+            .AddHttpMessageHandler<GitHubAuthorizationHandler>();
         services.AddHttpClient<IGitHubRepositoryCatalog, GitHubRepositoryCatalog>(client =>
-            ConfigureGitHubClient(client, configuration));
+            ConfigureGitHubClient(client, configuration))
+            .AddHttpMessageHandler<GitHubAuthorizationHandler>();
 
         // Workflows reads the provider during the request, like the log stream: bounded, read-only, and never
         // from stored observations, because a stale workflow list answers a question nobody asked.
         services.AddHttpClient<IGitHubWorkflowInventory, GitHubWorkflowInventory>(client =>
-            ConfigureGitHubClient(client, configuration));
+            ConfigureGitHubClient(client, configuration))
+            .AddHttpMessageHandler<GitHubAuthorizationHandler>();
         IReadOnlySet<string> allowedPrivateHosts = GetAllowedPrivateProbeHosts(configuration);
         services.AddHttpClient<IApplicationProbe, HttpApplicationProbe>(client =>
             client.Timeout = Timeout.InfiniteTimeSpan)
@@ -88,7 +99,7 @@ public static class DependencyInjection
             configuration.GetSection("Auth:AllowedGitHubLogins").Get<string[]>() ?? []));
         services.AddScoped<IIntegrationProbe, GitHubTokenProbe>();
         services.AddHttpClient(nameof(GitHubTokenProbe), client =>
-            ConfigureGitHubClient(client, configuration));
+            ConfigureServiceGitHubClient(client, configuration));
     }
 
     /// <summary>
@@ -169,6 +180,21 @@ public static class DependencyInjection
         client.DefaultRequestHeaders.UserAgent.ParseAdd(GitHubProjectReader.UserAgent);
         client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+
+        // No credential here on purpose. A header set on the client would be the same for every caller, which is
+        // wrong once an operator signs in: GitHubAuthorizationHandler decides per request whose token to send.
+    }
+
+    /// <summary>
+    /// A GitHub client that always uses Console Ops' own configured token, whoever is asking.
+    /// </summary>
+    /// <remarks>
+    /// For the configuration status report only. Settings reports whether Console Ops itself is configured, so that
+    /// check must not silently pass because the operator reading the screen happens to have access.
+    /// </remarks>
+    private static void ConfigureServiceGitHubClient(HttpClient client, IConfiguration configuration)
+    {
+        ConfigureGitHubClient(client, configuration);
 
         string? token = configuration["GitHub:Token"];
         if (!string.IsNullOrWhiteSpace(token))

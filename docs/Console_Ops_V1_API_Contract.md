@@ -343,16 +343,23 @@ Rules:
   wrong.
 - **State is single-use and compared in fixed time.** A callback without a matching state cookie is refused before
   any code is exchanged, and the cookie is cleared whether the attempt succeeds or not.
-- **A token is renewed on the session read**, within ten minutes of expiry, so a tab left open keeps working without
-  a background job whose only purpose is holding a token alive. GitHub being unreachable does **not** end a session;
-  only GitHub rejecting the refresh token does, because reporting somebody as signed in while every read fails is
-  worse than asking them to sign in again.
+- **A token is renewed within ten minutes of expiry**, on the session read and on any authenticated request, so a
+  tab left open keeps working without a background job whose only purpose is holding a token alive. Renewing in the
+  request pipeline - once, before anything fans out - also means concurrent provider reads never race to renew the
+  same session. GitHub being unreachable does **not** end a session; only GitHub rejecting the refresh token does,
+  because reporting somebody as signed in while every read fails is worse than asking them to sign in again.
 - **Signing out deletes the record**, not just the cookie. A cookie somebody kept a copy of has to stop working.
 - **`/api/auth/*` and `/health` are always reachable.** Answering the session read with a demand to sign in would be
   circular, and the container's liveness probe has no session to present. Everything else under `/api` answers
   `401 Auth.SignInRequired` without a session or a key.
-- **Two GitHub credentials exist, deliberately.** The operator's own token serves interactive requests; the
-  configured `GitHub:Token` serves scheduled collection, which runs with no request and therefore no session.
+- **Two GitHub credentials exist, deliberately.** A request an operator made is served with that operator's own
+  token, so GitHub applies their access and attributes a run they start to them. The configured `GitHub:Token` serves
+  scheduled collection, which runs with no request and therefore no session, and a caller holding the API key, which
+  is not a person. Which one goes out is decided per request, not when a client is built.
+- **An operator's request never falls back to the configured token.** Reading through a credential the operator does
+  not have would be an escalation dressed as resilience, so the request is refused by GitHub instead. The one
+  exception is the configuration status report, which deliberately checks Console Ops' own token: whether the
+  operator reading Settings happens to have access is a different question from whether Console Ops is configured.
 - **Refusals do not narrow anything down.** `Auth.NotAnOperator` does not say whether the account exists, and no
   refusal repeats what GitHub said about a credential.
 
