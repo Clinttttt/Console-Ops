@@ -9,6 +9,7 @@ builder.Services.AddConsoleOpsProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddOperatorGitHubCredential();
 builder.Services.AddConsoleOpsRateLimiter();
 builder.Services.AddScheduledCollection(builder.Configuration);
 builder.Services.AddConsoleOpsConfigurationInspection();

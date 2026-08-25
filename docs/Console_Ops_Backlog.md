@@ -44,33 +44,37 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Operator-set workflow risk, gating whether Console Ops will run a workflow | Real |
 | Starting a workflow, with declared inputs, an explicit ref and typed confirmation | Real |
 | GitHub App sign-in: session, operator allow list, real identity in the top bar | Real |
+| Reading GitHub as the operator who asked, and as the service when nobody did | Real |
 
 ## Next
 
-1. **Finish what sign-in started.** Slice 1 authenticates the operator; three follow-ups complete it.
-   **Per-request GitHub credential**: the reading adapters still take the token from configuration at startup, so
-   interactive requests use the configured token rather than the signed-in operator's. Replacing that means a
-   delegating handler reading a scoped credential from the session - the adapters themselves do not change.
+1. **Finish what sign-in started.** Two follow-ups remain.
    **Persist Data Protection keys** outside the container, or every Azure revision signs every operator out.
    **Managed identity for Azure**: `DefaultAzureCredential` currently relies on a developer sign-in, so Logs and
    Azure discovery will fail once deployed; the container app needs Reader on the subscription and Log Analytics
    Reader on the workspace. Later, an App installation token could replace the worker's configured token and leave
    Console Ops with one GitHub credential instead of two.
-2. **Console Ops cannot start a workflow with the current token.** Dispatch is built and verified end to end, and
+2. **More than one operator on one Console Ops.** Sign-in admits several logins, but nothing yet says whose project
+   a project is: the catalogue is global, so a second operator would see and could dispatch the first one's
+   workflows. Two pieces, in order - **an owner and invitations** so adding somebody is not an environment variable
+   edit (the first sign-in claims an unclaimed instance, and the allow list stays as an override), then
+   **per-operator ownership of projects**, which is a domain change and the honest prerequisite for sharing. Until
+   both exist, one instance means one operator.
+3. **Console Ops cannot start a workflow with the current token.** Dispatch is built and verified end to end, and
    GitHub refused it: the configured token has read access to Actions but not write, which the API reports as
    `Workflows.Unauthorized` with a 403. Granting write on Actions is an operator action; nothing in the code
    changes when it is. Re-run and cancel are the natural follow-ups once a run can be started.
    Worth knowing: `Azure.Unauthorized` still maps to 500 while `Workflows.Unauthorized` maps to 403. The Workflows
    answer is the correct one - a missing token scope is not a server fault - and Azure should follow, which is a
    change to an existing contract rather than part of this slice.
-3. **Workflow execution logs.** The last of the read side: GitHub serves them as a zip archive per run, which is
+4. **Workflow execution logs.** The last of the read side: GitHub serves them as a zip archive per run, which is
    why `Run logs` is still named as planned rather than half-built.
-4. **Cross-cutting Workflows follow-ups.** **Cross-link Deployments to Workflows** so a release reaches the run
+5. **Cross-cutting Workflows follow-ups.** **Cross-link Deployments to Workflows** so a release reaches the run
    that built it; **converge the two workflow-listing ports** (`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
    `IGitHubWorkflowInventory.ListWorkflowsAsync` list workflows for different callers) now that the richer one is
    proven; and **a deployment workflow is recorded against the project, not an environment**, so no environment
    is named on the screen - the feature context wants zero or one per environment, which is a domain change.
-5. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
+6. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
    not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in

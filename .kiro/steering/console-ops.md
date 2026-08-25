@@ -58,6 +58,9 @@ Remaining work, blockers, and what must not be built yet are tracked in `docs/Co
   use this Console Ops, is checked before a session is written and again on every request, and admits **nobody** when
   empty. A GitHub token never reaches the browser: the cookie carries an opaque session id and the token is stored
   encrypted. Scheduled collection keeps its own configured token because it runs with no session.
+- A request an operator made reads GitHub with that operator's token, so the provider applies their access and
+  attributes what they start to them. An operator's request never falls back to the configured token: reading
+  through a credential the operator does not have would be an escalation, so the request is refused instead.
 - Credentials come from user-secrets, environment variables, or a secret store.
 - Flag any network-exposed endpoint added without authentication.
 
