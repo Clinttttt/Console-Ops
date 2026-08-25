@@ -1,3 +1,4 @@
+using ConsoleOps.Api.Features.Authentication;
 using ConsoleOps.Api.Features.Azure;
 using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.Deployments;
@@ -18,7 +19,7 @@ namespace ConsoleOps.Api.Extensions;
 public static class RequestPipelineExtensions
 {
     /// <summary>
-    /// Order matters: the exception handler wraps everything, the key check runs before any endpoint work,
+    /// Order matters: the exception handler wraps everything, the authentication check runs before any endpoint work,
     /// and rate limiting runs before an endpoint can reach a provider.
     /// </summary>
     public static WebApplication UseConsoleOpsPipeline(this WebApplication app)
@@ -31,7 +32,7 @@ public static class RequestPipelineExtensions
         app.UseSwagger();
         app.UseSwaggerUI();
         app.UseMiddleware<ExceptionMiddleware>();
-        app.UseMiddleware<ApiKeyMiddleware>();
+        app.UseMiddleware<ApiAuthenticationMiddleware>();
         app.UseStatusCodePages();
         app.UseRateLimiter();
         app.UseHealthChecks("/health");
@@ -40,6 +41,7 @@ public static class RequestPipelineExtensions
 
     public static WebApplication MapConsoleOpsEndpoints(this WebApplication app)
     {
+        app.MapAuthenticationEndpoints();
         app.MapDashboardEndpoints();
         app.MapAzureEndpoints();
         app.MapDeploymentEndpoints();

@@ -40,6 +40,9 @@ It is sampled availability with its own sample count attached, not an uptime gua
 
 ## Exposure and the optional API key
 
+Console Ops now authenticates the operator with a GitHub App. What follows describes the key, which remains for
+callers that are not a person; the sign-in contract is in the next section.
+
 Console Ops has no user accounts by design: it is a single-operator tool, and the product context defers
 multi-user concerns. That is safe while the API answers only on loopback, which is how it is configured
 to run.
@@ -311,6 +314,47 @@ Rules:
 - **Failure is not emptiness.** `Workflows.RateLimited`, `Workflows.NotFound`,
   `Workflows.InvalidResponse`, `Workflows.Unavailable`. An exhausted rate limit is reported as itself, never as
   a rejected credential.
+
+## Authentication API
+
+```text
+GET  /api/auth/github/start      302 to GitHub; sets a short-lived state cookie
+GET  /api/auth/github/callback   verifies state, exchanges the code, sets the session cookie, 302 into the app
+GET  /api/auth/session           200 { login, avatarUrl?, signedInAt, expiresAt } | 403 Auth.NoSession
+POST /api/auth/sign-out          204
+```
+
+Rules:
+
+- **A GitHub App, not an OAuth App.** Permissions are declared on the App and granted per repository at
+  installation, so no `scope` is requested. A user token only reaches repositories the App is installed on. The
+  tokens expire, so a refresh token is requested and kept.
+- **Identity is not permission.** Authorizing the App proves who somebody is. `Auth:AllowedGitHubLogins` decides
+  whether they may use this Console Ops, and it is checked before a session is written - nothing is stored for an
+  account that is refused. **An empty list admits nobody**: the alternative reading of "no operators configured" is
+  a console anyone can sign into the moment it is exposed. The list is re-checked on every session read and on every
+  request, so removing an operator takes effect immediately rather than when their token happens to expire.
+- **The browser is given a session id and nothing else.** The GitHub tokens stay on the server, encrypted at rest,
+  as every other provider credential does. The cookie is `HttpOnly`, `Secure`, `SameSite=Lax` - `Lax` because the
+  sign-in returns through a redirect from GitHub, and sufficient because the deployment serves the app and the API
+  on one origin.
+- **The callback URL is derived from the request**, honouring `X-Forwarded-Host` and `X-Forwarded-Proto`, so it
+  resolves to the origin the browser is actually using. `Auth:CallbackUrl` overrides it where a proxy makes that
+  wrong.
+- **State is single-use and compared in fixed time.** A callback without a matching state cookie is refused before
+  any code is exchanged, and the cookie is cleared whether the attempt succeeds or not.
+- **A token is renewed on the session read**, within ten minutes of expiry, so a tab left open keeps working without
+  a background job whose only purpose is holding a token alive. GitHub being unreachable does **not** end a session;
+  only GitHub rejecting the refresh token does, because reporting somebody as signed in while every read fails is
+  worse than asking them to sign in again.
+- **Signing out deletes the record**, not just the cookie. A cookie somebody kept a copy of has to stop working.
+- **`/api/auth/*` and `/health` are always reachable.** Answering the session read with a demand to sign in would be
+  circular, and the container's liveness probe has no session to present. Everything else under `/api` answers
+  `401 Auth.SignInRequired` without a session or a key.
+- **Two GitHub credentials exist, deliberately.** The operator's own token serves interactive requests; the
+  configured `GitHub:Token` serves scheduled collection, which runs with no request and therefore no session.
+- **Refusals do not narrow anything down.** `Auth.NotAnOperator` does not say whether the account exists, and no
+  refusal repeats what GitHub said about a credential.
 
 ## Settings configuration status
 

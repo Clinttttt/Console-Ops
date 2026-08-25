@@ -1,14 +1,24 @@
 import { Routes } from '@angular/router';
 
+import { operatorGuard } from './core/state/operator.guard';
+
 export const routes: Routes = [
   {
+    // The only screen that answers before a session exists, so it is deliberately outside the guard.
+    path: 'sign-in',
+    title: 'Sign in - Console Ops',
+    loadComponent: () => import('./features/authentication/sign-in-page').then((m) => m.SignInPage),
+  },
+  {
     path: 'overview',
+    canActivate: [operatorGuard],
     title: 'Overview - Console Ops',
     data: { title: 'Overview', subtitle: 'Your .NET projects at a glance' },
     loadComponent: () => import('./features/overview/overview-page').then((m) => m.OverviewPage),
   },
   {
     path: 'projects',
+    canActivate: [operatorGuard],
     title: 'Projects - Console Ops',
     data: {
       title: 'Projects',
@@ -18,6 +28,7 @@ export const routes: Routes = [
   },
   {
     path: 'projects/new',
+    canActivate: [operatorGuard],
     title: 'Add Project - Console Ops',
     data: {
       title: 'Add Project',
@@ -28,6 +39,7 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId/edit',
+    canActivate: [operatorGuard],
     title: 'Edit Project - Console Ops',
     data: {
       title: 'Edit Project',
@@ -38,6 +50,7 @@ export const routes: Routes = [
   },
   {
     path: 'projects/:projectId',
+    canActivate: [operatorGuard],
     title: 'Project - Console Ops',
     data: {
       title: 'Project',
@@ -48,6 +61,7 @@ export const routes: Routes = [
   },
   {
     path: 'deployments',
+    canActivate: [operatorGuard],
     title: 'Deployments - Console Ops',
     data: {
       title: 'Deployments',
@@ -58,6 +72,7 @@ export const routes: Routes = [
   },
   {
     path: 'workflows',
+    canActivate: [operatorGuard],
     title: 'Workflows - Console Ops',
     data: {
       title: 'Workflows',
@@ -68,6 +83,7 @@ export const routes: Routes = [
   {
     // Route parameters are bound to the page's inputs, so the screen can be opened directly.
     path: 'workflows/:projectId/:workflowId/runs',
+    canActivate: [operatorGuard],
     title: 'Workflow runs - Console Ops',
     data: {
       title: 'Workflow runs',
@@ -78,6 +94,7 @@ export const routes: Routes = [
   },
   {
     path: 'environments',
+    canActivate: [operatorGuard],
     title: 'Environments - Console Ops',
     data: {
       title: 'Environments',
@@ -88,6 +105,7 @@ export const routes: Routes = [
   },
   {
     path: 'health',
+    canActivate: [operatorGuard],
     title: 'Health - Console Ops',
     data: {
       title: 'Health',
@@ -97,6 +115,7 @@ export const routes: Routes = [
   },
   {
     path: 'logs',
+    canActivate: [operatorGuard],
     title: 'Logs - Console Ops',
     data: {
       title: 'Logs',
@@ -106,6 +125,7 @@ export const routes: Routes = [
   },
   {
     path: 'settings',
+    canActivate: [operatorGuard],
     title: 'Settings - Console Ops',
     data: {
       title: 'Settings',

@@ -13,6 +13,9 @@ public sealed class ConsoleOpsDbContext(DbContextOptions<ConsoleOpsDbContext> op
 
     public DbSet<ProjectWorkflowRisk> ProjectWorkflowRisks => Set<ProjectWorkflowRisk>();
 
+    internal DbSet<Authentication.OperatorSessionEntity> OperatorSessions =>
+        Set<Authentication.OperatorSessionEntity>();
+
     public DbSet<SourceObservationEntity> SourceObservations => Set<SourceObservationEntity>();
 
     public DbSet<WorkflowObservationEntity> WorkflowObservations => Set<WorkflowObservationEntity>();

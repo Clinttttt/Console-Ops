@@ -10,6 +10,7 @@ using ConsoleOps.Application.Features.Projects.RefreshProject;
 using ConsoleOps.Application.Integrations.ApplicationMonitoring;
 using ConsoleOps.Application.Integrations.AzureMonitor;
 using ConsoleOps.Application.Integrations.Diagnostics;
+using ConsoleOps.Application.Features.Authentication;
 using ConsoleOps.Application.Features.Workflows;
 using ConsoleOps.Application.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Integrations.ApplicationMonitoring;
@@ -18,6 +19,7 @@ using ConsoleOps.Infrastructure.Integrations.Diagnostics;
 using ConsoleOps.Infrastructure.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Persistence;
 using ConsoleOps.Infrastructure.Persistence.Repositories;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,6 +74,18 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationProbe, DatabaseProbe>();
         services.AddScoped<IIntegrationProbe, AzureCredentialProbe>();
         services.AddScoped<IWorkflowRiskReadStore, WorkflowRiskReadStore>();
+
+        // Sign-in: the App's user authorization, and where signed-in operators are kept. The allow list is a
+        // singleton because it is configuration, and it fails closed when nothing is configured.
+        services.AddHttpClient<IGitHubUserAuthentication, GitHubUserAuthentication>(client =>
+            client.Timeout = TimeSpan.FromSeconds(GetGitHubTimeoutSeconds(configuration)));
+        // Protects the stored GitHub tokens. The keys must outlive the process for a session to survive a restart:
+        // on Azure Container Apps the filesystem is ephemeral, so they are persisted externally in production and
+        // the deployment guide says how. Without that, every revision signs every operator out.
+        services.AddDataProtection().SetApplicationName("ConsoleOps");
+        services.AddScoped<IOperatorSessionStore, OperatorSessionStore>();
+        services.AddSingleton(new OperatorAllowList(
+            configuration.GetSection("Auth:AllowedGitHubLogins").Get<string[]>() ?? []));
         services.AddScoped<IIntegrationProbe, GitHubTokenProbe>();
         services.AddHttpClient(nameof(GitHubTokenProbe), client =>
             ConfigureGitHubClient(client, configuration));
