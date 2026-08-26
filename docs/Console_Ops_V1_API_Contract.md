@@ -349,6 +349,16 @@ Rules:
   same session. GitHub being unreachable does **not** end a session; only GitHub rejecting the refresh token does,
   because reporting somebody as signed in while every read fails is worse than asking them to sign in again.
 - **Signing out deletes the record**, not just the cookie. A cookie somebody kept a copy of has to stop working.
+- **The callback always ends in a redirect.** A browser arrives there mid-authorization, so an unexpected fault sends
+  it back to the sign-in screen with `?error=unavailable` and is logged in full on the server. Answering a problem
+  document instead strands the operator on JSON in the address bar with no way back - which is what a missing
+  database table did in production.
+- **The keys that protect stored tokens must outlive the process and be shared by every replica.**
+  `DataProtection:BlobUri` names one blob; a URI carrying a SAS is used as it is, and a plain URI is read with
+  Console Ops' Azure identity. Unset falls back to the local filesystem, which is right for a developer and wrong
+  for a deployment: a restart loses every session, and a second replica cannot decrypt a token the first one wrote,
+  which fails intermittently depending on which replica answers. The configuration report names the key as required
+  as soon as sign-in is configured.
 - **`/api/auth/*` and `/health` are always reachable.** Answering the session read with a demand to sign in would be
   circular, and the container's liveness probe has no session to present. Everything else under `/api` answers
   `401 Auth.SignInRequired` without a session or a key.

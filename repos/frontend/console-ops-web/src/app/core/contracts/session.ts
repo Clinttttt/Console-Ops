@@ -27,4 +27,6 @@ export type SignInRefusal =
   | 'Auth.NoOperatorsConfigured'
   | 'Auth.CodeRejected'
   | 'Auth.ProviderUnavailable'
+  /** Console Ops itself failed while completing the sign-in, as distinct from GitHub refusing it. */
+  | 'unavailable'
   | 'unknown';

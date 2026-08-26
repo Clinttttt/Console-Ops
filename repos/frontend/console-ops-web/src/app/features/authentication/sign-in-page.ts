@@ -34,6 +34,7 @@ export class SignInPage {
       case 'Auth.NoOperatorsConfigured':
       case 'Auth.CodeRejected':
       case 'Auth.ProviderUnavailable':
+      case 'unavailable':
         return reason;
       default:
         // An unrecognised code is still shown as a refusal, because it is one, but not repeated back verbatim.

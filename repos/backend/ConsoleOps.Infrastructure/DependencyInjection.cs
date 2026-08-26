@@ -90,10 +90,7 @@ public static class DependencyInjection
         // singleton because it is configuration, and it fails closed when nothing is configured.
         services.AddHttpClient<IGitHubUserAuthentication, GitHubUserAuthentication>(client =>
             client.Timeout = TimeSpan.FromSeconds(GetGitHubTimeoutSeconds(configuration)));
-        // Protects the stored GitHub tokens. The keys must outlive the process for a session to survive a restart:
-        // on Azure Container Apps the filesystem is ephemeral, so they are persisted externally in production and
-        // the deployment guide says how. Without that, every revision signs every operator out.
-        services.AddDataProtection().SetApplicationName("ConsoleOps");
+        AddOperatorSessionProtection(services, configuration);
         services.AddScoped<IOperatorSessionStore, OperatorSessionStore>();
         services.AddSingleton(new OperatorAllowList(
             configuration.GetSection("Auth:AllowedGitHubLogins").Get<string[]>() ?? []));
@@ -163,6 +160,56 @@ public static class DependencyInjection
             ExcludeVisualStudioCodeCredential = true,
             ExcludeInteractiveBrowserCredential = true,
         });
+    }
+
+    /// <summary>
+    /// Protects the GitHub tokens belonging to signed-in operators.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The keys must outlive the process, and they must be the <em>same</em> keys everywhere. Data Protection
+    /// defaults to the local filesystem, which on Azure Container Apps is ephemeral and per replica - so a restart
+    /// loses every session, and, worse, a second replica cannot read a token the first one wrote. That failure is
+    /// intermittent and depends on which replica answers, which is the hardest kind to diagnose.
+    /// </para>
+    /// <para>
+    /// <c>DataProtection:BlobUri</c> points at one blob and covers both ways of reaching it: a URI carrying a SAS
+    /// token is used as it is, and a plain URI is read with the same Azure identity Console Ops uses elsewhere, so
+    /// a deployment can move to managed identity without changing configuration shape.
+    /// </para>
+    /// <para>
+    /// Unset leaves the local default in place. That is correct for a developer and wrong for a deployment, so it
+    /// is not silent: the configuration report names the key as required once sign-in is configured, and startup
+    /// says so in the log.
+    /// </para>
+    /// </remarks>
+    private static void AddOperatorSessionProtection(IServiceCollection services, IConfiguration configuration)
+    {
+        IDataProtectionBuilder protection = services.AddDataProtection().SetApplicationName("ConsoleOps");
+
+        string? blobUri = configuration["DataProtection:BlobUri"];
+        if (string.IsNullOrWhiteSpace(blobUri))
+        {
+            return;
+        }
+
+        if (!Uri.TryCreate(blobUri.Trim(), UriKind.Absolute, out Uri? uri))
+        {
+            throw new InvalidOperationException(
+                "'DataProtection:BlobUri' is not an absolute URI. It must address one blob, for example "
+                + "https://<account>.blob.core.windows.net/<container>/consoleops-keys.xml.");
+        }
+
+        // A SAS carries its own authorization; anything else is read with Console Ops' Azure identity.
+        bool carriesSharedAccessSignature = uri.Query.Contains("sig=", StringComparison.OrdinalIgnoreCase);
+
+        if (carriesSharedAccessSignature)
+        {
+            protection.PersistKeysToAzureBlobStorage(uri);
+            return;
+        }
+
+        protection.PersistKeysToAzureBlobStorage(uri, ResolveAzureCredential(configuration));
     }
 
     /// <summary>

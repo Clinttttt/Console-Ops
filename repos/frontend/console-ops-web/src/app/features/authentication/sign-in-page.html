@@ -33,6 +33,10 @@
         @case ('Auth.ProviderUnavailable') {
           GitHub could not be reached to complete the sign-in. Nothing is wrong with your account.
         }
+        @case ('unavailable') {
+          Console Ops could not complete the sign-in. Nothing is wrong with your account or with
+          GitHub, and the failure was recorded on the server.
+        }
         @default {
           That sign-in did not complete. Try again.
         }

@@ -50,6 +50,15 @@ describe('SignInPage', () => {
     expect(host.textContent).toContain('Nothing is wrong with your account');
   });
 
+  it('separates a fault in Console Ops itself from a refusal by GitHub', async () => {
+    await render('unavailable');
+
+    // The callback redirects here rather than answering a problem document, so this wording is what an
+    // operator sees when the server failed mid sign-in.
+    expect(host.textContent).toContain('Console Ops could not complete the sign-in');
+    expect(host.textContent).toContain('recorded on the server');
+  });
+
   it('shows an unrecognised reason as a refusal without repeating it', async () => {
     await render('<script>alert(1)</script>');
 
