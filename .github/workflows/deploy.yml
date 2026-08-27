@@ -109,8 +109,11 @@ jobs:
           # in a process list or a log line.
           ConnectionStrings__DefaultConnection: ${{ secrets.PROD_DB_CONNECTION }}
         run: |
-          dotnet tool install --global dotnet-ef --version 10.0.4
-          export PATH="$PATH:$HOME/.dotnet/tools"
+          # The repository pins dotnet-ef in .config/dotnet-tools.json, so it is restored rather than installed.
+          # A global install does not help here: once a manifest exists, `dotnet ef` resolves to the local tool and
+          # ignores the global one, which is exactly how this step failed - the tool installed, then was not found.
+          # Restoring also keeps the version in one place instead of here as well.
+          dotnet tool restore
           dotnet ef migrations list \
             --project repos/backend/ConsoleOps.Infrastructure \
             --startup-project repos/backend/ConsoleOps.Api \
