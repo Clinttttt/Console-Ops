@@ -1,9 +1,16 @@
 import { HttpClient } from '@angular/common/http';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { retry, timer } from 'rxjs';
+import { retry, timeout, timer } from 'rxjs';
 
 export type ApiReadinessState = 'checking' | 'ready' | 'unreachable';
+
+/** Each attempt is bounded: the proxy holds a request open while a container starts rather than refusing it. */
+const ATTEMPT_TIMEOUT_MS = 8000;
+
+/** Roughly forty seconds of patience in total, against a cold start measured at twenty-five. */
+const ATTEMPTS_AFTER_THE_FIRST = 4;
+const DELAY_BETWEEN_ATTEMPTS_MS = 2000;
 
 /**
  * Whether the API is answering yet.
@@ -24,10 +31,9 @@ export class ApiReadiness {
   readonly readiness = this.state.asReadonly();
 
   /**
-   * Waits for the API, backing off between attempts.
+   * Waits for the API, bounding each attempt and pausing between them.
    *
-   * Spread over roughly half a minute because a cold start has been measured at twenty-five seconds. Giving up says
-   * so instead of leaving the screen waiting forever.
+   * Giving up says so instead of leaving the screen waiting, which is the failure this whole class exists to remove.
    */
   probe(): void {
     this.state.set('checking');
@@ -35,7 +41,8 @@ export class ApiReadiness {
     this.http
       .get('/health', { responseType: 'text' })
       .pipe(
-        retry({ count: 5, delay: (_, attempt) => timer(Math.min(2000 * attempt, 8000)) }),
+        timeout(ATTEMPT_TIMEOUT_MS),
+        retry({ count: ATTEMPTS_AFTER_THE_FIRST, delay: () => timer(DELAY_BETWEEN_ATTEMPTS_MS) }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { App } from './app';
@@ -11,7 +11,7 @@ describe('App shell', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: '', children: [] }]),
         {
           provide: DashboardOverviewDataSource,
           useValue: { load: () => of(DASHBOARD_OVERVIEW_FIXTURE) },
@@ -20,8 +20,13 @@ describe('App shell', () => {
     }).compileComponents();
   });
 
+  /**
+   * Navigates before asserting: the console is only drawn once a screen has been admitted, so a shell rendered
+   * without a completed navigation is the starting state rather than the console.
+   */
   async function render(): Promise<HTMLElement> {
     const fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl('/');
     await fixture.whenStable();
     return fixture.nativeElement as HTMLElement;
   }
@@ -69,7 +74,7 @@ describe('App shell', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: '', children: [] }]),
         {
           provide: DashboardOverviewDataSource,
           useValue: {

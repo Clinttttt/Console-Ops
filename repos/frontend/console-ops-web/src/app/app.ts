@@ -38,13 +38,18 @@ export class App {
   /**
    * Whether to draw the console around the page.
    *
-   * The sign-in screen is the one route that answers before a session exists, so it is shown on its own: a sidebar
-   * of destinations nobody can reach yet would be a menu of dead ends.
+   * Only once a screen has actually been admitted. Drawing it as soon as the URL was not the sign-in page meant a
+   * cold start showed the sidebar, the top bar and a profile reading "Not signed in" around nothing at all, for as
+   * long as the guard waited - a console that looks broken rather than one that is starting.
+   *
+   * The sign-in screen stays outside it: a sidebar of destinations nobody can reach yet is a menu of dead ends.
    */
   protected readonly showsConsole = computed(() => {
-    this.navigated();
-    return !this.router.url.startsWith('/sign-in');
+    return this.navigated() !== null && !this.router.url.startsWith('/sign-in');
   });
+
+  /** Nothing has been admitted yet, and the guard has not finished asking who is here. */
+  protected readonly isStarting = computed(() => this.navigated() === null);
 
   /** Page title/subtitle come from route data so every screen owns its own header text. */
   protected readonly header = computed<PageHeader>(() => {

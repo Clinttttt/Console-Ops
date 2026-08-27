@@ -1,10 +1,13 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { catchError, map, of } from 'rxjs';
+import { catchError, map, of, timeout } from 'rxjs';
 
 import { OperatorSession } from '../contracts/session';
 import { SessionStore } from '../state/session.store';
+
+/** Long enough for a slow answer, short enough that nobody watches an empty page waiting for one. */
+const SESSION_READ_TIMEOUT_MS = 6000;
 
 /**
  * Keeps a screen from loading before Console Ops knows who is asking.
@@ -12,8 +15,8 @@ import { SessionStore } from '../state/session.store';
  * The check is the API's answer, not a value held in the browser: a session lives in an `HttpOnly` cookie the app
  * cannot read, which is what stops script from getting at it. So the guard asks.
  *
- * A Console Ops with no sign-in configured answers the session read with 404 rather than 403, and is allowed
- * through - that is local development, where there is nobody to be.
+ * It also gives up asking. The deployment scales to zero and the proxy in front of it holds a request open while a
+ * container starts, so without a bound this waited long enough to look like nothing was happening at all.
  */
 export const operatorGuard: CanActivateFn = () => {
   const http = inject(HttpClient);
@@ -21,6 +24,7 @@ export const operatorGuard: CanActivateFn = () => {
   const sessions = inject(SessionStore);
 
   return http.get<OperatorSession>('/api/auth/session').pipe(
+    timeout(SESSION_READ_TIMEOUT_MS),
     map(() => {
       sessions.read();
       return true;
@@ -32,7 +36,7 @@ export const operatorGuard: CanActivateFn = () => {
 
       // An unreachable API is still not a signed-out operator, and the sign-in screen says which it was. Letting the
       // screen load instead - as this did - showed the shell around an empty page and a profile reading "Not signed
-      // in", which tells an operator nothing and offers them nowhere to go.
+      // in", which tells an operator nothing and offers them nowhere to go. A timeout arrives here too.
       return of(router.createUrlTree(['/sign-in'], { queryParams: { error: 'unreachable' } }));
     }),
   );
