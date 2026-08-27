@@ -49,33 +49,50 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 ## Next
 
-1. **Finish what sign-in started.** One follow-up remains.
-   **Managed identity for Azure**: `DefaultAzureCredential` currently relies on a developer sign-in, so Logs and
-   Azure discovery will fail once deployed; the container app needs Reader on the subscription and Log Analytics
-   Reader on the workspace. It would also let `DataProtection:BlobUri` drop its SAS and be read as the app's own
-   identity. Later, an App installation token could replace the worker's configured token and leave Console Ops
-   with one GitHub credential instead of two.
-2. **More than one operator on one Console Ops.** Sign-in admits several logins, but nothing yet says whose project
+1. **One Azure identity, and four stored credentials that stop being needed.** Console Ops currently proves who it
+   is to Azure in three unrelated ways, and every one of them stores something. A managed identity on the container
+   app, plus Entra authentication on Postgres, replaces all of it. The consumers, so this is not remembered as only
+   a Logs concern:
+   - **Logs and Azure discovery.** `DefaultAzureCredential` falls back to the ambient identity, which today means a
+     developer's `az login`. Both features will fail once deployed. Needs Reader on the subscription and Log
+     Analytics Reader on the workspace.
+   - **`DataProtection:BlobUri`.** A SAS on the key blob is only necessary because the container has no identity of
+     its own. With one, the plain blob URI is read directly - the configuration shape already allows either. Needs
+     Storage Blob Data Contributor on that one container.
+   - **The deploy workflow's `PROD_DB_CONNECTION`.** It exists only because the runner cannot see the container
+     app's connection string, and reading it at deploy time would be worse: GitHub masks secrets it was told about,
+     not values fetched at run time, so one careless `echo` would put a production password in a workflow log for
+     good. `activeDirectoryAuth` is `Disabled` on the server today; enabling it lets the runner authenticate as the
+     deployment identity with a short-lived token and store no password at all.
+   - **The container app's own `db-connection` secret**, for the same reason and at the same time.
+
+   It is not one change: the server needs Entra auth enabled and an Entra administrator, the identity needs rights
+   inside the database, and three role assignments have to be made. But it is one identity, and each consumer stops
+   holding a credential rather than holding a better-managed one.
+2. **One GitHub credential instead of two.** An App installation token could replace the worker's configured
+   `GitHub:Token`, which exists only because scheduled collection runs with no operator. Reads made for a person
+   already use that person's token.
+3. **More than one operator on one Console Ops.** Sign-in admits several logins, but nothing yet says whose project
    a project is: the catalogue is global, so a second operator would see and could dispatch the first one's
    workflows. Two pieces, in order - **an owner and invitations** so adding somebody is not an environment variable
    edit (the first sign-in claims an unclaimed instance, and the allow list stays as an override), then
    **per-operator ownership of projects**, which is a domain change and the honest prerequisite for sharing. Until
    both exist, one instance means one operator.
-3. **Console Ops cannot start a workflow with the current token.** Dispatch is built and verified end to end, and
+4. **Console Ops cannot start a workflow with the current token.** Dispatch is built and verified end to end, and
    GitHub refused it: the configured token has read access to Actions but not write, which the API reports as
    `Workflows.Unauthorized` with a 403. Granting write on Actions is an operator action; nothing in the code
    changes when it is. Re-run and cancel are the natural follow-ups once a run can be started.
    Worth knowing: `Azure.Unauthorized` still maps to 500 while `Workflows.Unauthorized` maps to 403. The Workflows
    answer is the correct one - a missing token scope is not a server fault - and Azure should follow, which is a
    change to an existing contract rather than part of this slice.
-4. **Workflow execution logs.** The last of the read side: GitHub serves them as a zip archive per run, which is
+5. **Workflow execution logs.** The last of the read side: GitHub serves them as a zip archive per run, which is
    why `Run logs` is still named as planned rather than half-built.
-5. **Cross-cutting Workflows follow-ups.** **Cross-link Deployments to Workflows** so a release reaches the run
+6. **Cross-cutting Workflows follow-ups.** **Cross-link Deployments to Workflows** so a release reaches the run
    that built it; **converge the two workflow-listing ports** (`IGitHubRepositoryCatalog.ListWorkflowsAsync` and
    `IGitHubWorkflowInventory.ListWorkflowsAsync` list workflows for different callers) now that the richer one is
    proven; and **a deployment workflow is recorded against the project, not an environment**, so no environment
    is named on the screen - the feature context wants zero or one per environment, which is a domain change.
-6. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
+7. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
    discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
    `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
    not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in
@@ -86,10 +103,10 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    add a diagnostic setting on the site sending `AppServiceConsoleLogs`. Console Ops has read-only Azure
    access by rule and cannot do it. Once rows exist, the reader is a platform discriminator on the log source,
    a reader chosen by that platform, and a KQL query verified against those rows.
-6. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
+8. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
-7. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+9. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
@@ -97,11 +114,11 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    projects: StallTrack's `/version` answers `200` with the Angular application, Spinner's answers `401`, and
    EEMO's `301`s - all three are configured and unreadable, which the Overview now reports as `Not reported`
    rather than as unconfigured.
-8. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
+10. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
    projects hold health checks against the same host and their verdicts can never disagree. They deploy from
    different repositories, which argues for keeping both projects - but only one should own the health check,
    or EEMO should become an environment of StallTrack. Undecided, and recorded so it is not rediscovered.
-9. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+11. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
@@ -110,13 +127,16 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 
 
 
-- **The deploy workflow now applies migrations and needs two settings that only an operator can add.** A
-  `PROD_DB_CONNECTION` secret and an `AZURE_POSTGRES_SERVER` variable, plus permission for the deployment identity
-  to add and remove a Postgres firewall rule for the runner. Until both exist the deploy job stops before the
-  schema step, which leaves the previous revision serving - the intended failure, but the deployment does not move.
+- **The deploy workflow applies migrations and needs one secret that only an operator can add.**
+  `PROD_DB_CONNECTION` is required: without it the deploy job stops at a preflight step that names it, which leaves
+  the previous revision serving - the intended failure, but the deployment does not move. `AZURE_POSTGRES_SERVER` is
+  optional and only opens a firewall rule for the runner; without it the migration is attempted directly, since a
+  GitHub-hosted runner may already be reachable through the server's allow-Azure-services rule. Both stop being
+  needed once the database accepts Entra authentication, which is item 1 in Next.
 - **`DataProtection:BlobUri` is required in production and not yet set.** A storage account, a private container,
   and either a SAS on the blob or managed identity with Storage Blob Data Contributor. Until it is set, sessions do
-  not survive a restart and a second replica cannot decrypt what the first one wrote.
+  not survive a restart and a second replica cannot decrypt what the first one wrote. The SAS is only necessary
+  while the container app has no identity of its own - see item 1 in Next.
 - **Azure runtime awareness (V2).** Unlocks the runtime revision, the runtime target, and a `Current`
   release derived from the runtime itself rather than only from `/version`. Also unlocks the platform
   source on the Logs screen (revision activated, image pull failure, replica problems).
