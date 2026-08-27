@@ -74,4 +74,21 @@ describe('operatorGuard', () => {
 
     expect(router.serializeUrl((await decision) as UrlTree)).toBe('/sign-in?error=unreachable');
   });
+
+  /**
+   * A proxy in front of a container that is still starting holds the request open rather than refusing it, so the
+   * read is bounded. Without that, nothing resolved and the page simply sat there.
+   */
+  it('gives up on a read that never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const decision = activate();
+      http.expectOne('/api/auth/session');
+      vi.advanceTimersByTime(6001);
+
+      expect(router.serializeUrl((await decision) as UrlTree)).toBe('/sign-in?error=unreachable');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

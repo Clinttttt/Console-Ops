@@ -12,6 +12,12 @@
       <router-outlet />
     </main>
   </div>
+} @else if (isStarting()) {
+  <!-- The console is not drawn until a screen has been admitted, so this stands in until then. -->
+  <div class="starting" aria-live="polite">
+    <img class="starting-logo" src="/console-ops-logo.png" alt="" width="34" height="34" />
+    <span class="starting-name">Console Ops</span>
+  </div>
 } @else {
   <router-outlet />
 }
