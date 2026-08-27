@@ -14,12 +14,15 @@ describe('SignInPage', () => {
 
   /**
    * Renders the page and answers the readiness probe, since the action is only offered once the API replies.
+   *
+   * The probe asks the session endpoint, and a `403` is a valid answer: it means the API is there and nobody is
+   * signed in. Only a gateway failure or silence means it is not there.
    */
   async function render(error: string | null = null, ready = true): Promise<void> {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [SignInPage],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(SignInPage);
@@ -28,7 +31,19 @@ describe('SignInPage', () => {
     await fixture.whenStable();
 
     if (ready) {
-      http.expectOne('/health').flush('Healthy');
+      http
+        .match('/api/auth/session')
+        .forEach((request) =>
+          request.flush({ code: 'Auth.NoSession' }, { status: 403, statusText: 'Forbidden' }),
+        );
+      await fixture.whenStable();
+
+      // An operator sent here by an unreachable API is offered a resumed session first, which is refused here.
+      http
+        .match('/api/auth/session')
+        .forEach((request) =>
+          request.flush({ code: 'Auth.NoSession' }, { status: 403, statusText: 'Forbidden' }),
+        );
       await fixture.whenStable();
     }
 

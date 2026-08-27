@@ -18,7 +18,7 @@ const SESSION_READ_TIMEOUT_MS = 6000;
  * It also gives up asking. The deployment scales to zero and the proxy in front of it holds a request open while a
  * container starts, so without a bound this waited long enough to look like nothing was happening at all.
  */
-export const operatorGuard: CanActivateFn = () => {
+export const operatorGuard: CanActivateFn = (_route, state) => {
   const http = inject(HttpClient);
   const router = inject(Router);
   const sessions = inject(SessionStore);
@@ -37,7 +37,14 @@ export const operatorGuard: CanActivateFn = () => {
       // An unreachable API is still not a signed-out operator, and the sign-in screen says which it was. Letting the
       // screen load instead - as this did - showed the shell around an empty page and a profile reading "Not signed
       // in", which tells an operator nothing and offers them nowhere to go. A timeout arrives here too.
-      return of(router.createUrlTree(['/sign-in'], { queryParams: { error: 'unreachable' } }));
+      //
+      // Where they were going travels with them, because this case is not a refusal: an operator whose session is
+      // intact and whose API was merely asleep should end up where they asked for, without signing in again.
+      return of(
+        router.createUrlTree(['/sign-in'], {
+          queryParams: { error: 'unreachable', returnTo: state.url },
+        }),
+      );
     }),
   );
 };
