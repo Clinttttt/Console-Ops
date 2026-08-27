@@ -95,9 +95,15 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 7. **An App Service log reader — now unblocked, and the shape is known.** StallTrack runs on App Service, and
    discovery lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) as
    `platformNotSupported`, which is the honest label while no reader exists. A diagnostic setting named
-   `consoleops-console-logs` now sends `AppServiceConsoleLogs` from the API site to
-   `workspacergconsoleopslearning848b` (`02ee6d13-3613-4d0d-b649-b771997b03b4`), and rows arrive within minutes.
-   Verified against those rows rather than against documentation, because guessing column names is how the
+   `stalltrack-console-logs` now sends `AppServiceConsoleLogs` from the API site to `stalltrack-prod-logs` in
+   `stalltrack-prod-rg` (`2e0a9e91-b9f5-4b6a-a4b3-aa423cc37c09`), so StallTrack's production telemetry stays in its
+   own workspace, and rows arrive within minutes.
+   Two things about managing that setting, learned by getting them wrong: **`az monitor diagnostic-settings list`
+   returns nothing for this resource** even when a setting exists, so `show` by name or the ARM API is the only
+   reliable read; and **changing the destination of an existing setting does not move the sink** - the configuration
+   updated and delivery continued to the old workspace for half an hour, until the setting was deleted and created
+   again.
+   Verified against real rows rather than against documentation, because guessing column names is how the
    `ContainerAppConsoleLogs_CL` mistake happened:
    - The table is `AppServiceConsoleLogs`, keyed by `_ResourceId`, with `TimeGenerated`, `Level`, `Host`,
      `ContainerId` and `ResultDescription`.
