@@ -41,19 +41,67 @@ jobs:
       # here, so the previous revision keeps answering rather than a new one meeting a database it does not match.
       # This exists because it already went wrong: sign-in shipped while `operator_sessions` was missing in
       # production, and the callback answered 500 after GitHub had already authorized the operator.
+      - name: Check the schema step is configured
+        env:
+          # Through the environment rather than interpolated into the script: a value substituted into shell source
+          # is a value that can end the quoting and run something else.
+          DB_CONNECTION: ${{ secrets.PROD_DB_CONNECTION }}
+        run: |
+          if [ -z "${DB_CONNECTION}" ]; then
+            echo "::error::PROD_DB_CONNECTION is not set. The schema cannot be brought forward, and deploying an" \
+                 "image against a database it does not match is what this step exists to prevent. Add the secret," \
+                 "then re-run. Setup guide section 10.5 has the details."
+            exit 1
+          fi
+
+      # Opening the firewall is best effort. GitHub-hosted runners may already be reachable through the server's
+      # "allow Azure services" rule, and a deployment identity without permission to manage rules should not block a
+      # migration that would have worked anyway. What must succeed is the migration itself, so only that fails the job.
       - name: Open the database to this runner
         id: database-access
+        if: vars.AZURE_POSTGRES_SERVER != ''
+        continue-on-error: true
+        env:
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          POSTGRES_SERVER: ${{ vars.AZURE_POSTGRES_SERVER }}
+          RUN_ID: ${{ github.run_id }}
         run: |
+          set -euo pipefail
+          server="subscriptions/${SUBSCRIPTION}/resourceGroups/${RESOURCE_GROUP}"
+          server="${server}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${POSTGRES_SERVER}"
           runner_ip="$(curl -fsS https://api.ipify.org)"
-          rule="ci-${{ github.run_id }}"
-          echo "rule=$rule" >> "$GITHUB_OUTPUT"
-          az postgres flexible-server firewall-rule create \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ vars.AZURE_POSTGRES_SERVER }}" \
-            --rule-name "$rule" \
-            --start-ip-address "$runner_ip" \
-            --end-ip-address "$runner_ip" \
+          rule="ci-${RUN_ID}"
+
+          # The ARM API rather than `az postgres flexible-server firewall-rule`, whose flags were renamed under us:
+          # the runner's CLI made --server-name required and repurposed --name, and the step failed on usage alone.
+          cat > firewall-rule.json <<JSON
+          {"properties":{"startIpAddress":"${runner_ip}","endIpAddress":"${runner_ip}"}}
+          JSON
+
+          az rest --method put \
+            --url "https://management.azure.com/${server}/firewallRules/${rule}?api-version=2024-08-01" \
+            --headers "Content-Type=application/json" \
+            --body @firewall-rule.json \
             --output none
+          rm -f firewall-rule.json
+
+          # Recorded only once the rule exists, so cleanup never chases something that was never created.
+          echo "rule=$rule" >> "$GITHUB_OUTPUT"
+
+          # Creating a rule is asynchronous; connecting before it applies looks exactly like being blocked.
+          for _ in $(seq 1 24); do
+            state="$(az rest --method get \
+              --url "https://management.azure.com/${server}/firewallRules/${rule}?api-version=2024-08-01" \
+              --query "properties.provisioningState" --output tsv 2>/dev/null || true)"
+            if [ "$state" = "Succeeded" ]; then
+              echo "Firewall rule $rule is in place."
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "::warning::Firewall rule $rule did not report Succeeded within two minutes."
 
       - name: Apply database migrations
         env:
@@ -76,12 +124,17 @@ jobs:
       # is an opening nobody is watching.
       - name: Close the database to this runner
         if: always() && steps.database-access.outputs.rule != ''
+        env:
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          POSTGRES_SERVER: ${{ vars.AZURE_POSTGRES_SERVER }}
+          RULE: ${{ steps.database-access.outputs.rule }}
         run: |
-          az postgres flexible-server firewall-rule delete \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --name "${{ vars.AZURE_POSTGRES_SERVER }}" \
-            --rule-name "${{ steps.database-access.outputs.rule }}" \
-            --yes \
+          set -euo pipefail
+          server="subscriptions/${SUBSCRIPTION}/resourceGroups/${RESOURCE_GROUP}"
+          server="${server}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${POSTGRES_SERVER}"
+          az rest --method delete \
+            --url "https://management.azure.com/${server}/firewallRules/${RULE}?api-version=2024-08-01" \
             --output none
 
       - name: Build and push container image
