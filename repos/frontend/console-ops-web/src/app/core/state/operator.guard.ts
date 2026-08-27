@@ -30,9 +30,10 @@ export const operatorGuard: CanActivateFn = () => {
         return of(router.createUrlTree(['/sign-in']));
       }
 
-      // An unreachable API is not a signed-out operator. Letting the screen load means it can say the API is
-      // unavailable in its own words, which is more use than a sign-in page that will not help.
-      return of(true);
+      // An unreachable API is still not a signed-out operator, and the sign-in screen says which it was. Letting the
+      // screen load instead - as this did - showed the shell around an empty page and a profile reading "Not signed
+      // in", which tells an operator nothing and offers them nowhere to go.
+      return of(router.createUrlTree(['/sign-in'], { queryParams: { error: 'unreachable' } }));
     }),
   );
 };
