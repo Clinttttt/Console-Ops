@@ -1,7 +1,7 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { retry, timeout, timer } from 'rxjs';
+import { catchError, of, retry, throwError, timeout, timer } from 'rxjs';
 
 export type ApiReadinessState = 'checking' | 'ready' | 'unreachable';
 
@@ -15,11 +15,13 @@ const DELAY_BETWEEN_ATTEMPTS_MS = 2000;
 /**
  * Whether the API is answering yet.
  *
- * The deployment scales to zero, so the first request after an idle period waits for a container to start and the
- * proxy in front of it gives up first - a `502` that means "not awake", not "broken". Sending an operator to GitHub
- * before then produces exactly that, on a page they cannot get back from.
+ * A deployment can be asleep or restarting, and the proxy in front of it answers `502` rather than waiting - "not
+ * awake", not "broken". Sending an operator to GitHub before then produces exactly that, on a page they cannot get
+ * back from, so the sign-in screen asks first.
  *
- * So the sign-in screen asks first, on the one endpoint that needs no session, and waits rather than guessing.
+ * It asks the session endpoint, which needs no session and is under `/api`. `/health` looks like the obvious choice
+ * and is the wrong one: the hosting rewrite only forwards `/api`, so `/health` is answered by this application's own
+ * index page with a `200` and the probe passes while the API is dead. That is exactly what it did.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiReadiness {
@@ -33,15 +35,21 @@ export class ApiReadiness {
   /**
    * Waits for the API, bounding each attempt and pausing between them.
    *
-   * Giving up says so instead of leaving the screen waiting, which is the failure this whole class exists to remove.
+   * A refusal counts as an answer. `403` means nobody is signed in, which is the API working; only a gateway failure,
+   * a transport error or silence means it is not there yet.
    */
   probe(): void {
     this.state.set('checking');
 
     this.http
-      .get('/health', { responseType: 'text' })
+      .get('/api/auth/session', { responseType: 'text' })
       .pipe(
         timeout(ATTEMPT_TIMEOUT_MS),
+        catchError((error: unknown) =>
+          error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500
+            ? of('answered')
+            : throwError(() => error),
+        ),
         retry({ count: ATTEMPTS_AFTER_THE_FIRST, delay: () => timer(DELAY_BETWEEN_ATTEMPTS_MS) }),
         takeUntilDestroyed(this.destroyRef),
       )

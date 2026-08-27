@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  untracked,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
 
 import { SignInRefusal } from '../../core/contracts/session';
 import { ApiReadiness } from '../../core/state/api-readiness';
@@ -24,9 +36,15 @@ import { Icon } from '../../core/ui/icon';
 })
 export class SignInPage {
   private readonly api = inject(ApiReadiness);
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   /** Bound from the query string, which is where the callback reports a refusal. */
   readonly error = input<string | null>(null);
+
+  /** Where the operator was going when the API could not be asked who they were. */
+  readonly returnTo = input<string | null>(null);
 
   protected readonly readiness = this.api.readiness;
 
@@ -54,9 +72,30 @@ export class SignInPage {
 
   constructor() {
     this.api.probe();
+
+    // An operator who was already signed in and whose API was merely asleep should not be asked to sign in again.
+    // Once it answers, this asks whether the session survived and, if it did, puts them back where they were going.
+    effect(() => {
+      if (this.readiness() !== 'ready' || untracked(() => this.error()) !== 'unreachable') {
+        return;
+      }
+
+      untracked(() => this.resumeIfStillSignedIn());
+    });
   }
 
   protected retry(): void {
     this.api.probe();
+  }
+
+  private resumeIfStillSignedIn(): void {
+    this.http
+      .get<unknown>('/api/auth/session')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => void this.router.navigateByUrl(this.returnTo() ?? '/overview'),
+        // Nobody is signed in, or nothing answered again. The page already says so and offers GitHub.
+        error: () => undefined,
+      });
   }
 }
