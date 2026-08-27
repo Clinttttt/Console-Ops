@@ -10,14 +10,28 @@ import { SignInPage } from './sign-in-page';
 describe('SignInPage', () => {
   let fixture: ComponentFixture<SignInPage>;
   let host: HTMLElement;
+  let http: HttpTestingController;
 
-  async function render(error: string | null = null): Promise<void> {
+  /**
+   * Renders the page and answers the readiness probe, since the action is only offered once the API replies.
+   */
+  async function render(error: string | null = null, ready = true): Promise<void> {
     TestBed.resetTestingModule();
-    await TestBed.configureTestingModule({ imports: [SignInPage] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [SignInPage],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
 
     fixture = TestBed.createComponent(SignInPage);
     fixture.componentRef.setInput('error', error);
+    http = TestBed.inject(HttpTestingController);
     await fixture.whenStable();
+
+    if (ready) {
+      http.expectOne('/health').flush('Healthy');
+      await fixture.whenStable();
+    }
+
     host = fixture.nativeElement as HTMLElement;
   }
 
@@ -30,10 +44,16 @@ describe('SignInPage', () => {
     expect(link.getAttribute('href')).toBe('/api/auth/github/start');
   });
 
-  it('says the token never reaches the page', async () => {
-    await render();
+  /**
+   * The deployment scales to zero. Sending an operator to GitHub before the API answers returns them to a proxy
+   * error page they cannot recover from, so the action waits.
+   */
+  it('does not offer GitHub until the API has answered', async () => {
+    await render(null, false);
+    host = fixture.nativeElement as HTMLElement;
 
-    expect(host.textContent).toContain('keeps your GitHub token on its own server');
+    expect(host.querySelector('a.continue')).toBeNull();
+    expect(host.textContent).toContain('Starting Console Ops');
   });
 
   it('explains an account that is not an operator', async () => {
@@ -57,6 +77,14 @@ describe('SignInPage', () => {
     // operator sees when the server failed mid sign-in.
     expect(host.textContent).toContain('Console Ops could not complete the sign-in');
     expect(host.textContent).toContain('recorded on the server');
+  });
+
+  /** Where the guard sends an operator when the session read could not be answered at all. */
+  it('says the API did not answer, rather than that the operator was refused', async () => {
+    await render('unreachable');
+
+    expect(host.textContent).toContain('Console Ops did not answer');
+    expect(host.textContent).not.toContain('not an operator');
   });
 
   it('shows an unrecognised reason as a refusal without repeating it', async () => {

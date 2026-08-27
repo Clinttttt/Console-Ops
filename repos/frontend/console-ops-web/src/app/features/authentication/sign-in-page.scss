@@ -73,21 +73,31 @@
   align-items: center;
   justify-content: center;
   gap: var(--co-space-3);
+  width: 100%;
   margin-top: var(--co-space-6);
   padding: var(--co-space-4);
   background: var(--co-navy);
+  border: 0;
   border-radius: var(--co-radius-md);
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
   color: var(--co-surface);
+  cursor: pointer;
 }
 
 .continue:hover {
   background: var(--co-navy-soft);
 }
 
-.note {
-  margin: var(--co-space-5) 0 0;
-  font-size: 11.5px;
-  color: var(--co-ink-faint);
+/* Present but not actionable: the API has not answered yet, and the words say which. */
+.continue.is-waiting {
+  background: var(--co-surface-sunken);
+  border: 1px solid var(--co-line);
+  color: var(--co-ink-muted);
+  cursor: default;
+}
+
+.continue.is-waiting:hover {
+  background: var(--co-surface-sunken);
 }

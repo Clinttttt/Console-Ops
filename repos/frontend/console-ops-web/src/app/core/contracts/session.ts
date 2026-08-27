@@ -29,4 +29,6 @@ export type SignInRefusal =
   | 'Auth.ProviderUnavailable'
   /** Console Ops itself failed while completing the sign-in, as distinct from GitHub refusing it. */
   | 'unavailable'
+  /** The API did not answer at all, which is what a deployment that scales to zero looks like while it starts. */
+  | 'unreachable'
   | 'unknown';
