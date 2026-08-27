@@ -34,6 +34,17 @@ export class SessionStore {
    */
   readonly isSignedOut = computed(() => this.state() === 'signedOut');
 
+  /**
+   * Records a session the caller has already been given, so it is not read a second time.
+   *
+   * The route guard has to read the session before it admits a screen. Having it hand the answer here means one
+   * request per sign-in rather than two per navigation.
+   */
+  accept(session: OperatorSession): void {
+    this.current.set(session);
+    this.state.set('signedIn');
+  }
+
   read(): void {
     this.http
       .get<OperatorSession>('/api/auth/session')
