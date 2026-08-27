@@ -111,17 +111,26 @@ jobs:
         run: |
           # The repository pins dotnet-ef in .config/dotnet-tools.json, so it is restored rather than installed.
           # A global install does not help here: once a manifest exists, `dotnet ef` resolves to the local tool and
-          # ignores the global one, which is exactly how this step failed - the tool installed, then was not found.
-          # Restoring also keeps the version in one place instead of here as well.
+          # ignores the global one. Restoring also keeps the version in one place instead of here as well.
           dotnet tool restore
+
+          # Built once, explicitly, before either command runs. A fresh checkout has no obj/project.assets.json, and
+          # `dotnet ef` reads project metadata through MSBuild rather than restoring for itself - it reported the
+          # missing assets file as "unable to retrieve project metadata", which does not sound like a restore.
+          # Building the startup project also builds Infrastructure, so --no-build then covers both commands and the
+          # same output is used twice instead of being rebuilt per command.
+          dotnet build repos/backend/ConsoleOps.Api/ConsoleOps.Api.csproj --configuration Release
+
           dotnet ef migrations list \
             --project repos/backend/ConsoleOps.Infrastructure \
             --startup-project repos/backend/ConsoleOps.Api \
-            --configuration Release
+            --configuration Release \
+            --no-build
           dotnet ef database update \
             --project repos/backend/ConsoleOps.Infrastructure \
             --startup-project repos/backend/ConsoleOps.Api \
-            --configuration Release
+            --configuration Release \
+            --no-build
 
       # Always removed, including when the migration failed: a standing rule for a runner IP that no longer exists
       # is an opening nobody is watching.
