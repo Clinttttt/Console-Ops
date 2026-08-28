@@ -18,7 +18,7 @@ describe('SignInPage', () => {
    * The probe asks the session endpoint, and a `403` is a valid answer: it means the API is there and nobody is
    * signed in. Only a gateway failure or silence means it is not there.
    */
-  async function render(error: string | null = null, ready = true): Promise<void> {
+  async function render(error: string | null | undefined = null, ready = true): Promise<void> {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [SignInPage],
@@ -108,6 +108,19 @@ describe('SignInPage', () => {
     expect(host.textContent).toContain('did not complete');
     // A redirect parameter is not somewhere to reflect an arbitrary string from.
     expect(host.textContent).not.toContain('script');
+  });
+
+  /**
+   * The router binds a missing query parameter as `undefined`, which overwrites the declared default. Reading it as
+   * a string threw inside a computed and stopped the template before the action, so the page rendered with no way
+   * to sign in - and only when there was no error to report, which is the ordinary case.
+   */
+  it('still offers GitHub when the query string carried nothing at all', async () => {
+    await render(undefined);
+
+    const link = host.querySelector<HTMLAnchorElement>('a.continue');
+    expect(link?.getAttribute('href')).toBe('/api/auth/github/start');
+    expect(host.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('says nothing about a refusal when there was none', async () => {
