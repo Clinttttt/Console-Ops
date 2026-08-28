@@ -69,7 +69,8 @@ public sealed class AzureResourceGraphCatalogTests
             // whose health check can never succeed.
             app => Assert.Null(app.ApplicationUrl));
 
-        string sentQuery = System.Text.Json.JsonDocument.Parse(Assert.Single(handler.Requests).Body)
+        string sentQuery = System.Text.Json.JsonDocument.Parse(
+                handler.Requests.First(sent => sent.Method == HttpMethod.Post).Body)
             .RootElement.GetProperty("query").GetString()!;
         Assert.Contains("properties.defaultHostName", sentQuery, StringComparison.Ordinal);
         Assert.Contains("properties.configuration.ingress.fqdn", sentQuery, StringComparison.Ordinal);
@@ -125,8 +126,9 @@ public sealed class AzureResourceGraphCatalogTests
                 Assert.Null(app.WorkspaceId);
             });
 
-        CapturedRequest request = Assert.Single(handler.Requests);
-        Assert.Equal(HttpMethod.Post, request.Method);
+        // The discovery call, named rather than assumed to be the only one: an App Service row in the payload also
+        // costs a diagnostic settings read, because that is where a site names its workspace.
+        CapturedRequest request = handler.Requests.First(sent => sent.Method == HttpMethod.Post);
         Assert.Equal(
             $"/providers/Microsoft.ResourceGraph/resources?api-version={AzureResourceGraphCatalog.ApiVersion}",
             request.Uri.PathAndQuery);
@@ -194,6 +196,116 @@ public sealed class AzureResourceGraphCatalogTests
                 Assert.Equal(AzureLogPlatform.ContainerApp, app.Platform);
                 Assert.Equal(Workspace, app.WorkspaceId);
             });
+    }
+
+    /// <summary>
+    /// A site's workspace lives in a diagnostic setting, which Resource Graph cannot see. Without resolving it the
+    /// picker refused every App Service source as having no workspace, and an operator could not supply one by hand
+    /// because the platform is only set by choosing here.
+    /// </summary>
+    [Fact]
+    public async Task ListAppServices_ResolvesTheWorkspaceFromTheSitesDiagnosticSetting()
+    {
+        int posts = 0;
+        RecordingHandler handler = new(request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                return JsonResponse($$"""
+                    {
+                      "value": [
+                        {
+                          "properties": {
+                            "workspaceId": "/subscriptions/s/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/w",
+                            "logs": [ { "category": "AppServiceConsoleLogs", "enabled": true } ]
+                          }
+                        }
+                      ]
+                    }
+                    """);
+            }
+
+            posts++;
+            return posts == 1
+                ? JsonResponse($$"""
+                    {
+                      "totalRecords": 1,
+                      "data": [
+                        {
+                          "name": "stalltrack-api-cly-2026",
+                          "platform": "appService",
+                          "resourceGroup": "rg",
+                          "subscriptionId": "s",
+                          "hostName": "stalltrack-api.azurewebsites.net"
+                        }
+                      ]
+                    }
+                    """)
+                : JsonResponse($$"""
+                    {
+                      "data": [
+                        {
+                          "id": "/subscriptions/s/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/w",
+                          "customerId": "{{Workspace}}"
+                        }
+                      ]
+                    }
+                    """);
+        });
+        IAzureLogSourceCatalog catalog = CreateCatalog(handler);
+
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
+
+        AzureLogSourceCandidate site = Assert.Single(result.Sources);
+        // The customer GUID, not the resource id: that is what a log query is addressed with.
+        Assert.Equal(Workspace, site.WorkspaceId);
+        Assert.Equal(AzureLogPlatform.AppService, site.Platform);
+    }
+
+    /// <summary>
+    /// Other categories do not imply console output. A workspace holding only HTTP logs would answer a console
+    /// query with nothing, which reads as a quiet application rather than as the wrong workspace.
+    /// </summary>
+    [Fact]
+    public async Task ListAppServices_IgnoresASettingThatDoesNotSendConsoleLogs()
+    {
+        RecordingHandler handler = new(request => request.Method == HttpMethod.Get
+            ? JsonResponse("""
+                {
+                  "value": [
+                    {
+                      "properties": {
+                        "workspaceId": "/subscriptions/s/resourceGroups/rg/providers/Microsoft.OperationalInsights/workspaces/w",
+                        "logs": [
+                          { "category": "AppServiceHTTPLogs", "enabled": true },
+                          { "category": "AppServiceConsoleLogs", "enabled": false }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """)
+            : JsonResponse("""
+                {
+                  "totalRecords": 1,
+                  "data": [
+                    {
+                      "name": "stalltrack-web-cly-2026",
+                      "platform": "appService",
+                      "resourceGroup": "rg",
+                      "subscriptionId": "s"
+                    }
+                  ]
+                }
+                """));
+        IAzureLogSourceCatalog catalog = CreateCatalog(handler);
+
+        AzureLogSourceCatalogResult result = await catalog.ListLogSourcesAsync(null, CancellationToken.None);
+
+        AzureLogSourceCandidate site = Assert.Single(result.Sources);
+        Assert.Null(site.WorkspaceId);
+        // Only two calls: nothing to look up once no site named a console sink.
+        Assert.Equal(2, handler.Requests.Count);
     }
 
     [Fact]

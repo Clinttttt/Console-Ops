@@ -17,6 +17,34 @@ internal static class AzureLogSourceDiscoveryQuery
     internal const string ManagedEnvironmentType = "microsoft.app/managedenvironments";
     internal const string AppServiceType = "microsoft.web/sites";
 
+    /// <summary>
+    /// Maps workspace resource ids to the customer GUIDs a log query is addressed with.
+    /// </summary>
+    /// <remarks>
+    /// One query for every id rather than a call each. The ids come from Azure's own diagnostic settings, not from
+    /// an operator, and are still emitted as escaped literals: this file's rule is that no value reaches a query
+    /// unquoted, regardless of where it came from.
+    /// </remarks>
+    public static string BuildWorkspaceLookup(IReadOnlyCollection<string> resourceIds)
+    {
+        ArgumentNullException.ThrowIfNull(resourceIds);
+
+        if (resourceIds.Count == 0)
+        {
+            throw new ArgumentException("At least one workspace id is required.", nameof(resourceIds));
+        }
+
+        string ids = string.Join(", ", resourceIds.Select(Literal));
+
+        return $"""
+            resources
+            | where type =~ 'microsoft.operationalinsights/workspaces'
+            | where id in~ ({ids})
+            | project id, customerId = tostring(properties.customerId)
+            | limit {resourceIds.Count}
+            """;
+    }
+
     public static string Build(string? query, int limit)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
@@ -31,8 +59,7 @@ internal static class AzureLogSourceDiscoveryQuery
         // Both service types in one query, so finding an app costs one round trip whatever hosts it. App
         // Service carries no workspace here: for Container Apps the workspace is a property of the managed
         // environment, while for a site it lives in a diagnostic setting that Resource Graph does not expose.
-        // Resolving that would be one ARM call per site, which is not worth paying for a platform that has no
-        // reader yet - so the column is null and the screen says why.
+        // The catalog resolves those separately, per site and bounded, once a reader exists to use them.
         //
         // The host name comes from a different property per platform, and for a container app it is only
         // reachable when ingress is external: an internal FQDN resolves inside the environment's network and
