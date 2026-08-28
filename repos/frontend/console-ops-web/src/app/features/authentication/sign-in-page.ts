@@ -41,15 +41,18 @@ export class SignInPage {
   private readonly destroyRef = inject(DestroyRef);
 
   /** Bound from the query string, which is where the callback reports a refusal. */
-  readonly error = input<string | null>(null);
+  readonly error = input<string | null | undefined>(null);
 
   /** Where the operator was going when the API could not be asked who they were. */
-  readonly returnTo = input<string | null>(null);
+  readonly returnTo = input<string | null | undefined>(null);
 
   protected readonly readiness = this.api.readiness;
 
   protected readonly refusal = computed<SignInRefusal | null>(() => {
-    const reason = this.error();
+    // Coalesced, not compared to null: the router binds a missing query parameter as `undefined`, which overwrites
+    // the declared default. Reading `.trim()` off that threw inside this computed and stopped the template before
+    // the action, so the page rendered with no way to sign in whenever there was no error to report.
+    const reason = this.error() ?? null;
     if (reason === null || reason.trim() === '') {
       return null;
     }
