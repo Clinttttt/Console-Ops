@@ -118,11 +118,23 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    and category read from the parsed payload. A line that does not parse keeps an unknown level and is shown as it
    is - it must not be guessed at, and it cannot be excluded as framework noise because nothing attributes it.
    Note the site is Linux with `sitecontainers`, which is why console output exists at all.
-8. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
+8. **An App Service site can use either console format, and only one is read well.** Both StallTrack sites now send
+   `AppServiceConsoleLogs` to `stalltrack-prod-logs`, and they do not look alike. Measured over one window: the API
+   emitted 103 rows, **all** structured JSON carrying their own `LogLevel` and `Category`; the web site emitted 130
+   rows, **none** of them structured - it uses the default .NET console format, whose lines look like
+   `      End processing HTTP request after 50.0247ms - 200`.
+   That format is multi-line: a prefix line such as `info: System.Net.Http.HttpClient[100]` followed by indented
+   continuation lines. `AzureAppServiceLogNormalizer` only understands the structured shape, so for the web site every
+   line becomes a separate entry with an unknown level, and a continuation line is presented as a record of its own -
+   the fragment problem `DropBoundaryFragment` exists to prevent on the container app path.
+   The fix is to reuse rather than duplicate: a line that is not structured JSON should go through the same prefix
+   parsing and folding the container app reader already does. Both shapes then read correctly, and no third
+   convention is invented.
+9. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
    StallTrack's API already does this, which is what made the App Service shape above readable.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
-9. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
+10. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
    reads `Unverified` and no release can be marked current. Expected payload:
    `{ "application": string, "version": string, "commit": "<40-hex>", "environment": string, "builtAt": ISO }`.
@@ -130,11 +142,11 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    projects: StallTrack's `/version` answers `200` with the Angular application, Spinner's answers `401`, and
    EEMO's `301`s - all three are configured and unreadable, which the Overview now reports as `Not reported`
    rather than as unconfigured.
-10. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
+11. **EEMO and StallTrack monitor one API.** The operator confirmed a single backend serves both, so two
    projects hold health checks against the same host and their verdicts can never disagree. They deploy from
    different repositories, which argues for keeping both projects - but only one should own the health check,
    or EEMO should become an environment of StallTrack. Undecided, and recorded so it is not rediscovered.
-11. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
+12. **Spinner's health and version URLs point at the Vercel frontend**, not the Container Apps API, so
    `/version` 404s and every release reads `Unverified`. Operator-side and in the Spinner repository, which
    Console Ops work does not touch: it is recorded here so the cause of `Unverified` is not investigated
    twice.
