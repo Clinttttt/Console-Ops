@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Core;
 using ConsoleOps.Application.Integrations.AzureMonitor;
+using ConsoleOps.Domain.Projects;
 
 namespace ConsoleOps.Infrastructure.Integrations.AzureMonitor;
 

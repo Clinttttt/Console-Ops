@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using Azure.Core;
 using ConsoleOps.Application.Integrations.AzureMonitor;
+using ConsoleOps.Domain.Projects;
 using ConsoleOps.Infrastructure.Integrations.AzureMonitor;
 
 namespace ConsoleOps.Tests.Integration.AzureMonitor;

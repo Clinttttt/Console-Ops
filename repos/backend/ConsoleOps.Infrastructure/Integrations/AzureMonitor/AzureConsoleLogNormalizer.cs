@@ -146,7 +146,7 @@ internal static partial class AzureConsoleLogNormalizer
     /// A stable id for a row the provider does not identify. Deterministic, so the same line keeps the
     /// same id across pages and polls; it is Console Ops' id and never presented as the provider's.
     /// </summary>
-    private static string ComposeId(
+    internal static string ComposeId(
         DateTimeOffset occurredAt,
         int ordinal,
         string? replica,
