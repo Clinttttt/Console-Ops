@@ -92,19 +92,35 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
    `IGitHubWorkflowInventory.ListWorkflowsAsync` list workflows for different callers) now that the richer one is
    proven; and **a deployment workflow is recorded against the project, not an environment**, so no environment
    is named on the screen - the feature context wants zero or one per environment, which is a domain change.
-7. **An App Service log reader — blocked on collection, not on code.** StallTrack runs on App Service, and
-   discovery now lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) with
-   `platformNotSupported`, so the screen no longer stays silent about them. The reader itself is deliberately
-   not written yet: **neither site has a diagnostic setting**, there is no Application Insights resource in
-   the subscription, and a union over `AppServiceConsoleLogs`, `AppServiceHTTPLogs`, `AppServiceAppLogs`
-   returned **zero rows over 30 days** in both workspaces. Writing a KQL reader against documented column
-   names with nothing to verify it against is exactly how the `ContainerAppConsoleLogs_CL` mistake happened.
-   Unblocked by one operator action in Azure: create a workspace in `stalltrack-prod-rg` (or reuse one) and
-   add a diagnostic setting on the site sending `AppServiceConsoleLogs`. Console Ops has read-only Azure
-   access by rule and cannot do it. Once rows exist, the reader is a platform discriminator on the log source,
-   a reader chosen by that platform, and a KQL query verified against those rows.
+7. **An App Service log reader — now unblocked, and the shape is known.** StallTrack runs on App Service, and
+   discovery lists both of its sites (`stalltrack-api-cly-2026`, `stalltrack-web-cly-2026`) as
+   `platformNotSupported`, which is the honest label while no reader exists. A diagnostic setting named
+   `stalltrack-console-logs` now sends `AppServiceConsoleLogs` from the API site to `stalltrack-prod-logs` in
+   `stalltrack-prod-rg` (`2e0a9e91-b9f5-4b6a-a4b3-aa423cc37c09`), so StallTrack's production telemetry stays in its
+   own workspace, and rows arrive within minutes.
+   Two things about managing that setting, learned by getting them wrong: **`az monitor diagnostic-settings list`
+   returns nothing for this resource** even when a setting exists, so `show` by name or the ARM API is the only
+   reliable read; and **changing the destination of an existing setting does not move the sink** - the configuration
+   updated and delivery continued to the old workspace for half an hour, until the setting was deleted and created
+   again.
+   Verified against real rows rather than against documentation, because guessing column names is how the
+   `ContainerAppConsoleLogs_CL` mistake happened:
+   - The table is `AppServiceConsoleLogs`, keyed by `_ResourceId`, with `TimeGenerated`, `Level`, `Host`,
+     `ContainerId` and `ResultDescription`.
+   - **`Level` is useless for severity**: every row reads `Informational`, because it is App Service's level for
+     the console stream and not the application's.
+   - Severity lives inside `ResultDescription`, which carries the application's own structured line:
+     `{ Timestamp, EventId, LogLevel, Category, Message, State, Scopes }`. Of 206 rows, **174 parsed with a
+     `LogLevel`** (167 `Information`, 7 `Warning`) and **32 did not** - plain-text container startup lines.
+   - `Scopes` carries `TraceId`, `SpanId`, `ConnectionId`, `RequestPath`, `RequestId` and `ActionName`, so the
+     Logs contract's `traceId` and `requestId` can be filled from a pull read for this platform.
+   What remains is code: a platform discriminator on the log source, a reader chosen by that platform, and level
+   and category read from the parsed payload. A line that does not parse keeps an unknown level and is shown as it
+   is - it must not be guessed at, and it cannot be excluded as framework noise because nothing attributes it.
+   Note the site is Linux with `sitecontainers`, which is why console output exists at all.
 8. **Logs Phase 5 - richer telemetry.** Structured JSON console logging in the monitored applications is the
    cheapest option that keeps the pull model: trace ids and properties travel through the same Azure table.
+   StallTrack's API already does this, which is what made the App Service shape above readable.
    OpenTelemetry next. A Console Ops collector last, because only it needs inbound exposure.
 9. **Version endpoints on the monitored applications.** Not Console Ops work, but it blocks the most
    valuable correlation on the Deployments screen: while no environment reports a commit, every release
