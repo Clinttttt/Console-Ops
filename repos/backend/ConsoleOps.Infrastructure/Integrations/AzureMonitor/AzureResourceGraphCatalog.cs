@@ -31,6 +31,17 @@ internal sealed class AzureResourceGraphCatalog(
     /// <summary>Bounded page: a picker is for choosing, not for browsing an entire tenant.</summary>
     internal const int PageSize = 200;
 
+    /// <summary>Version that exposes a diagnostic setting''s category list, which is what identifies a console sink.</summary>
+    internal const string DiagnosticSettingsApiVersion = "2021-05-01-preview";
+
+    internal const string ConsoleLogCategory = "AppServiceConsoleLogs";
+
+    /// <summary>
+    /// How many sites are asked about at once. A page can hold many, and a picker opening should not turn into a
+    /// burst of requests against the management API.
+    /// </summary>
+    private const int MaximumConcurrentSiteReads = 4;
+
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<AzureLogSourceCatalogResult> ListLogSourcesAsync(
@@ -86,6 +97,13 @@ internal sealed class AzureResourceGraphCatalog(
                     ParseWorkspaceId(row.WorkspaceId),
                     ComposeApplicationUrl(row)))
                 .ToArray();
+
+            // App Service sites arrive without a workspace, because a site's destination lives in a diagnostic
+            // setting and Resource Graph does not expose those. Resolved here rather than left null: a source whose
+            // workspace is unknown cannot be offered, and the operator would otherwise have to find the GUID and
+            // the platform by hand - which they cannot even do, since the platform is only set by choosing here.
+            sources = await ResolveAppServiceWorkspacesAsync(sources, token, cancellationToken);
+
             bool hasMore = payload.TotalRecords > sources.Length
                 || string.Equals(payload.ResultTruncated, "true", StringComparison.OrdinalIgnoreCase);
 
@@ -120,6 +138,189 @@ internal sealed class AzureResourceGraphCatalog(
             return AzureLogSourceCatalogResult.Failed(AzureCatalogFailure.InvalidResponse);
         }
     }
+
+    /// <summary>
+    /// Fills in the workspace for App Service sites by reading each site's diagnostic settings.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two steps, because neither source alone has the answer. A site's destination is a diagnostic setting, which
+    /// only ARM can read - one call per site, bounded in flight so a page of sites cannot fan out without limit.
+    /// That yields a workspace resource id, while the reader needs the workspace's customer GUID, so the ids are
+    /// resolved together in a single Resource Graph query rather than one call each.
+    /// </para>
+    /// <para>
+    /// A site whose setting cannot be read, or which sends its console logs nowhere, keeps a null workspace and the
+    /// screen says so. Nothing is guessed: offering a workspace that turns out to be wrong would produce an empty
+    /// window, which reads as a quiet application rather than as a misconfiguration.
+    /// </para>
+    /// </summary>
+    private async Task<AzureLogSourceCandidate[]> ResolveAppServiceWorkspacesAsync(
+        AzureLogSourceCandidate[] sources,
+        AccessToken token,
+        CancellationToken cancellationToken)
+    {
+        AzureLogSourceCandidate[] pending = [.. sources.Where(source =>
+            source.Platform == AzureLogPlatform.AppService && source.WorkspaceId is null)];
+        if (pending.Length == 0)
+        {
+            return sources;
+        }
+
+        using SemaphoreSlim inFlight = new(MaximumConcurrentSiteReads);
+        Dictionary<string, string> workspaceIdBySite = new(StringComparer.OrdinalIgnoreCase);
+
+        await Task.WhenAll(pending.Select(async source =>
+        {
+            await inFlight.WaitAsync(cancellationToken);
+            try
+            {
+                string? workspaceResourceId = await ReadConsoleLogWorkspaceAsync(source, token, cancellationToken);
+                if (workspaceResourceId is not null)
+                {
+                    lock (workspaceIdBySite)
+                    {
+                        workspaceIdBySite[SiteKey(source)] = workspaceResourceId;
+                    }
+                }
+            }
+            finally
+            {
+                inFlight.Release();
+            }
+        }));
+
+        if (workspaceIdBySite.Count == 0)
+        {
+            return sources;
+        }
+
+        Dictionary<string, Guid> customerIds = await ReadWorkspaceCustomerIdsAsync(
+            workspaceIdBySite.Values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            token,
+            cancellationToken);
+
+        return [.. sources.Select(source =>
+            source.WorkspaceId is null
+            && workspaceIdBySite.TryGetValue(SiteKey(source), out string? resourceId)
+            && customerIds.TryGetValue(resourceId, out Guid customerId)
+                ? source with { WorkspaceId = customerId }
+                : source)];
+    }
+
+    /// <summary>
+    /// The workspace a site sends console logs to, or <c>null</c> when it sends them nowhere Console Ops can read.
+    /// </summary>
+    /// <remarks>
+    /// Only a setting with <c>AppServiceConsoleLogs</c> enabled counts. A site may send other categories - HTTP or
+    /// audit logs - to a workspace that holds no console output, and offering that would produce an empty stream.
+    /// </remarks>
+    private async Task<string?> ReadConsoleLogWorkspaceAsync(
+        AzureLogSourceCandidate source,
+        AccessToken token,
+        CancellationToken cancellationToken)
+    {
+        string url =
+            $"subscriptions/{source.SubscriptionId}/resourceGroups/{source.ResourceGroup}"
+            + $"/providers/Microsoft.Web/sites/{Uri.EscapeDataString(source.Name)}"
+            + $"/providers/microsoft.insights/diagnosticSettings?api-version={DiagnosticSettingsApiVersion}";
+
+        try
+        {
+            using HttpRequestMessage request = new(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+
+            using HttpResponseMessage response = await httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            DiagnosticSettingsResponse? payload = await JsonSerializer.DeserializeAsync<DiagnosticSettingsResponse>(
+                stream,
+                SerializerOptions,
+                cancellationToken);
+
+            return payload?.Value
+                ?.Where(setting => setting.Properties?.Logs?.Any(log =>
+                    log.Enabled
+                    && string.Equals(log.Category, ConsoleLogCategory, StringComparison.OrdinalIgnoreCase)) == true)
+                .Select(setting => NullIfWhiteSpace(setting.Properties?.WorkspaceId))
+                .FirstOrDefault(workspaceId => workspaceId is not null);
+        }
+        catch (HttpRequestException)
+        {
+            // A site whose settings could not be read keeps an unknown workspace, which the screen reports.
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Maps workspace resource ids to the customer GUIDs a log query is addressed with, in one round trip.
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> ReadWorkspaceCustomerIdsAsync(
+        string[] resourceIds,
+        AccessToken token,
+        CancellationToken cancellationToken)
+    {
+        Dictionary<string, Guid> customerIds = new(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using HttpRequestMessage request = new(
+                HttpMethod.Post,
+                $"providers/Microsoft.ResourceGraph/resources?api-version={ApiVersion}")
+            {
+                Content = JsonContent.Create(new ResourceGraphRequest(
+                    AzureLogSourceDiscoveryQuery.BuildWorkspaceLookup(resourceIds),
+                    new ResourceGraphRequestOptions(resourceIds.Length, true))),
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+
+            using HttpResponseMessage response = await httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return customerIds;
+            }
+
+            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            WorkspaceLookupResponse? payload = await JsonSerializer.DeserializeAsync<WorkspaceLookupResponse>(
+                stream,
+                SerializerOptions,
+                cancellationToken);
+
+            foreach (WorkspaceLookupRow row in payload?.Data ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(row.Id) && ParseWorkspaceId(row.CustomerId) is { } customerId)
+                {
+                    customerIds[row.Id.Trim()] = customerId;
+                }
+            }
+        }
+        catch (HttpRequestException)
+        {
+            // Nothing resolved: every affected site keeps an unknown workspace rather than a guessed one.
+        }
+        catch (JsonException)
+        {
+        }
+
+        return customerIds;
+    }
+
+    private static string SiteKey(AzureLogSourceCandidate source) =>
+        $"{source.SubscriptionId}/{source.ResourceGroup}/{source.Name}";
 
     private static AzureCatalogFailure MapFailure(HttpStatusCode status) => status switch
     {
@@ -197,3 +398,15 @@ internal sealed class AzureResourceGraphCatalog(
         string? HostName,
         string? IngressExternal);
 }
+
+file sealed record DiagnosticSettingsResponse(DiagnosticSetting[]? Value);
+
+file sealed record DiagnosticSetting(DiagnosticSettingProperties? Properties);
+
+file sealed record DiagnosticSettingProperties(string? WorkspaceId, DiagnosticSettingLog[]? Logs);
+
+file sealed record DiagnosticSettingLog(string? Category, bool Enabled);
+
+file sealed record WorkspaceLookupResponse(WorkspaceLookupRow[]? Data);
+
+file sealed record WorkspaceLookupRow(string? Id, string? CustomerId);
