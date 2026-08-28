@@ -19,17 +19,21 @@ internal sealed record AzureAppServiceLogRow(
 /// <summary>
 /// Turns App Service console rows into log entries.
 /// <para>
-/// Unlike a container app's console output, these lines are not folded: an application that logs structured JSON
-/// emits one complete record per line, so there is no prefix to parse and no continuation to attach. What the
-/// line carries instead is the application's own <c>LogLevel</c> and <c>Category</c>, which is better evidence
-/// than anything a console convention could give - so severity here is <em>declared</em>, and
-/// <c>LevelIsDerived</c> is false.
+/// A site can use either of two console formats, and both were measured on live sites rather than assumed. One
+/// emits structured JSON carrying its own <c>LogLevel</c> and <c>Category</c> - better evidence than any console
+/// convention, so severity from it is <em>declared</em> and <c>LevelIsDerived</c> is false. The other uses the
+/// default .NET console format, which is multi-line: a prefix line followed by indented continuation lines.
 /// </para>
 /// <para>
-/// Not every line is structured. Of the rows this was verified against, 174 of 206 parsed and 32 did not: those
-/// were the platform's own container startup lines. An unparsed line keeps <see cref="ApplicationLogLevel.Unknown"/>
-/// and no category rather than being assigned a plausible one, and because it has no category it cannot be
-/// excluded as framework noise either - nothing attributes it, so nothing may claim it is chatter.
+/// Over one window the StallTrack API emitted 103 rows, all structured; its web front end emitted 130, none of
+/// them. Reading only the structured shape would have turned each of the web site's lines into its own entry and
+/// presented a continuation line as a record of its own.
+/// </para>
+/// <para>
+/// So unstructured runs are handed to <see cref="AzureConsoleLogNormalizer"/> - the same prefix parsing and
+/// folding the container app reader already does - rather than given a third convention of their own. A line that
+/// matches neither keeps <see cref="ApplicationLogLevel.Unknown"/> and no category, which also means it cannot be
+/// excluded as framework noise: nothing attributes it, so nothing may claim it is chatter.
 /// </para>
 /// </summary>
 internal static class AzureAppServiceLogNormalizer
@@ -42,6 +46,7 @@ internal static class AzureAppServiceLogNormalizer
         ArgumentNullException.ThrowIfNull(rows);
 
         List<ApplicationLogEntry> entries = new(rows.Count);
+        List<AzureConsoleLogRow> unstructured = [];
         DateTimeOffset? previousTimestamp = null;
         int ordinal = 0;
 
@@ -53,41 +58,75 @@ internal static class AzureAppServiceLogNormalizer
                 continue;
             }
 
-            DateTimeOffset occurredAt = row.EmittedAt ?? row.ReceivedAt ?? default;
+            StructuredLine? structured = ReadStructuredLine(text);
+            if (structured is null)
+            {
+                // Accumulated in the order received, because folding depends on a line's neighbours.
+                unstructured.Add(new AzureConsoleLogRow(
+                    row.EmittedAt,
+                    row.ReceivedAt,
+                    text,
+                    null,
+                    null,
+                    row.Host));
+                continue;
+            }
 
-            // Rows sharing a timestamp need distinguishing, or two identical lines in one batch collapse to one
-            // id and the screen loses a selection when it pages.
+            // A structured line ends any run before it: it belongs to no other line, and folding across it would
+            // attach one record's continuation to another.
+            Flush(unstructured, entries);
+
+            DateTimeOffset occurredAt = row.EmittedAt ?? row.ReceivedAt ?? default;
             ordinal = occurredAt == previousTimestamp ? ordinal + 1 : 0;
             previousTimestamp = occurredAt;
-
-            StructuredLine? structured = ReadStructuredLine(text);
-            string message = Truncate(structured?.Message ?? text, MaximumMessageLength);
-
-            entries.Add(new ApplicationLogEntry(
-                AzureConsoleLogNormalizer.ComposeId(
-                    occurredAt,
-                    ordinal,
-                    row.Host,
-                    ApplicationLogStream.Unknown,
-                    message),
-                occurredAt,
-                row.ReceivedAt,
-                structured?.Level ?? ApplicationLogLevel.Unknown,
-                // Declared by the application, so never derived. A line without one stays unknown.
-                false,
-                structured?.Category,
-                message.Length == 0 ? "(empty log line)" : message,
-                structured?.Exception is { Length: > 0 } exception
-                    ? Truncate(exception, MaximumStackTraceLength)
-                    : null,
-                // This table does not separate standard output from standard error, so claiming either would be
-                // inventing a fact. The container app reader can tell them apart; this one cannot.
-                ApplicationLogStream.Unknown,
-                null,
-                NullIfWhiteSpace(row.Host)));
+            entries.Add(ToEntry(row, occurredAt, ordinal, structured));
         }
 
+        Flush(unstructured, entries);
         return entries;
+    }
+
+    private static void Flush(List<AzureConsoleLogRow> unstructured, List<ApplicationLogEntry> entries)
+    {
+        if (unstructured.Count == 0)
+        {
+            return;
+        }
+
+        entries.AddRange(AzureConsoleLogNormalizer.Normalize(unstructured));
+        unstructured.Clear();
+    }
+
+    private static ApplicationLogEntry ToEntry(
+        AzureAppServiceLogRow row,
+        DateTimeOffset occurredAt,
+        int ordinal,
+        StructuredLine structured)
+    {
+        string message = Truncate(structured.Message, MaximumMessageLength);
+
+        return new ApplicationLogEntry(
+            AzureConsoleLogNormalizer.ComposeId(
+                occurredAt,
+                ordinal,
+                row.Host,
+                ApplicationLogStream.Unknown,
+                message),
+            occurredAt,
+            row.ReceivedAt,
+            structured.Level,
+            // Declared by the application, so never derived. A line without one stays unknown.
+            false,
+            structured.Category,
+            message.Length == 0 ? "(empty log line)" : message,
+            structured.Exception is { Length: > 0 } exception
+                ? Truncate(exception, MaximumStackTraceLength)
+                : null,
+            // This table does not separate standard output from standard error, so claiming either would be
+            // inventing a fact. The container app reader can tell them apart; this one cannot.
+            ApplicationLogStream.Unknown,
+            null,
+            NullIfWhiteSpace(row.Host));
     }
 
     /// <summary>

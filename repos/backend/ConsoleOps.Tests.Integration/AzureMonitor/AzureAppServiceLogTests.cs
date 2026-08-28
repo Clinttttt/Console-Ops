@@ -128,6 +128,50 @@ public sealed class AzureAppServiceLogTests
         Assert.Null(without.StackTrace);
     }
 
+    /// <summary>
+    /// The web front end's format, measured: 130 rows, none structured. A prefix line and its indented
+    /// continuation are one record, and reading them as two would present a fragment as an event.
+    /// </summary>
+    /// <remarks>
+    /// Rows arrive newest first, because the query orders by emit time descending - so a continuation line reaches
+    /// the normalizer before the prefix line it belongs to. The order here is the order production produces.
+    /// </remarks>
+    [Fact]
+    public void Folds_the_default_console_format_instead_of_reading_it_line_by_line()
+    {
+        IReadOnlyList<ApplicationLogEntry> entries = AzureAppServiceLogNormalizer.Normalize([
+            Row("      End processing HTTP request after 50.0247ms - 200"),
+            Row("info: System.Net.Http.HttpClient.Default.ClientHandler[100]"),
+        ]);
+
+        ApplicationLogEntry entry = Assert.Single(entries);
+        Assert.Equal(ApplicationLogLevel.Information, entry.Level);
+        // Derived from a console convention, unlike a level the application declared in JSON.
+        Assert.True(entry.LevelIsDerived);
+        Assert.Equal("System.Net.Http.HttpClient.Default.ClientHandler", entry.Category);
+        Assert.Contains("End processing HTTP request", entry.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A site can emit both shapes. A structured record must not absorb the lines around it, nor be folded into
+    /// the run beside it. Newest first again: the structured line was emitted last.
+    /// </summary>
+    [Fact]
+    public void Keeps_the_two_formats_apart_in_one_window()
+    {
+        IReadOnlyList<ApplicationLogEntry> entries = AzureAppServiceLogNormalizer.Normalize([
+            Row("""{"LogLevel":"Warning","Category":"App.Payments","Message":"retrying"}"""),
+            Row("      container listening on 8080"),
+            Row("warn: App.Startup[0]"),
+        ]);
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("App.Payments", entries[0].Category);
+        Assert.False(entries[0].LevelIsDerived);
+        Assert.Equal("App.Startup", entries[1].Category);
+        Assert.True(entries[1].LevelIsDerived);
+    }
+
     private static AzureAppServiceLogRow Row(string message) =>
         new(Emitted, Emitted, message, "lw0mdlwk0002Y1");
 }
