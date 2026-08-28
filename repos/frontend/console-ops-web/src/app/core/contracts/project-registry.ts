@@ -1,3 +1,4 @@
+import { AzureLogPlatform } from './azure-discovery';
 import { EnvironmentKind } from './dashboard-overview';
 
 export type { EnvironmentKind };
@@ -21,9 +22,12 @@ export interface ProjectRepositoryRef {
  * authenticates to the provider from its own configuration.
  */
 export interface ProjectLogSourceRef {
-  readonly provider: 'azureContainerApps';
+  readonly provider: 'azureContainerApps' | 'azureAppService';
   readonly workspaceId: string;
   readonly containerAppName: string;
+
+  /** Which Azure service hosts it, reported so a screen never has to infer it from the provider name. */
+  readonly platform: AzureLogPlatform;
 }
 
 /** One configured application environment returned by the V1 project resource. */

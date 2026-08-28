@@ -45,6 +45,7 @@ Authority for behavior stays with `Console_Ops_Project_Context.md`, `Console_Ops
 | Starting a workflow, with declared inputs, an explicit ref and typed confirmation | Real |
 | GitHub App sign-in: session, operator allow list, real identity in the top bar | Real |
 | Reading GitHub as the operator who asked, and as the service when nobody did | Real |
+| App Service application logs, in either console format the platform produces | Real |
 | Sessions that survive a restart and a second replica, and a sign-in that never answers JSON | Real |
 
 ## Next

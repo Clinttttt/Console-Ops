@@ -41,9 +41,9 @@ internal sealed class AzureMonitorLogReader(
         ArgumentNullException.ThrowIfNull(query);
 
         if (query.WorkspaceId == Guid.Empty
-            || !AzureLogSource.IsValidContainerAppName(query.ContainerAppName))
+            || !AzureLogSource.IsValidResourceName(query.ContainerAppName, query.Platform))
         {
-            // A source that cannot be a real app is never sent to the provider.
+            // A source that cannot be a real resource for its platform is never sent to the provider.
             return ApplicationLogReadResult.Failed(
                 ApplicationLogReadFailure.NotFound,
                 timeProvider.GetUtcNow());
@@ -55,7 +55,12 @@ internal sealed class AzureMonitorLogReader(
         // provider and the bill.
         int scan = query.ExcludeNoise ? options.ClampRows(wanted * NoiseScanFactor) : wanted;
         QueryTimeRange range = BuildRange(query);
-        string kql = AzureConsoleLogQuery.Build(query.ContainerAppName, scan, query.Search);
+        string kql = query.Platform switch
+        {
+            AzureLogPlatform.AppService =>
+                AzureAppServiceLogQuery.Build(query.ContainerAppName, scan, query.Search),
+            _ => AzureConsoleLogQuery.Build(query.ContainerAppName, scan, query.Search)
+        };
 
         try
         {
@@ -75,12 +80,32 @@ internal sealed class AzureMonitorLogReader(
                     timeProvider.GetUtcNow());
             }
 
-            AzureConsoleLogRow[] rows = table.Rows.Select(ReadRow).ToArray();
-            // Normalized first: continuation lines are folded into the entry that owns them, so filtering
-            // afterwards can never orphan a stack trace or attach it to an unrelated line.
-            IReadOnlyList<ApplicationLogEntry> normalized = AzureConsoleLogNormalizer.Normalize(rows);
-            bool scanTruncated = rows.Length >= scan;
-            normalized = DropBoundaryFragment(normalized, scanTruncated);
+            AzureConsoleLogRow[] rows = [];
+            int rowCount;
+            IReadOnlyList<ApplicationLogEntry> normalized;
+
+            if (query.Platform == AzureLogPlatform.AppService)
+            {
+                AzureAppServiceLogRow[] siteRows = table.Rows.Select(ReadAppServiceRow).ToArray();
+                rowCount = siteRows.Length;
+                // One record per row: an application logging structured lines has nothing to fold, so there is no
+                // boundary fragment to drop either.
+                normalized = AzureAppServiceLogNormalizer.Normalize(siteRows);
+            }
+            else
+            {
+                rows = table.Rows.Select(ReadRow).ToArray();
+                rowCount = rows.Length;
+                // Normalized first: continuation lines are folded into the entry that owns them, so filtering
+                // afterwards can never orphan a stack trace or attach it to an unrelated line.
+                normalized = AzureConsoleLogNormalizer.Normalize(rows);
+            }
+
+            bool scanTruncated = rowCount >= scan;
+            if (query.Platform != AzureLogPlatform.AppService)
+            {
+                normalized = DropBoundaryFragment(normalized, scanTruncated);
+            }
 
             if (!query.ExcludeNoise)
             {
@@ -185,6 +210,12 @@ internal sealed class AzureMonitorLogReader(
         ReadOptionalString(row, "Message"),
         ReadOptionalString(row, "StreamName"),
         ReadOptionalString(row, "Revision"),
+        ReadOptionalString(row, "Replica"));
+
+    private static AzureAppServiceLogRow ReadAppServiceRow(LogsTableRow row) => new(
+        ReadOptionalDateTimeOffset(row, "EmittedAt"),
+        ReadOptionalDateTimeOffset(row, "ReceivedAt"),
+        ReadOptionalString(row, "Message"),
         ReadOptionalString(row, "Replica"));
 
     private static string? ReadOptionalString(LogsTableRow row, string column)

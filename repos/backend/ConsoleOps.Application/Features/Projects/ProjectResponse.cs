@@ -34,7 +34,33 @@ public sealed record ProjectEnvironmentResponse(
 public sealed record ProjectLogSourceResponse(
     string Provider,
     Guid WorkspaceId,
-    string ContainerAppName);
+    string ContainerAppName,
+    AzureLogPlatform Platform = AzureLogPlatform.ContainerApp)
+{
+    /// <summary>
+    /// Maps a stored source, naming the provider from its platform.
+    /// </summary>
+    /// <remarks>
+    /// One definition, used by both the command responses and the read store, because a provider name derived in
+    /// two places is a provider name that will eventually be derived differently.
+    /// </remarks>
+    public static ProjectLogSourceResponse From(AzureLogSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        return new ProjectLogSourceResponse(
+            ProviderName(source.Platform),
+            source.WorkspaceId,
+            source.ContainerAppName,
+            source.Platform);
+    }
+
+    public static string ProviderName(AzureLogPlatform platform) => platform switch
+    {
+        AzureLogPlatform.AppService => "azureAppService",
+        _ => "azureContainerApps"
+    };
+}
 
 internal static class ProjectResponseMapper
 {
@@ -64,8 +90,10 @@ internal static class ProjectResponseMapper
         project.ConfigurationVersion);
 
     /// <summary>The provider is named so a second log source cannot be mistaken for this one.</summary>
+    /// <remarks>
+    /// The name is derived from the platform rather than stored beside it, so the two can never disagree about
+    /// which service a source belongs to.
+    /// </remarks>
     internal static ProjectLogSourceResponse? ToLogSource(AzureLogSource? source) =>
-        source is null
-            ? null
-            : new ProjectLogSourceResponse("azureContainerApps", source.WorkspaceId, source.ContainerAppName);
+        source is null ? null : ProjectLogSourceResponse.From(source);
 }

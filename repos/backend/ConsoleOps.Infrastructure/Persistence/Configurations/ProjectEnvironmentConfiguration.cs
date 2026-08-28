@@ -57,7 +57,17 @@ internal sealed class ProjectEnvironmentConfiguration : IEntityTypeConfiguration
 
             logSource.Property(source => source.ContainerAppName)
                 .HasColumnName("azure_log_container_app_name")
-                .HasMaxLength(AzureLogSource.ContainerAppNameMaxLength);
+                // Sized for the longest name any supported platform allows, so an App Service site is storable.
+                // The column keeps its original name: renaming it would rewrite a live column for cosmetics.
+                .HasMaxLength(AzureLogSource.SiteNameMaxLength);
+
+            // Stored rather than inferred from the name, because two platforms can hold the same name and the
+            // platform decides which table is read. Existing rows are container apps: nothing else could be saved.
+            logSource.Property(source => source.Platform)
+                .HasColumnName("azure_log_platform")
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(AzureLogPlatform.ContainerApp);
         });
 
         builder.HasIndex(environment => new { environment.ProjectId, environment.NormalizedName })

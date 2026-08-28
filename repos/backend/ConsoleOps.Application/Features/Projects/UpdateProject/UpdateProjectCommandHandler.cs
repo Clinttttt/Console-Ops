@@ -45,7 +45,8 @@ public sealed class UpdateProjectCommandHandler(
                 environment.VersionUrl,
                 AzureLogSource.Create(
                     environment.LogSource?.WorkspaceId,
-                    environment.LogSource?.ContainerAppName)))
+                    environment.LogSource?.ContainerAppName,
+                        environment.LogSource?.Platform ?? AzureLogPlatform.ContainerApp)))
             .ToArray();
 
         project.UpdateConfiguration(

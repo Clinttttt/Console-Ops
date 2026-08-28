@@ -1,3 +1,5 @@
+using ConsoleOps.Domain.Projects;
+
 namespace ConsoleOps.Application.Integrations.AzureMonitor;
 
 /// <summary>
@@ -69,20 +71,14 @@ public sealed record AzureLogSourceCandidate(
     string? ApplicationUrl);
 
 /// <summary>
-/// The Azure services Console Ops can name. Naming one is not the same as being able to read it: a reader
-/// exists per platform, and <see cref="AzureLogPlatformSupport"/> is the single place that says which.
-/// </summary>
-public enum AzureLogPlatform
-{
-    ContainerApp,
-    AppService
-}
-
-/// <summary>
 /// Which discovered platforms Console Ops can actually read logs from.
 /// <para>
 /// Kept as one predicate rather than scattered checks so that adding a reader is a single edit, and so the
 /// screen can never offer a source that nothing can read.
+/// </para>
+/// <para>
+/// The platform itself is a domain concept - it decides what a valid log source is - so it is defined there and
+/// used here. Whether a reader exists is not a domain question, which is why this predicate is not.
 /// </para>
 /// </summary>
 public static class AzureLogPlatformSupport
@@ -90,8 +86,10 @@ public static class AzureLogPlatformSupport
     public static bool CanRead(AzureLogPlatform platform) => platform switch
     {
         AzureLogPlatform.ContainerApp => true,
-        // App Service console output lands in different tables, and only when a diagnostic setting sends it
-        // to a workspace. No reader is written for it until there are real rows to verify one against.
+        // App Service console output lands in AppServiceConsoleLogs. The query and the normalizer were verified
+        // against real rows from a live site before this was opened, and the reader chooses between them by the
+        // platform stored with the source.
+        AzureLogPlatform.AppService => true,
         _ => false
     };
 }

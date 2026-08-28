@@ -4,6 +4,7 @@ using ConsoleOps.Api.Features.Projects;
 using ConsoleOps.Application.Features.Logs.GetStream;
 using ConsoleOps.Application.Features.Projects;
 using ConsoleOps.Application.Integrations.AzureMonitor;
+using ConsoleOps.Domain.Projects;
 using ConsoleOps.Application.Integrations.GitHub;
 using ConsoleOps.Infrastructure.Persistence;
 using ConsoleOps.Infrastructure.Persistence.Deployments;

@@ -1,3 +1,5 @@
+using ConsoleOps.Domain.Projects;
+
 namespace ConsoleOps.Application.Integrations.AzureMonitor;
 
 /// <summary>
@@ -19,8 +21,12 @@ public interface IApplicationLogReader
 /// What to ask the provider for. Every bound is explicit, because a log query is the one read in Console
 /// Ops that can cost money and return an unbounded amount of text.
 /// </summary>
-/// <param name="WorkspaceId">Log Analytics workspace holding the container app's console output.</param>
-/// <param name="ContainerAppName">Container app whose logs belong to the environment being read.</param>
+/// <param name="WorkspaceId">Log Analytics workspace holding the resource's console output.</param>
+/// <param name="ContainerAppName">The Azure resource whose logs belong to the environment being read.</param>
+/// <param name="Platform">
+/// Which Azure service hosts it. The adapter reads a different table per platform, so this is not decoration:
+/// asking the wrong table returns an empty stream, which is indistinguishable from a quiet service.
+/// </param>
 /// <param name="FromUtc">Start of the window, inclusive.</param>
 /// <param name="ToUtc">End of the window, exclusive. Paging moves this back through the window.</param>
 /// <param name="Limit">Maximum entries to return. The adapter clamps it.</param>
@@ -40,7 +46,8 @@ public sealed record ApplicationLogQuery(
     DateTimeOffset ToUtc,
     int Limit,
     string? Search = null,
-    bool ExcludeNoise = false);
+    bool ExcludeNoise = false,
+    AzureLogPlatform Platform = AzureLogPlatform.ContainerApp);
 
 /// <summary>
 /// Entries newest first, or the failure that prevented reading them.

@@ -1,5 +1,6 @@
 using ConsoleOps.Application.Abstractions.Messaging;
 using ConsoleOps.Application.Integrations.AzureMonitor;
+using ConsoleOps.Domain.Projects;
 using MediatR;
 
 namespace ConsoleOps.Application.Features.Azure.ListLogSources;

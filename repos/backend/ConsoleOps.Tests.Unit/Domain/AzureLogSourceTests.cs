@@ -50,6 +50,41 @@ public sealed class AzureLogSourceTests
     public void IsValidContainerAppName_AcceptsAzureNames(string name) =>
         Assert.True(AzureLogSource.IsValidContainerAppName(name));
 
+    /// <summary>
+    /// A site name a container app rule would refuse. Reusing that rule would have made real App Service sites
+    /// unregisterable, which is why the domain asks per platform.
+    /// </summary>
+    [Theory]
+    [InlineData("StallTrack-API-2026")]
+    [InlineData("stalltrack-api-cly-2026-with-a-considerably-longer-name-x")]
+    public void A_site_name_is_valid_for_App_Service_and_not_for_a_container_app(string name)
+    {
+        Assert.True(AzureLogSource.IsValidResourceName(name, AzureLogPlatform.AppService));
+        Assert.False(AzureLogSource.IsValidResourceName(name, AzureLogPlatform.ContainerApp));
+    }
+
+    [Fact]
+    public void A_source_keeps_the_platform_it_was_created_with()
+    {
+        AzureLogSource source = AzureLogSource.Create(
+            Guid.Parse("2e0a9e91-b9f5-4b6a-a4b3-aa423cc37c09"),
+            "StallTrack-API-2026",
+            AzureLogPlatform.AppService)!;
+
+        Assert.Equal(AzureLogPlatform.AppService, source.Platform);
+        Assert.Equal("StallTrack-API-2026", source.ContainerAppName);
+    }
+
+    /// <summary>Nothing is stored that could not be queried: a name invalid for its platform is refused.</summary>
+    [Fact]
+    public void A_container_app_source_still_refuses_a_site_name()
+    {
+        ArgumentException failure = Assert.Throws<ArgumentException>(() =>
+            AzureLogSource.Create(Guid.NewGuid(), "StallTrack-API-2026", AzureLogPlatform.ContainerApp));
+
+        Assert.Contains("lower-case", failure.Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

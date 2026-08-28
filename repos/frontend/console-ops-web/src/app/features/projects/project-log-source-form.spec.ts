@@ -19,11 +19,27 @@ describe('project log source form', () => {
     expect(toLogSource(` ${workspace} `, ' spinner-api ')).toEqual({
       workspaceId: workspace,
       containerAppName: 'spinner-api',
+      // Defaulted rather than required: every source stored before platforms existed was a container app.
+      platform: 'containerApp',
+    });
+  });
+
+  it('judges an App Service name by the App Service rule', () => {
+    // A real site name: mixed case and longer than a container app may be. Applying the container app rule here
+    // would refuse a source Azure itself reported.
+    expect(validateOptionalLogSource(workspace, 'StallTrack-API-2026', 'appService')).toBeNull();
+    expect(validateOptionalLogSource(workspace, 'StallTrack-API-2026', 'containerApp')).toContain(
+      'lower-case',
+    );
+    expect(toLogSource(workspace, 'StallTrack-API-2026', 'appService')).toEqual({
+      workspaceId: workspace,
+      containerAppName: 'StallTrack-API-2026',
+      platform: 'appService',
     });
   });
 
   it('asks for the missing half rather than sending a source that cannot be queried', () => {
-    expect(validateOptionalLogSource(workspace, '')).toContain('container app name');
+    expect(validateOptionalLogSource(workspace, '')).toContain('application name');
     expect(validateOptionalLogSource('', 'spinner-api')).toContain('workspace ID');
     // Nothing is sent while a half is missing, so the API is never asked to reject it.
     expect(toLogSource(workspace, '')).toBeNull();

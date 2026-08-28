@@ -50,6 +50,7 @@ describe('HttpProjectRegistryDataSource', () => {
           logSource: {
             workspaceId: '6f5c1a2b-3d4e-5f60-7182-93a4b5c6d7e8',
             containerAppName: 'spinner-api',
+            platform: 'containerApp',
           },
         },
       ],
