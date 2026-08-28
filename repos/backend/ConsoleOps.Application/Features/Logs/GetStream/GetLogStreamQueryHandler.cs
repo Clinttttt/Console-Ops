@@ -77,7 +77,10 @@ public sealed class GetLogStreamQueryHandler(
                 to,
                 Math.Clamp(request.Limit ?? DefaultLimit, 1, MaximumLimit),
                 request.Search,
-                !request.IncludeNoise),
+                !request.IncludeNoise,
+                // Carried from the stored source: the reader asks a different table per platform, and a wrong
+                // table answers with an empty window rather than an error.
+                source.Platform),
             cancellationToken);
 
         if (!result.IsSuccess)

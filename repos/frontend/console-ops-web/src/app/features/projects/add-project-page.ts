@@ -28,7 +28,7 @@ import { ProjectRegistryStore } from '../../core/state/project-registry.store';
 import { Icon } from '../../core/ui/icon';
 import { AddProjectSummary } from './components/add-project-summary';
 import { EndpointMonitoring } from './components/endpoint-monitoring';
-import { AzureLogSource } from '../../core/contracts/azure-discovery';
+import { AzureLogPlatform, AzureLogSource } from '../../core/contracts/azure-discovery';
 import { AzureLogSourcePicker } from './components/azure-log-source-picker';
 import { GitHubRepositoryPicker } from './components/github-repository-picker';
 import { RegistrationOutcomePanel } from './components/registration-outcome';
@@ -268,8 +268,18 @@ export class AddProjectPage {
   /** Optional: where this environment's container logs can be read from. */
   protected readonly logWorkspaceId = signal('');
   protected readonly logContainerAppName = signal('');
+
+  /**
+   * Set by the Azure picker rather than typed. It decides which log table is read and which name rule applies,
+   * and an operator has no way to know it - Azure does, and the picker already asked.
+   */
+  protected readonly logPlatform = signal<AzureLogPlatform>('containerApp');
   protected readonly logSourceError = computed(() =>
-    validateOptionalLogSource(this.logWorkspaceId(), this.logContainerAppName()),
+    validateOptionalLogSource(
+      this.logWorkspaceId(),
+      this.logContainerAppName(),
+      this.logPlatform(),
+    ),
   );
 
   /** Fills both fields from one Azure resource. They stay editable: discovery prefills, never decides. */
@@ -282,6 +292,7 @@ export class AddProjectPage {
    */
   protected applyLogSource(source: AzureLogSource): void {
     this.logContainerAppName.set(source.name);
+    this.logPlatform.set(source.platform);
     this.logWorkspaceId.set(source.workspaceId ?? '');
 
     if (source.applicationUrl !== null && !this.baseUrlEdited() && this.baseUrl().trim() === '') {
@@ -322,7 +333,11 @@ export class AddProjectPage {
           applicationUrl,
           healthUrl: resolveEndpoint(applicationUrl, this.healthEndpoint()),
           versionUrl: resolveEndpoint(applicationUrl, this.versionEndpoint()),
-          logSource: toLogSource(this.logWorkspaceId(), this.logContainerAppName()),
+          logSource: toLogSource(
+            this.logWorkspaceId(),
+            this.logContainerAppName(),
+            this.logPlatform(),
+          ),
         },
       ],
     };

@@ -199,10 +199,11 @@ public sealed class AzureResourceGraphCatalogTests
     [Fact]
     public void Support_NamesOnlyThePlatformsAReaderExistsFor()
     {
-        // The one place that decides whether a discovered resource can be offered as a source. App Service
-        // stays unsupported until there are real rows to verify a reader against.
+        // The one place that decides whether a discovered resource can be offered as a source. App Service was
+        // refused here until a reader existed; the query and normalizer for AppServiceConsoleLogs were verified
+        // against rows from a live site before this was opened.
         Assert.True(AzureLogPlatformSupport.CanRead(AzureLogPlatform.ContainerApp));
-        Assert.False(AzureLogPlatformSupport.CanRead(AzureLogPlatform.AppService));
+        Assert.True(AzureLogPlatformSupport.CanRead(AzureLogPlatform.AppService));
     }
 
     [Fact]

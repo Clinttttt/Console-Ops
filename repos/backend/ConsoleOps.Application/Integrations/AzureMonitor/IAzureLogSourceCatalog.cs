@@ -86,9 +86,10 @@ public static class AzureLogPlatformSupport
     public static bool CanRead(AzureLogPlatform platform) => platform switch
     {
         AzureLogPlatform.ContainerApp => true,
-        // The query and the normalizer for AppServiceConsoleLogs exist and are verified against real rows, but
-        // the platform is not yet persisted with a log source, so a read would ask the wrong table. This opens
-        // when that wiring lands - offering a source nothing can read is the one thing this predicate prevents.
+        // App Service console output lands in AppServiceConsoleLogs. The query and the normalizer were verified
+        // against real rows from a live site before this was opened, and the reader chooses between them by the
+        // platform stored with the source.
+        AzureLogPlatform.AppService => true,
         _ => false
     };
 }

@@ -1,3 +1,4 @@
+import { AzureLogPlatform } from './azure-discovery';
 import { EnvironmentKind } from './dashboard-overview';
 
 export type { EnvironmentKind };
@@ -18,6 +19,12 @@ export interface ProjectRepositoryRegistration {
 export interface ProjectLogSourceInput {
   readonly workspaceId: string;
   readonly containerAppName: string;
+
+  /**
+   * Which Azure service hosts it. Sent because the API reads a different log table per platform; a wrong
+   * platform answers with an empty window rather than an error.
+   */
+  readonly platform: AzureLogPlatform;
 }
 
 export interface ProjectEnvironmentRegistration {

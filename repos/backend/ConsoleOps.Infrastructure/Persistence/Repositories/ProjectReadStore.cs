@@ -75,10 +75,7 @@ internal sealed class ProjectReadStore(ConsoleOpsDbContext dbContext) : IProject
             environment.VersionUrl,
             environment.LogSource is null
                 ? null
-                : new ProjectLogSourceResponse(
-                    "azureContainerApps",
-                    environment.LogSource.WorkspaceId,
-                    environment.LogSource.ContainerAppName))).ToArray(),
+                : ProjectLogSourceResponse.From(environment.LogSource))).ToArray(),
         project.CreatedAtUtc,
         project.UpdatedAtUtc,
         project.ConfigurationVersion);

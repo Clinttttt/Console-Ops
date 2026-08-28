@@ -18,7 +18,7 @@ import {
   ProjectEnvironmentUpdate,
   ProjectUpdateRequest,
 } from '../../core/contracts/project-update';
-import { AzureLogSource } from '../../core/contracts/azure-discovery';
+import { AzureLogPlatform, AzureLogSource } from '../../core/contracts/azure-discovery';
 import { DetectedEndpoint } from '../../core/contracts/github-discovery';
 import { GitHubDiscoveryDataSource } from '../../core/data/github-discovery.data-source';
 import { ProjectRegistryDataSource } from '../../core/data/project-registry.data-source';
@@ -55,6 +55,7 @@ interface EnvironmentDraft {
   logWorkspaceId: string;
   /** Container app whose console output belongs to this environment. */
   logContainerAppName: string;
+  logPlatform: AzureLogPlatform;
 }
 
 const ENVIRONMENT_KINDS: readonly { value: EnvironmentKind; label: string }[] = [
@@ -167,6 +168,7 @@ export class EditProjectPage {
       logSource: validateOptionalLogSource(
         environment.logWorkspaceId,
         environment.logContainerAppName,
+        environment.logPlatform,
       ),
     }));
   });
@@ -189,6 +191,7 @@ export class EditProjectPage {
 
     this.updateEnvironment(index, {
       logContainerAppName: source.name,
+      logPlatform: source.platform,
       logWorkspaceId: source.workspaceId ?? '',
       ...(takeAddress ? { applicationUrl: source.applicationUrl! } : {}),
     });
@@ -243,6 +246,7 @@ export class EditProjectPage {
         versionUrl: '',
         logWorkspaceId: '',
         logContainerAppName: '',
+        logPlatform: 'containerApp',
       },
     ]);
   }
@@ -395,6 +399,7 @@ export class EditProjectPage {
         versionUrl: environment.versionUrl ?? '',
         logWorkspaceId: environment.logSource?.workspaceId ?? '',
         logContainerAppName: environment.logSource?.containerAppName ?? '',
+        logPlatform: environment.logSource?.platform ?? 'containerApp',
       })),
     );
     this.removingKey.set(null);
@@ -409,7 +414,11 @@ export class EditProjectPage {
       applicationUrl: blankToNull(environment.applicationUrl),
       healthUrl: blankToNull(environment.healthUrl),
       versionUrl: blankToNull(environment.versionUrl),
-      logSource: toLogSource(environment.logWorkspaceId, environment.logContainerAppName),
+      logSource: toLogSource(
+        environment.logWorkspaceId,
+        environment.logContainerAppName,
+        environment.logPlatform,
+      ),
     }));
 
     return {
