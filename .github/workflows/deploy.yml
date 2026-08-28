@@ -158,7 +158,8 @@ jobs:
             /t:PublishContainer \
             -p:ContainerRegistry=${{ vars.AZURE_ACR }}.azurecr.io \
             -p:ContainerRepository=consoleops-api \
-            -p:ContainerImageTag=${{ github.event.workflow_run.head_sha }}
+            -p:ContainerImageTag=${{ github.event.workflow_run.head_sha }} \
+            -p:SourceRevisionId=${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy Container App
         run: |

@@ -1,4 +1,5 @@
 using ConsoleOps.Api.Features.Authentication;
+using ConsoleOps.Api.Features.Diagnostics;
 using ConsoleOps.Api.Features.Azure;
 using ConsoleOps.Api.Features.Dashboard;
 using ConsoleOps.Api.Features.Deployments;
@@ -47,6 +48,7 @@ public static class RequestPipelineExtensions
         app.MapDeploymentEndpoints();
         app.MapGitHubEndpoints();
         app.MapHealthEndpoints();
+        app.MapVersionEndpoint();
         app.MapWorkflowEndpoints();
         app.MapLogEndpoints();
         app.MapProjectEndpoints();
