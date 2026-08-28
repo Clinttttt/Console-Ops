@@ -46,3 +46,8 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Working notes and assistant configuration: kept locally, not part of the product.
+.kiro/
+AGENTS.md
+docs/
