@@ -57,6 +57,12 @@ export class SignInPage {
       return null;
     }
 
+    // An API that had not answered is not a refusal, and saying so twice was noise: the action itself reads "Try
+    // again" until it answers, and this page resumes on its own once it does.
+    if (reason === 'unreachable') {
+      return null;
+    }
+
     switch (reason) {
       case 'state':
       case 'declined':
@@ -65,7 +71,6 @@ export class SignInPage {
       case 'Auth.CodeRejected':
       case 'Auth.ProviderUnavailable':
       case 'unavailable':
-      case 'unreachable':
         return reason;
       default:
         // An unrecognised code is still shown as a refusal, because it is one, but not repeated back verbatim.

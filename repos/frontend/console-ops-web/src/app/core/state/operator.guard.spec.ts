@@ -47,12 +47,27 @@ describe('operatorGuard', () => {
       expiresAt: '2026-08-27T17:00:00.000Z',
     };
 
-    // Twice, because the guard asks and then has the store ask again so the top bar has an operator to show. Worth
-    // knowing rather than hiding: it is two identical reads per guarded navigation.
-    http.match('/api/auth/session').forEach((request) => request.flush(session));
+    http.expectOne('/api/auth/session').flush(session);
 
     expect(await decision).toBe(true);
-    http.match('/api/auth/session').forEach((request) => request.flush(session));
+  });
+
+  /**
+   * Asking again on every navigation put a request between the operator and every screen, which is what made moving
+   * around feel slow. The API still refuses every request without a session, so nothing is trusted that should not be.
+   */
+  it('does not ask again once it knows who is here', async () => {
+    const first = activate();
+    http.expectOne('/api/auth/session').flush({
+      login: 'Clinttttt',
+      avatarUrl: null,
+      signedInAt: '2026-08-27T09:00:00.000Z',
+      expiresAt: '2026-08-27T17:00:00.000Z',
+    });
+    expect(await first).toBe(true);
+
+    expect(await activate()).toBe(true);
+    http.expectNone('/api/auth/session');
   });
 
   it('sends a signed-out operator to sign in, with nothing to explain', async () => {

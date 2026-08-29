@@ -13,20 +13,30 @@ const SESSION_READ_TIMEOUT_MS = 6000;
  * Keeps a screen from loading before Console Ops knows who is asking.
  *
  * The check is the API's answer, not a value held in the browser: a session lives in an `HttpOnly` cookie the app
- * cannot read, which is what stops script from getting at it. So the guard asks.
+ * cannot read, which is what stops script from getting at it. So the guard asks - once. An operator already known to
+ * be signed in is admitted without a round trip, because asking again on every navigation put a request between the
+ * operator and every screen, which is what made moving around feel slow.
  *
- * It also gives up asking. The deployment scales to zero and the proxy in front of it holds a request open while a
- * container starts, so without a bound this waited long enough to look like nothing was happening at all.
+ * That is not the security boundary. The API refuses every request without a session, so a session that ends is
+ * caught by the next read a screen makes, not by this.
+ *
+ * It also gives up asking. A proxy in front of a container that is starting holds a request open rather than
+ * refusing it, so without a bound this waited long enough to look like nothing was happening at all.
  */
 export const operatorGuard: CanActivateFn = (_route, state) => {
   const http = inject(HttpClient);
   const router = inject(Router);
   const sessions = inject(SessionStore);
 
+  if (sessions.isSignedIn()) {
+    return true;
+  }
+
   return http.get<OperatorSession>('/api/auth/session').pipe(
     timeout(SESSION_READ_TIMEOUT_MS),
-    map(() => {
-      sessions.read();
+    map((session) => {
+      // Handed over rather than read again: the answer is already here.
+      sessions.accept(session);
       return true;
     }),
     catchError((error: unknown) => {

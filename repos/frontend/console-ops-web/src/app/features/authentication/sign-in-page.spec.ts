@@ -94,12 +94,17 @@ describe('SignInPage', () => {
     expect(host.textContent).toContain('recorded on the server');
   });
 
-  /** Where the guard sends an operator when the session read could not be answered at all. */
-  it('says the API did not answer, rather than that the operator was refused', async () => {
+  /**
+   * Where the guard sends an operator when the session read could not be answered at all. It is not a refusal, so the
+   * page says nothing about it: the action reads "Try again" until the API answers, and resumes on its own when it
+   * does. Saying it in words as well was noise.
+   */
+  it('treats an unanswered API as no refusal at all', async () => {
     await render('unreachable');
 
-    expect(host.textContent).toContain('Console Ops did not answer');
-    expect(host.textContent).not.toContain('not an operator');
+    expect(host.querySelector('[role="alert"]')).toBeNull();
+    expect(host.textContent).not.toContain('did not answer');
+    expect(host.textContent).not.toContain('did not complete');
   });
 
   it('shows an unrecognised reason as a refusal without repeating it', async () => {
