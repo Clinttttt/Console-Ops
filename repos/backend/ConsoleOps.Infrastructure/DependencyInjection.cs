@@ -190,6 +190,12 @@ public static class DependencyInjection
         string? blobUri = configuration["DataProtection:BlobUri"];
         if (string.IsNullOrWhiteSpace(blobUri))
         {
+            // No blob configured: keep the keys in Console Ops' own database. The default would be the
+            // container filesystem, which does not survive scale-to-zero - the replica is destroyed when
+            // it goes idle, and the next one could not decrypt a single stored session, so every operator
+            // would be signed out on the first idle period. The sessions already live in this database, so
+            // keeping their keys beside them means the two cannot outlive one another.
+            protection.PersistKeysToDbContext<ConsoleOpsDbContext>();
             return;
         }
 
